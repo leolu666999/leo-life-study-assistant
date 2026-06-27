@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --page-bg: #f6f7f9;
+  --panel: rgba(255, 255, 255, 0.88);
+  --ink: #172033;
+  --muted: #667085;
+  --line: rgba(15, 23, 42, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--ink);
+  font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.theme-default {
+  --page-bg: #f6f7f9;
+}
+
+.theme-ocean {
+  --page-bg: #eef8fb;
+}
+
+.theme-city {
+  --page-bg: #f4f4f6;
+}
+
+.theme-forest {
+  --page-bg: #f1f7f0;
+}
+
+.theme-starry {
+  --page-bg: #f4f2fb;
+}
+
+.theme-usyd {
+  --page-bg: #fff7f1;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.16);
+  border-radius: 999px;
+}
+
+.todo-preview-list {
+  height: 232px;
+  max-height: 232px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.todo-preview-row {
+  max-height: 56px;
+  transform-origin: center;
+  will-change: transform, opacity, filter, max-height, margin, padding;
+}
+
+.todo-preview-row-completing {
+  pointer-events: none;
+  overflow: hidden;
+  animation: todo-row-drop-away 1250ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes todo-row-drop-away {
+  0% {
+    opacity: 1;
+    max-height: 56px;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+
+  22% {
+    opacity: 1;
+    max-height: 56px;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+
+  36% {
+    opacity: 1;
+    max-height: 56px;
+    transform: translateY(-8px) scale(1.025);
+    filter: blur(0);
+  }
+
+  72% {
+    opacity: 0.52;
+    max-height: 28px;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    transform: translateY(126px) scale(0.985);
+    filter: blur(0.3px);
+  }
+
+  100% {
+    opacity: 0;
+    max-height: 0;
+    margin-top: -8px;
+    margin-bottom: -8px;
+    padding-top: 0;
+    padding-bottom: 0;
+    transform: translateY(210px) scale(0.96);
+    filter: blur(1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .todo-preview-row-completing {
+    animation-duration: 1ms;
+  }
+}

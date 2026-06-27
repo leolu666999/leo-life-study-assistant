@@ -1,0 +1,18 @@
+node_modules/
+.next/
+out/
+
+# Local user data. Keep folders in the repo, but never commit real data.
+data/*
+!data/.gitkeep
+uploads/*
+!uploads/.gitkeep
+
+# Local-only notes generated during early product planning.
+00-中文项目说明.md
+01-原始需求-Leo生活学习助手.md
+02-MVP开发清单.md
+
+.env*
+.DS_Store
+npm-debug.log*
