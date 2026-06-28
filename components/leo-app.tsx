@@ -71,6 +71,24 @@ const navItems: Array<{ view: View; href: string; label: string; icon: React.Rea
   { view: "settings", href: "/settings", label: "设置", icon: <Settings size={18} /> }
 ];
 
+function viewFromPath(pathname: string): View {
+  return navItems.find((item) => item.href === pathname)?.view || "dashboard";
+}
+
+function useEscapeClose(onClose: () => void, enabled = true) {
+  useEffect(() => {
+    if (!enabled) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
+  }, [enabled, onClose]);
+}
+
 const typeLabels: Record<TaskType, string> = {
   todo: "待办",
   deadline: "截止",
@@ -100,7 +118,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
-  const [background, setBackground] = useState("default");
+  const [background, setBackground] = useState("usyd");
   const [loading, setLoading] = useState(true);
   const [dismissedReminderKeys, setDismissedReminderKeys] = useState<string[]>([]);
 
@@ -109,8 +127,16 @@ export function LeoApp({ initialView }: { initialView: View }) {
   }, [initialView]);
 
   useEffect(() => {
+    const handlePopState = () => {
+      setActiveView(viewFromPath(window.location.pathname));
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
     setCollapsed(localStorage.getItem("leo-sidebar-collapsed") === "1");
-    setBackground(localStorage.getItem("leo-background") || "default");
+    setBackground(localStorage.getItem("leo-background") || "usyd");
     setDismissedReminderKeys(JSON.parse(localStorage.getItem("leo-dismissed-reminders") || "[]"));
     void loadAll();
   }, []);
@@ -146,6 +172,12 @@ export function LeoApp({ initialView }: { initialView: View }) {
     setExpenses(expenseData);
     setImportantFiles(importantFileData);
     if (showLoading) setLoading(false);
+  }
+
+  function navigateView(event: React.MouseEvent<HTMLAnchorElement>, item: (typeof navItems)[number]) {
+    event.preventDefault();
+    setActiveView(item.view);
+    window.history.pushState(null, "", item.href);
   }
 
   async function mutate(url: string, options: RequestInit = {}) {
@@ -323,6 +355,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
               <Link
                 key={item.view}
                 href={item.href}
+                onClick={(event) => navigateView(event, item)}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   activeView === item.view ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
                 }`}
@@ -354,6 +387,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
               {activeView === "dashboard" && (
                 <Dashboard
                   tasks={tasks}
+                  archiveTasks={archiveTasks}
                   todoLists={todoLists}
                   todayCourses={todayCourses}
                   plans={plans}
@@ -438,7 +472,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
         }}
       />
 
-      <MobileNav activeView={activeView} />
+      <MobileNav activeView={activeView} onNavigate={navigateView} />
 
       {pinnedProgress && (
         <PinnedProgress
@@ -505,13 +539,14 @@ function PageHeader({
         </h1>
         <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">{actions}</div>}
     </div>
   );
 }
 
 function Dashboard({
   tasks,
+  archiveTasks,
   todoLists,
   todayCourses,
   plans,
@@ -524,6 +559,7 @@ function Dashboard({
   onProgressUpdate
 }: {
   tasks: Task[];
+  archiveTasks: Task[];
   todoLists: TodoList[];
   todayCourses: Array<{ id: string; startTime: string; endTime: string; type: string; location: string; course: Course }>;
   plans: Plan[];
@@ -536,6 +572,7 @@ function Dashboard({
   onProgressUpdate: (taskId: string, nextValue: number) => Promise<void>;
 }) {
   const today = new Date();
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const [taskFilterOpen, setTaskFilterOpen] = useState(false);
   const [taskFilterDueBeforeDraft, setTaskFilterDueBeforeDraft] = useState("");
   const [taskFilterTagDraft, setTaskFilterTagDraft] = useState("");
@@ -545,8 +582,9 @@ function Dashboard({
   const taskFilterAreaRef = useRef<HTMLDivElement>(null);
   const todoPreviewItems = buildTodayTodoPreviewItems(todoLists);
   const todayOverview = buildTodayOverview(todoPreviewItems, tasks, todayCourses);
-  const reminders = buildPlanReminders(plans);
-  const filteredDashboardTasks = tasks.filter((task) => {
+  const reminders = buildPlanReminders(plans, currentTime);
+  const dashboardTasks = mergeDashboardTasks(tasks, archiveTasks.filter((task) => task.status === "completed"));
+  const filteredDashboardTasks = dashboardTasks.filter((task) => {
     if (taskFilterDueBefore) {
       if (!task.dueDate) return false;
       const dueTime = new Date(task.dueDate).getTime();
@@ -565,6 +603,11 @@ function Dashboard({
     if (localStorage.getItem(key) !== "1") {
       setOverviewOpen(true);
     }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 60 * 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -689,6 +732,8 @@ type TodayOverviewSummary = {
 };
 
 function TodayOverviewDialog({ summary, onClose }: { summary: TodayOverviewSummary; onClose: () => void }) {
+  useEscapeClose(onClose);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm"
@@ -696,7 +741,7 @@ function TodayOverviewDialog({ summary, onClose }: { summary: TodayOverviewSumma
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className="w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl">
+      <section className="app-modal-panel w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold">今日总览</h2>
@@ -869,22 +914,65 @@ function TaskGrid({
   onToggleSubtask: (taskId: string, subtaskId: string, completed: boolean) => void;
 }) {
   const visibleTasks = tasks.filter(isTaskCardGridItem);
-  if (visibleTasks.length === 0) return <EmptyBlock text="暂无活跃任务。新建一个，让今天有个明确抓手。" />;
+  const activeTasks = visibleTasks.filter((task) => task.status !== "completed");
+  const completedTasks = visibleTasks.filter((task) => task.status === "completed");
+  if (visibleTasks.length === 0) return <EmptyBlock text="暂无任务。新建一个，让今天有个明确抓手。" />;
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {visibleTasks.map((task) => (
-        <TaskCard
-          key={task.id}
-          task={task}
-          onComplete={onComplete}
-          onEdit={onEdit}
-          onSave={onSave}
-          onProgressUpdate={onProgressUpdate}
-          onToggleSubtask={onToggleSubtask}
-        />
-      ))}
+    <div className="space-y-4">
+      {activeTasks.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {activeTasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onComplete={onComplete}
+              onEdit={onEdit}
+              onSave={onSave}
+              onProgressUpdate={onProgressUpdate}
+              onToggleSubtask={onToggleSubtask}
+            />
+          ))}
+        </div>
+      )}
+      {activeTasks.length > 0 && completedTasks.length > 0 && (
+        <div className="flex items-center gap-3 py-1 text-xs font-medium text-slate-400">
+          <div className="h-px flex-1 border-t border-dashed border-slate-300" />
+          <span>已完成</span>
+          <div className="h-px flex-1 border-t border-dashed border-slate-300" />
+        </div>
+      )}
+      {completedTasks.length > 0 && activeTasks.length === 0 && (
+        <div className="flex items-center gap-3 py-1 text-xs font-medium text-slate-400">
+          <div className="h-px flex-1 border-t border-dashed border-slate-300" />
+          <span>已完成</span>
+          <div className="h-px flex-1 border-t border-dashed border-slate-300" />
+        </div>
+      )}
+      {completedTasks.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {completedTasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onComplete={onComplete}
+              onEdit={onEdit}
+              onSave={onSave}
+              onProgressUpdate={onProgressUpdate}
+              onToggleSubtask={onToggleSubtask}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
+}
+
+function mergeDashboardTasks(activeTasks: Task[], completedTasks: Task[]) {
+  const taskMap = new Map<string, Task>();
+  [...activeTasks, ...completedTasks].forEach((task) => {
+    if (task.status !== "archived") taskMap.set(task.id, task);
+  });
+  return Array.from(taskMap.values());
 }
 
 function TaskCard({
@@ -902,7 +990,7 @@ function TaskCard({
   onProgressUpdate: (taskId: string, nextValue: number) => Promise<void>;
   onToggleSubtask: (taskId: string, subtaskId: string, completed: boolean) => void;
 }) {
-  const urgent = isDueWithin24HoursOrOverdue(task.dueDate);
+  const urgent = task.status !== "completed" && isDueWithin24HoursOrOverdue(task.dueDate);
   const hasProgress = Boolean(task.progressEnabled || task.progressTarget);
   const visibleTaskTags = task.tags.filter(
     (tag) => task.type !== "deadline" || !["deadline", "截止"].includes(tag.trim().toLowerCase())
@@ -930,7 +1018,7 @@ function TaskCard({
   return (
     <article
       className={`flex min-h-[220px] flex-col rounded-lg border p-4 shadow-soft ${
-        urgent ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"
+        urgent ? "border-red-200 bg-red-50" : task.status === "completed" ? "border-slate-200 bg-slate-50/70" : "border-slate-200 bg-white"
       }`}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -1016,9 +1104,15 @@ function TaskCard({
         </div>
       )}
       <div className="mt-auto pt-4">
-        <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => onComplete(task.id)}>
-          <Check size={15} /> 完成
-        </button>
+        {task.status === "completed" ? (
+          <button className="flex w-full cursor-default items-center justify-center gap-2 rounded-lg bg-slate-200 px-3 py-2 text-sm font-medium text-slate-500" disabled>
+            <Check size={15} /> 已完成
+          </button>
+        ) : (
+          <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => onComplete(task.id)}>
+            <Check size={15} /> 完成
+          </button>
+        )}
       </div>
     </article>
   );
@@ -1223,6 +1317,8 @@ function TodoListEditDialog({
   const [items, setItems] = useState<TodoListEditItem[]>(() => todoList.items.map((item) => ({ id: item.id, content: item.content, completed: item.completed })));
   const [newItem, setNewItem] = useState("");
   const [hoveredItemIndex, setHoveredItemIndex] = useState<number | null>(null);
+  const itemInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  useEscapeClose(onClose);
   const importableYesterdayItems = yesterdayIncompleteItems.filter(
     (yesterdayItem) => !items.some((item) => item.content.trim().toLowerCase() === yesterdayItem.content.trim().toLowerCase())
   );
@@ -1242,6 +1338,18 @@ function TodoListEditDialog({
     ]);
   }
 
+  function focusItemInput(index: number) {
+    itemInputRefs.current[index]?.focus();
+  }
+
+  function handleItemArrowNavigation(event: React.KeyboardEvent<HTMLInputElement>, index: number) {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    const nextIndex = event.key === "ArrowUp" ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= items.length) return;
+    event.preventDefault();
+    focusItemInput(nextIndex);
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm"
@@ -1249,7 +1357,7 @@ function TodoListEditDialog({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className="w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl">
+      <section className="app-modal-panel w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold">编辑 To Do List</h2>
@@ -1303,11 +1411,15 @@ function TodoListEditDialog({
                 <Check size={13} />
               </button>
               <input
+                ref={(element) => {
+                  itemInputRefs.current[index] = element;
+                }}
                 className="min-w-0 flex-1 bg-transparent outline-none"
                 value={item.content}
                 onChange={(event) =>
                   setItems((current) => current.map((currentItem, currentIndex) => (currentIndex === index ? { ...currentItem, content: event.target.value } : currentItem)))
                 }
+                onKeyDown={(event) => handleItemArrowNavigation(event, index)}
               />
               <div className="flex h-6 w-6 shrink-0 items-center justify-center">
                 {hoveredItemIndex === index && (
@@ -1593,6 +1705,7 @@ function ExpensesPage({
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [previewFileId, setPreviewFileId] = useState<string | null>(null);
+  useEscapeClose(() => setPreviewFileId(null), Boolean(previewFileId));
   const totals = summarizeExpenses(expenses);
   const filtered = expenses.filter((expense) => {
     const text = `${expense.title} ${expense.merchant ?? ""}`.toLowerCase();
@@ -1711,6 +1824,7 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
   const [editingFile, setEditingFile] = useState<ImportantFile | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState<ImportantFile | null>(null);
+  useEscapeClose(() => setPreviewFile(null), Boolean(previewFile));
   const filtered = files.filter((file) => {
     const text = `${file.title} ${file.originalName} ${file.notes ?? ""} ${file.tags.join(" ")}`.toLowerCase();
     return text.includes(query.toLowerCase()) && (!category || file.category === category);
@@ -1871,6 +1985,7 @@ function ImportantFileModal({
   const [fileName, setFileName] = useState(file?.originalName || "");
   const [fileTags, setFileTags] = useState<string[]>(file?.tags || []);
   const [dirty, setDirty] = useState(false);
+  useEscapeClose(onClose);
 
   return (
     <div
@@ -1880,7 +1995,7 @@ function ImportantFileModal({
       }}
     >
       <form
-        className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-soft"
+        className="app-modal-panel max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-soft"
         onChangeCapture={() => setDirty(true)}
         onSubmit={async (event) => {
           event.preventDefault();
@@ -2108,6 +2223,28 @@ function SettingsPage({
           </a>
         </section>
         <section className="rounded-lg bg-white p-4 shadow-soft">
+          <SectionTitle title="手机访问" />
+          <InfoRow label="当前端口" value="3011" />
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>电脑和手机连接同一个 Wi-Fi 后，先在电脑上获取局域网 IP。</p>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="font-medium text-slate-800">Mac 获取方式</div>
+              <div className="mt-1">系统设置 → Wi‑Fi → 当前网络详情，查看 IP 地址。</div>
+              <div className="mt-1 font-mono text-xs text-slate-500">也可以在终端运行：ipconfig getifaddr en0</div>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <div className="font-medium text-slate-800">Windows 获取方式</div>
+              <div className="mt-1">打开命令提示符，运行 ipconfig，查看 IPv4 地址。</div>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3">
+              <div className="text-slate-500">手机访问格式</div>
+              <div className="mt-1 break-all font-mono text-slate-900">http://电脑局域网IP:3011</div>
+              <div className="mt-2 text-slate-500">示例</div>
+              <div className="mt-1 break-all font-mono text-slate-900">http://192.168.1.23:3011</div>
+            </div>
+          </div>
+        </section>
+        <section className="rounded-lg bg-white p-4 shadow-soft">
           <SectionTitle title="外观" />
           <Select
             value={background}
@@ -2118,7 +2255,7 @@ function SettingsPage({
               ["city", "City"],
               ["forest", "Forest"],
               ["starry", "Starry sky"],
-              ["usyd", "USYD placeholder"]
+              ["usyd", "USYD Main Building"]
             ]}
           />
           <p className="mt-3 text-sm text-slate-500">主题偏好保存在 localStorage，主数据仍然全部进入 SQLite。</p>
@@ -2131,6 +2268,7 @@ function SettingsPage({
             <input
               className="hidden"
               type="file"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
               onChange={async (event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
@@ -2171,6 +2309,7 @@ function ExpenseModal({
   const [receiptFileId, setReceiptFileId] = useState(expense?.receiptFileId || "");
   const [receiptName, setReceiptName] = useState(expense?.receiptOriginalName || "");
   const [dirty, setDirty] = useState(false);
+  useEscapeClose(onClose);
 
   return (
     <div
@@ -2180,7 +2319,7 @@ function ExpenseModal({
       }}
     >
       <form
-        className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-soft"
+        className="app-modal-panel max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-soft"
         onChangeCapture={() => setDirty(true)}
         onSubmit={async (event) => {
           event.preventDefault();
@@ -2293,6 +2432,8 @@ function QuickModal({
   onClose: () => void;
   onCreated: () => Promise<void>;
 }) {
+  useEscapeClose(onClose);
+
   if (mode === "expense") {
     return <ExpenseModal expense={expense} onClose={onClose} onCreated={onCreated} />;
   }
@@ -2372,7 +2513,7 @@ function QuickModal({
       }}
     >
       <form
-        className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-soft"
+        className="app-modal-panel max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-soft"
         onChangeCapture={() => setDirty(true)}
         onSubmit={async (event) => {
           event.preventDefault();
@@ -2744,6 +2885,19 @@ function TodoChecklistEditor({
     onChange(nextItems.length > 0 ? nextItems : [createTodoDraftItem()]);
   }
 
+  function focusItemByIndex(index: number) {
+    const target = items[index];
+    if (target) inputRefs.current[target.id]?.focus();
+  }
+
+  function handleItemArrowNavigation(event: React.KeyboardEvent<HTMLInputElement>, index: number) {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    const nextIndex = event.key === "ArrowUp" ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= items.length) return;
+    event.preventDefault();
+    focusItemByIndex(nextIndex);
+  }
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="mb-2 text-sm font-medium text-slate-700">待办条目</div>
@@ -2768,6 +2922,8 @@ function TodoChecklistEditor({
               value={item.title}
               onChange={(event) => updateItem(item.id, { title: event.target.value })}
               onKeyDown={(event) => {
+                handleItemArrowNavigation(event, index);
+                if (event.defaultPrevented) return;
                 if (event.key === "Enter") {
                   event.preventDefault();
                   addItem(item.id);
@@ -2855,11 +3011,22 @@ function PinnedProgress({
   );
 }
 
-function MobileNav({ activeView }: { activeView: View }) {
+function MobileNav({
+  activeView,
+  onNavigate
+}: {
+  activeView: View;
+  onNavigate: (event: React.MouseEvent<HTMLAnchorElement>, item: (typeof navItems)[number]) => void;
+}) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-4 border-t border-slate-200 bg-white/95 p-2 shadow-soft backdrop-blur md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 flex gap-1 overflow-x-auto border-t border-slate-200 bg-white/95 p-2 shadow-soft backdrop-blur md:hidden">
       {navItems.slice(0, 9).map((item) => (
-        <Link key={item.view} href={item.href} className={`flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] ${activeView === item.view ? "bg-slate-900 text-white" : "text-slate-600"}`}>
+        <Link
+          key={item.view}
+          href={item.href}
+          onClick={(event) => onNavigate(event, item)}
+          className={`flex w-20 shrink-0 flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] ${activeView === item.view ? "bg-slate-900 text-white" : "text-slate-600"}`}
+        >
           {item.icon}
           {item.label}
         </Link>
@@ -2870,7 +3037,7 @@ function MobileNav({ activeView }: { activeView: View }) {
 
 function ActionButton({ onClick, icon, label }: { onClick: () => void; icon: React.ReactNode; label: string }) {
   return (
-    <button className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm" onClick={onClick}>
+    <button className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm" onClick={onClick}>
       {icon}
       {label}
     </button>
@@ -3328,8 +3495,7 @@ function slotKey(unit: string, date: Date): string {
   return date.toISOString();
 }
 
-function buildPlanReminders(plans: Plan[]) {
-  const now = new Date();
+function buildPlanReminders(plans: Plan[], now = new Date()) {
   const reminders: string[] = [];
   const sunday = now.getDay() === 0;
   if (sunday && now.getHours() >= 21) {
@@ -3337,7 +3503,7 @@ function buildPlanReminders(plans: Plan[]) {
     nextWeek.setDate(now.getDate() + 1);
     const nextWeekIso = nextWeek.toISOString().slice(0, 10);
     const exists = plans.some((plan) => plan.type === "weekly" && plan.startDate >= nextWeekIso);
-    if (!exists) reminders.push("现在是周日晚上 21:00 后，下周 weekly plan 还没创建。");
+    if (!exists) reminders.push(`现在是${formatWeekdayTime(now)}，下周 weekly plan 还没创建。`);
   }
   const tomorrow = new Date(now);
   tomorrow.setDate(now.getDate() + 1);
@@ -3346,6 +3512,14 @@ function buildPlanReminders(plans: Plan[]) {
     if (!exists) reminders.push("今天是月末中午前，下个月 monthly plan 还没创建。");
   }
   return reminders;
+}
+
+function formatWeekdayTime(date: Date) {
+  const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const hour = date.getHours();
+  const period = hour < 6 ? "凌晨" : hour < 12 ? "上午" : hour < 18 ? "下午" : "晚上";
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${weekdays[date.getDay()]}${period} ${hour}:${minute}`;
 }
 
 function downloadBlob(filename: string, content: string, type: string) {

@@ -51,7 +51,61 @@ textarea {
 }
 
 .theme-usyd {
-  --page-bg: #fff7f1;
+  --page-bg: #1f2937;
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(12, 18, 30, 0.18), rgba(246, 247, 249, 0.62) 38%, rgba(246, 247, 249, 0.86) 100%),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.52), rgba(15, 23, 42, 0.08) 36%, rgba(15, 23, 42, 0.34)),
+    url("/images/usyd-main-building.jpg") center top / cover fixed no-repeat;
+}
+
+.theme-usyd::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 20% 8%, rgba(255, 255, 255, 0.34), transparent 26%),
+    radial-gradient(circle at 84% 16%, rgba(170, 55, 40, 0.16), transparent 24%);
+}
+
+.theme-usyd [class~="bg-white"],
+.theme-usyd [class~="bg-white/80"],
+.theme-usyd [class~="bg-white/95"] {
+  background-color: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(16px);
+}
+
+.theme-usyd [class~="bg-slate-50"],
+.theme-usyd [class~="bg-slate-50/70"] {
+  background-color: rgba(248, 250, 252, 0.74) !important;
+}
+
+.theme-usyd [class~="border-slate-100"],
+.theme-usyd [class~="border-slate-200"],
+.theme-usyd [class~="border-slate-200/80"] {
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+.theme-usyd main {
+  position: relative;
+  z-index: 1;
+}
+
+.theme-usyd aside {
+  background-color: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: blur(18px);
+}
+
+@media (max-width: 767px) {
+  .theme-usyd {
+    background:
+      linear-gradient(180deg, rgba(12, 18, 30, 0.26), rgba(246, 247, 249, 0.78) 34%, rgba(246, 247, 249, 0.92) 100%),
+      url("/images/usyd-main-building.jpg") center top / auto 44vh no-repeat,
+      #f6f7f9;
+  }
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -131,5 +185,24 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   .todo-preview-row-completing {
     animation-duration: 1ms;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .app-modal-panel {
+    max-height: calc(100dvh - 24px) !important;
+    width: calc(100vw - 16px) !important;
+    border-radius: 14px !important;
+    padding: 16px !important;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
   }
 }
