@@ -326,7 +326,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const expenseTotals = useMemo(() => summarizeExpenses(expenses), [expenses]);
 
   return (
-    <div className={`theme-${background} min-h-screen pb-28 text-slate-900`}>
+    <div className={`theme-${background} min-h-screen pb-36 text-slate-900 ${pinnedProgress ? "pt-24 md:pt-0" : ""}`}>
       <div className="flex min-h-screen">
         <aside
           className={`sticky top-0 hidden h-screen shrink-0 border-r border-slate-200/80 bg-white/80 px-3 py-4 shadow-sm backdrop-blur transition-all duration-200 ease-out md:block ${
@@ -2978,7 +2978,7 @@ function PinnedProgress({
   }, [open, setOpen]);
 
   return (
-    <div ref={containerRef} className="fixed bottom-[70px] left-3 right-3 z-40 md:bottom-4 md:left-[calc(50%+40px)] md:right-auto md:w-[560px] md:-translate-x-1/2">
+    <div ref={containerRef} className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+10px)] z-40 md:bottom-4 md:left-[calc(50%+40px)] md:right-auto md:top-auto md:w-[560px] md:-translate-x-1/2">
       {open && (
         <div className="mb-2 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white p-2 shadow-soft">
           {items.map((progress) => (
@@ -3019,7 +3019,7 @@ function MobileNav({
   onNavigate: (event: React.MouseEvent<HTMLAnchorElement>, item: (typeof navItems)[number]) => void;
 }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 flex gap-1 overflow-x-auto border-t border-slate-200 bg-white/95 p-2 shadow-soft backdrop-blur md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex gap-1 overflow-x-auto border-t border-slate-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-soft backdrop-blur md:hidden">
       {navItems.slice(0, 9).map((item) => (
         <Link
           key={item.view}
