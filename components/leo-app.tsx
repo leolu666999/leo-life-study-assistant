@@ -118,7 +118,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
-  const [background, setBackground] = useState("usyd");
+  const [background, setBackground] = useState("default");
   const [loading, setLoading] = useState(true);
   const [dismissedReminderKeys, setDismissedReminderKeys] = useState<string[]>([]);
 
@@ -136,7 +136,9 @@ export function LeoApp({ initialView }: { initialView: View }) {
 
   useEffect(() => {
     setCollapsed(localStorage.getItem("leo-sidebar-collapsed") === "1");
-    setBackground(localStorage.getItem("leo-background") || "usyd");
+    const savedBackground = localStorage.getItem("leo-background");
+    const backgroundWasChosen = localStorage.getItem("leo-background-user-set") === "1";
+    setBackground(savedBackground && (savedBackground !== "usyd" || backgroundWasChosen) ? savedBackground : "default");
     setDismissedReminderKeys(JSON.parse(localStorage.getItem("leo-dismissed-reminders") || "[]"));
     void loadAll();
   }, []);
@@ -148,6 +150,11 @@ export function LeoApp({ initialView }: { initialView: View }) {
   useEffect(() => {
     localStorage.setItem("leo-background", background);
   }, [background]);
+
+  function chooseBackground(value: string) {
+    localStorage.setItem("leo-background-user-set", "1");
+    setBackground(value);
+  }
 
   async function loadAll(showLoading = true) {
     if (showLoading) setLoading(true);
@@ -458,7 +465,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
                 />
               )}
               {activeView === "settings" && (
-                <SettingsPage background={background} setBackground={setBackground} onUploaded={() => loadAll(false)} />
+                <SettingsPage background={background} setBackground={chooseBackground} onUploaded={() => loadAll(false)} />
               )}
             </>
           )}
