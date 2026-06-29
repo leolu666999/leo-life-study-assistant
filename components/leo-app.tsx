@@ -57,6 +57,29 @@ type ReminderAlert = {
 };
 type TodoDraftItem = { id: string; title: string; completed: boolean };
 type TodoListEditItem = { id?: string; content: string; completed: boolean };
+type SyncConnection = "checking" | "online" | "offline";
+type SaveStatus = "idle" | "saving" | "saved" | "offline_saved" | "syncing" | "sync_failed";
+type OfflineEntityType = "todoList" | "task" | "deadline" | "expense" | "journal" | "checklist";
+type OfflineQueueItem = {
+  localId: string;
+  entityType: OfflineEntityType;
+  payload: Record<string, unknown>;
+  syncStatus: "pending" | "syncing" | "synced" | "failed";
+  createdAt: string;
+  updatedAt: string;
+  lastSyncAttemptAt?: string;
+  errorMessage?: string;
+  deviceId: string;
+};
+type SyncState = {
+  connection: SyncConnection;
+  saveStatus: SaveStatus;
+  pendingCount: number;
+  failedCount: number;
+  lastSyncAt?: string;
+  message: string;
+};
+type SaveRequest = (url: string, options?: RequestInit) => Promise<Response | void>;
 
 const navItems: Array<{ view: View; href: string; label: string; icon: React.ReactNode }> = [
   { view: "dashboard", href: "/", label: "首页", icon: <Home size={18} /> },
@@ -101,6 +124,133 @@ const typeLabels: Record<TaskType, string> = {
 const expenseCategories = ["吃饭", "超市", "交通", "足球", "大学", "房租", "手机/网络", "购物", "娱乐", "健康", "旅行", "其他"];
 const importantFileCategories = ["证件", "签证", "学校", "住宿", "保险", "交通", "银行", "电话卡", "课程", "生活", "其他"];
 const paymentMethods = ["现金", "银行卡", "Apple Pay", "微信支付", "支付宝", "银行转账", "其他"];
+const offlineDbName = "leo-life-study-offline";
+const offlineStoreName = "queue";
+
+function registerServiceWorker() {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("/sw.js").catch((error) => {
+    console.warn("Service worker registration failed", error);
+  });
+}
+
+function getDeviceId() {
+  if (typeof window === "undefined") return "server";
+  const existing = localStorage.getItem("leo-device-id");
+  if (existing) return existing;
+  const next = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `device-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem("leo-device-id", next);
+  return next;
+}
+
+function openOfflineDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") {
+      reject(new Error("当前浏览器不支持离线队列"));
+      return;
+    }
+    const request = indexedDB.open(offlineDbName, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(offlineStoreName)) {
+        db.createObjectStore(offlineStoreName, { keyPath: "localId" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("打开离线队列失败"));
+  });
+}
+
+function withOfflineStore<T>(mode: IDBTransactionMode, action: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  return openOfflineDb().then(
+    (db) =>
+      new Promise<T>((resolve, reject) => {
+        const transaction = db.transaction(offlineStoreName, mode);
+        const request = action(transaction.objectStore(offlineStoreName));
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error ?? new Error("离线队列操作失败"));
+        transaction.oncomplete = () => db.close();
+        transaction.onerror = () => {
+          db.close();
+          reject(transaction.error ?? new Error("离线队列事务失败"));
+        };
+      })
+  );
+}
+
+async function listOfflineQueueItems() {
+  return (await withOfflineStore<OfflineQueueItem[]>("readonly", (store) => store.getAll())) ?? [];
+}
+
+async function queueOfflineMutation(entityType: OfflineEntityType, payload: Record<string, unknown>) {
+  const timestamp = new Date().toISOString();
+  const item: OfflineQueueItem = {
+    localId: typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `offline-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    entityType,
+    payload,
+    syncStatus: "pending",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    deviceId: getDeviceId()
+  };
+  await withOfflineStore("readwrite", (store) => store.put(item));
+  return item;
+}
+
+async function updateOfflineQueueItem(localId: string, patch: Partial<OfflineQueueItem>) {
+  const items = await listOfflineQueueItems();
+  const existing = items.find((item) => item.localId === localId);
+  if (!existing) return;
+  await withOfflineStore("readwrite", (store) =>
+    store.put({ ...existing, ...patch, updatedAt: new Date().toISOString() })
+  );
+}
+
+async function clearSyncedOfflineItems() {
+  const items = await listOfflineQueueItems();
+  await Promise.all(
+    items
+      .filter((item) => item.syncStatus === "synced")
+      .map((item) => withOfflineStore("readwrite", (store) => store.delete(item.localId)))
+  );
+}
+
+function parseRequestBody(options: RequestInit = {}) {
+  if (!options.body || typeof options.body !== "string") return null;
+  try {
+    const parsed = JSON.parse(options.body);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function offlineEntityForRequest(url: string, options: RequestInit = {}) {
+  const method = String(options.method || "GET").toUpperCase();
+  if (method !== "POST") return null;
+  const payload = parseRequestBody(options);
+  if (!payload) return null;
+  if (url === "/api/todo-lists") return { entityType: "todoList" as OfflineEntityType, payload };
+  if (url === "/api/expenses") return { entityType: "expense" as OfflineEntityType, payload };
+  if (url === "/api/journal") return { entityType: "journal" as OfflineEntityType, payload };
+  if (url === "/api/tasks") {
+    const type = payload.type === "deadline" ? "deadline" : payload.type === "checklist" ? "checklist" : "task";
+    return { entityType: type as OfflineEntityType, payload };
+  }
+  return null;
+}
+
+function jsonHeaders(options: RequestInit = {}) {
+  if (options.body instanceof FormData) return options.headers;
+  return {
+    "content-type": "application/json",
+    ...(options.headers || {})
+  };
+}
 
 export function LeoApp({ initialView }: { initialView: View }) {
   const [activeView, setActiveView] = useState<View>(initialView);
@@ -121,6 +271,16 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const [background, setBackground] = useState("default");
   const [loading, setLoading] = useState(true);
   const [dismissedReminderKeys, setDismissedReminderKeys] = useState<string[]>([]);
+  const [syncState, setSyncState] = useState<SyncState>({
+    connection: "checking",
+    saveStatus: "idle",
+    pendingCount: 0,
+    failedCount: 0,
+    lastSyncAt: undefined,
+    message: "正在检查电脑连接..."
+  });
+  const syncLockRef = useRef(false);
+  const lastAutoSyncFailedAtRef = useRef(0);
 
   useEffect(() => {
     setActiveView(initialView);
@@ -140,7 +300,40 @@ export function LeoApp({ initialView }: { initialView: View }) {
     const backgroundWasChosen = localStorage.getItem("leo-background-user-set") === "1";
     setBackground(savedBackground && (savedBackground !== "usyd" || backgroundWasChosen) ? savedBackground : "default");
     setDismissedReminderKeys(JSON.parse(localStorage.getItem("leo-dismissed-reminders") || "[]"));
+    registerServiceWorker();
+    setSyncState((current) => ({
+      ...current,
+      lastSyncAt: localStorage.getItem("leo-last-sync-at") || undefined
+    }));
     void loadAll();
+    void checkHealth(false);
+    void refreshOfflineCounts();
+  }, []);
+
+  useEffect(() => {
+    function handleOnlineSignal() {
+      void checkHealth(true).then(() => syncPendingToComputer({ silent: true }));
+    }
+    function handleFocusSignal() {
+      void checkHealth(true).then(() => syncPendingToComputer({ silent: true }));
+    }
+    function handleVisibilitySignal() {
+      if (document.visibilityState === "visible") handleFocusSignal();
+    }
+
+    window.addEventListener("online", handleOnlineSignal);
+    window.addEventListener("focus", handleFocusSignal);
+    document.addEventListener("visibilitychange", handleVisibilitySignal);
+    const healthTimer = window.setInterval(() => void checkHealth(true), 30000);
+    const syncTimer = window.setInterval(() => void syncPendingToComputer({ silent: true }), 45000);
+
+    return () => {
+      window.removeEventListener("online", handleOnlineSignal);
+      window.removeEventListener("focus", handleFocusSignal);
+      document.removeEventListener("visibilitychange", handleVisibilitySignal);
+      window.clearInterval(healthTimer);
+      window.clearInterval(syncTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -191,15 +384,167 @@ export function LeoApp({ initialView }: { initialView: View }) {
     navigateItem(item);
   }
 
-  async function mutate(url: string, options: RequestInit = {}) {
-    await fetch(url, {
-      ...options,
-      headers: {
-        "content-type": "application/json",
-        ...(options.headers || {})
+  async function refreshOfflineCounts() {
+    try {
+      const items = await listOfflineQueueItems();
+      setSyncState((current) => ({
+        ...current,
+        pendingCount: items.filter((item) => item.syncStatus === "pending" || item.syncStatus === "syncing").length,
+        failedCount: items.filter((item) => item.syncStatus === "failed").length
+      }));
+    } catch (error) {
+      console.warn("Offline queue count failed", error);
+    }
+  }
+
+  async function checkHealth(silent = true) {
+    try {
+      const response = await fetch("/api/health", { cache: "no-store" });
+      if (!response.ok) throw new Error("Health check failed");
+      setSyncState((current) => ({
+        ...current,
+        connection: "online",
+        message: current.pendingCount > 0 ? "已连接电脑，有待同步内容。" : "已连接电脑。"
+      }));
+      return true;
+    } catch {
+      setSyncState((current) => ({
+        ...current,
+        connection: "offline",
+        message: silent ? current.message : "当前连不上电脑端服务，新增内容会先暂存在手机。"
+      }));
+      return false;
+    } finally {
+      await refreshOfflineCounts();
+    }
+  }
+
+  async function syncPendingToComputer({ silent = false }: { silent?: boolean } = {}) {
+    if (syncLockRef.current) return;
+    const nowTime = Date.now();
+    if (silent && lastAutoSyncFailedAtRef.current && nowTime - lastAutoSyncFailedAtRef.current < 60000) return;
+
+    syncLockRef.current = true;
+    try {
+      const allItems = await listOfflineQueueItems();
+      const pendingItems = allItems.filter((item) => item.syncStatus === "pending" || item.syncStatus === "failed");
+      if (pendingItems.length === 0) {
+        await refreshOfflineCounts();
+        return;
       }
-    });
-    await loadAll(false);
+
+      setSyncState((current) => ({
+        ...current,
+        connection: current.connection === "offline" ? "checking" : current.connection,
+        saveStatus: "syncing",
+        message: "正在把手机暂存内容同步到电脑..."
+      }));
+
+      await Promise.all(
+        pendingItems.map((item) =>
+          updateOfflineQueueItem(item.localId, {
+            syncStatus: "syncing",
+            lastSyncAttemptAt: new Date().toISOString(),
+            errorMessage: undefined
+          })
+        )
+      );
+
+      const response = await fetch("/api/sync/push", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          deviceId: getDeviceId(),
+          items: pendingItems
+        })
+      });
+      if (!response.ok) throw new Error("Sync request failed");
+      const data = await response.json();
+      const results = Array.isArray(data.results) ? data.results : [];
+      await Promise.all(
+        results.map((result: { localId?: string; status?: string; errorMessage?: string }) =>
+          result.localId
+            ? updateOfflineQueueItem(result.localId, {
+                syncStatus: result.status === "synced" ? "synced" : "failed",
+                errorMessage: result.status === "synced" ? undefined : result.errorMessage || "同步失败"
+              })
+            : Promise.resolve()
+        )
+      );
+      await clearSyncedOfflineItems();
+      const syncedAt = new Date().toISOString();
+      localStorage.setItem("leo-last-sync-at", syncedAt);
+      setSyncState((current) => ({
+        ...current,
+        connection: "online",
+        saveStatus: "saved",
+        lastSyncAt: syncedAt,
+        message: "手机暂存内容已同步到电脑。"
+      }));
+      await refreshOfflineCounts();
+      await loadAll(false);
+    } catch (error) {
+      lastAutoSyncFailedAtRef.current = Date.now();
+      setSyncState((current) => ({
+        ...current,
+        connection: "offline",
+        saveStatus: "sync_failed",
+        message: silent ? "暂时同步不了，稍后会自动重试。" : error instanceof Error ? error.message : "同步失败，稍后会自动重试。"
+      }));
+      await refreshOfflineCounts();
+    } finally {
+      syncLockRef.current = false;
+    }
+  }
+
+  async function saveRequest(url: string, options: RequestInit = {}) {
+    const offlineMutation = offlineEntityForRequest(url, options);
+    setSyncState((current) => ({
+      ...current,
+      saveStatus: "saving",
+      message: "正在保存..."
+    }));
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: jsonHeaders(options)
+      });
+      if (!response.ok) throw new Error(`Request failed: ${url}`);
+      setSyncState((current) => ({
+        ...current,
+        connection: "online",
+        saveStatus: "saved",
+        message: "已保存到电脑。"
+      }));
+      await loadAll(false);
+      await refreshOfflineCounts();
+      return response;
+    } catch (error) {
+      if (!offlineMutation) {
+        setSyncState((current) => ({
+          ...current,
+          connection: "offline",
+          saveStatus: "sync_failed",
+          message: error instanceof Error ? error.message : "保存失败"
+        }));
+        throw error;
+      }
+
+      await queueOfflineMutation(offlineMutation.entityType, offlineMutation.payload);
+      setSyncState((current) => ({
+        ...current,
+        connection: "offline",
+        saveStatus: "offline_saved",
+        message: "当前连不上电脑，已先存到手机，恢复连接后会同步。"
+      }));
+      await refreshOfflineCounts();
+      return undefined;
+    }
+  }
+
+  async function mutate(url: string, options: RequestInit = {}) {
+    await saveRequest(url, options);
   }
 
   async function toggleTodoItem(id: string, completed: boolean) {
@@ -465,7 +810,14 @@ export function LeoApp({ initialView }: { initialView: View }) {
                 />
               )}
               {activeView === "settings" && (
-                <SettingsPage background={background} setBackground={chooseBackground} onUploaded={() => loadAll(false)} />
+                <SettingsPage
+                  background={background}
+                  setBackground={chooseBackground}
+                  onUploaded={() => loadAll(false)}
+                  syncState={syncState}
+                  onManualSync={() => syncPendingToComputer({ silent: false })}
+                  onCheckSync={() => checkHealth(false)}
+                />
               )}
             </>
           )}
@@ -484,6 +836,8 @@ export function LeoApp({ initialView }: { initialView: View }) {
       />
 
       <MobileNav activeView={activeView} onSelect={navigateItem} />
+
+      <MobileSyncStatus state={syncState} onSync={() => syncPendingToComputer({ silent: false })} />
 
       {pinnedProgress && (
         <PinnedProgress
@@ -507,6 +861,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
             setEditingExpense(null);
           }}
           onCreated={() => loadAll(false)}
+          onSaveRequest={saveRequest}
         />
       )}
     </div>
@@ -526,6 +881,52 @@ async function fetchJsonOr<T>(url: string, fallback: T): Promise<T> {
     console.warn(`Load failed: ${url}`, error);
     return fallback;
   }
+}
+
+function SyncStatusPill({ state }: { state: SyncState }) {
+  const tone =
+    state.connection === "online" && state.pendingCount === 0 && state.failedCount === 0
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+      : state.saveStatus === "offline_saved" || state.pendingCount > 0
+        ? "bg-amber-50 text-amber-700 ring-amber-100"
+        : state.connection === "offline" || state.failedCount > 0
+          ? "bg-red-50 text-red-700 ring-red-100"
+          : "bg-slate-50 text-slate-600 ring-slate-100";
+  const label =
+    state.connection === "online" && state.pendingCount === 0 && state.failedCount === 0
+      ? "电脑已连接"
+      : state.pendingCount > 0
+        ? `${state.pendingCount} 条待同步`
+        : state.failedCount > 0
+          ? `${state.failedCount} 条需重试`
+          : state.connection === "offline"
+            ? "离线暂存"
+            : "检查中";
+
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${tone}`}>{label}</span>;
+}
+
+function MobileSyncStatus({ state, onSync }: { state: SyncState; onSync: () => void }) {
+  const shouldShow =
+    state.connection !== "online" ||
+    state.pendingCount > 0 ||
+    state.failedCount > 0 ||
+    state.saveStatus === "saving" ||
+    state.saveStatus === "syncing" ||
+    state.saveStatus === "offline_saved";
+
+  if (!shouldShow) return null;
+
+  return (
+    <button
+      type="button"
+      className="fixed right-3 top-[calc(env(safe-area-inset-top)+5.2rem)] z-40 rounded-full border border-slate-200 bg-white/95 px-3 py-2 text-xs font-medium text-slate-700 shadow-soft backdrop-blur md:hidden"
+      onClick={onSync}
+      title="同步手机暂存内容"
+    >
+      {state.saveStatus === "syncing" ? "同步中..." : state.pendingCount > 0 ? `${state.pendingCount} 条待同步` : state.message}
+    </button>
+  );
 }
 
 function PageHeader({
@@ -1940,6 +2341,7 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
         <ImportantFileModal
           file={editingFile}
           onClose={() => setModalOpen(false)}
+          onSaveRequest={onSave}
           onCreated={async () => {
             await onSave("/api/important-files", { method: "GET" });
           }}
@@ -1985,18 +2387,28 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
 function ImportantFileModal({
   file,
   onClose,
+  onSaveRequest,
   onCreated
 }: {
   file: ImportantFile | null;
   onClose: () => void;
+  onSaveRequest: SaveRequest;
   onCreated: () => Promise<void>;
 }) {
   const [uploading, setUploading] = useState(false);
   const [fileId, setFileId] = useState(file?.fileId || "");
   const [fileName, setFileName] = useState(file?.originalName || "");
   const [fileTags, setFileTags] = useState<string[]>(file?.tags || []);
+  const [filePreviewUrl, setFilePreviewUrl] = useState("");
+  const [uploadMessage, setUploadMessage] = useState("");
   const [dirty, setDirty] = useState(false);
   useEscapeClose(onClose);
+
+  useEffect(() => {
+    return () => {
+      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    };
+  }, [filePreviewUrl]);
 
   return (
     <div
@@ -2020,9 +2432,8 @@ function ImportantFileModal({
             expiryDate: form.get("expiryDate") || null,
             fileId
           };
-          await fetch(file ? `/api/important-files/${file.id}` : "/api/important-files", {
+          await onSaveRequest(file ? `/api/important-files/${file.id}` : "/api/important-files", {
             method: file ? "PATCH" : "POST",
-            headers: { "content-type": "application/json" },
             body: JSON.stringify(payload)
           });
           await onCreated();
@@ -2076,18 +2487,37 @@ function ImportantFileModal({
                 const selected = event.target.files?.[0];
                 if (!selected) return;
                 setDirty(true);
+                setUploadMessage("");
+                if (selected.size > 50 * 1024 * 1024) {
+                  setUploadMessage("文件太大了，先控制在 50MB 以内。");
+                  event.currentTarget.value = "";
+                  return;
+                }
+                if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+                setFilePreviewUrl(selected.type.startsWith("image/") ? URL.createObjectURL(selected) : "");
                 setUploading(true);
-                const form = new FormData();
-                form.append("file", selected);
-                form.append("linkedEntityType", "important_file");
-                const response = await fetch("/api/upload", { method: "POST", body: form });
-                const metadata = await response.json();
-                setFileId(String(metadata.id));
-                setFileName(selected.name);
-                setUploading(false);
+                try {
+                  const form = new FormData();
+                  form.append("file", selected);
+                  form.append("linkedEntityType", "important_file");
+                  const response = await fetch("/api/upload", { method: "POST", body: form });
+                  if (!response.ok) throw new Error("upload failed");
+                  const metadata = await response.json();
+                  setFileId(String(metadata.id));
+                  setFileName(selected.name);
+                  setUploadMessage("上传完成，可以保存。");
+                } catch {
+                  setUploadMessage("上传失败，请确认电脑服务还开着，然后再试一次。");
+                } finally {
+                  setUploading(false);
+                }
               }}
             />
           </label>
+          {filePreviewUrl && (
+            <img src={filePreviewUrl} alt="文件预览" className="max-h-56 w-full rounded-lg border border-slate-100 object-contain" />
+          )}
+          {uploadMessage && <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{uploadMessage}</div>}
         </div>
 
         <button className="mt-5 w-full rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white" disabled={!fileId || uploading}>
@@ -2213,13 +2643,27 @@ function ArchivePage({
 function SettingsPage({
   background,
   setBackground,
-  onUploaded
+  onUploaded,
+  syncState,
+  onManualSync,
+  onCheckSync
 }: {
   background: string;
   setBackground: (value: string) => void;
   onUploaded: () => void;
+  syncState: SyncState;
+  onManualSync: () => void;
+  onCheckSync: () => void;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [currentUrl, setCurrentUrl] = useState("http://电脑局域网IP:3011");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setCurrentUrl(`${window.location.protocol}//${window.location.host}`);
+  }, []);
+
   return (
     <>
       <PageHeader title="设置" subtitle="本地路径、背景、备份和未来功能占位。" />
@@ -2234,8 +2678,13 @@ function SettingsPage({
           </a>
         </section>
         <section className="rounded-lg bg-white p-4 shadow-soft">
-          <SectionTitle title="手机访问" />
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <SectionTitle title="手机访问 / 同步状态" />
+            <SyncStatusPill state={syncState} />
+          </div>
           <InfoRow label="当前端口" value="3011" />
+          <InfoRow label="当前打开地址" value={currentUrl} />
+          {syncState.lastSyncAt && <InfoRow label="上次同步" value={formatDateTime(syncState.lastSyncAt)} />}
           <div className="space-y-3 text-sm text-slate-600">
             <p>电脑和手机连接同一个 Wi-Fi 后，先在电脑上获取局域网 IP。</p>
             <div className="rounded-lg bg-slate-50 p-3">
@@ -2252,6 +2701,19 @@ function SettingsPage({
               <div className="mt-1 break-all font-mono text-slate-900">http://电脑局域网IP:3011</div>
               <div className="mt-2 text-slate-500">示例</div>
               <div className="mt-1 break-all font-mono text-slate-900">http://192.168.1.23:3011</div>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3">
+              <div className="font-medium text-slate-800">离线暂存</div>
+              <div className="mt-1">{syncState.message}</div>
+              <div className="mt-2 text-xs text-slate-500">待同步 {syncState.pendingCount} 条 · 失败 {syncState.failedCount} 条</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-700" onClick={onCheckSync}>
+                  检查连接
+                </button>
+                <button type="button" className="rounded-lg bg-slate-900 px-3 py-2 font-medium text-white" onClick={onManualSync}>
+                  手动同步
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -2283,15 +2745,29 @@ function SettingsPage({
               onChange={async (event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
+                setUploadMessage("");
+                if (file.size > 50 * 1024 * 1024) {
+                  setUploadMessage("文件太大了，先控制在 50MB 以内。");
+                  event.currentTarget.value = "";
+                  return;
+                }
                 setUploading(true);
-                const form = new FormData();
-                form.append("file", file);
-                await fetch("/api/upload", { method: "POST", body: form });
-                setUploading(false);
-                onUploaded();
+                try {
+                  const form = new FormData();
+                  form.append("file", file);
+                  const response = await fetch("/api/upload", { method: "POST", body: form });
+                  if (!response.ok) throw new Error("upload failed");
+                  setUploadMessage("上传完成。");
+                  onUploaded();
+                } catch {
+                  setUploadMessage("上传失败，请确认电脑服务还开着，然后再试一次。");
+                } finally {
+                  setUploading(false);
+                }
               }}
             />
           </label>
+          {uploadMessage && <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{uploadMessage}</div>}
         </section>
         <section className="rounded-lg bg-white p-4 shadow-soft">
           <SectionTitle title="未来功能占位" />
@@ -2310,17 +2786,27 @@ function SettingsPage({
 function ExpenseModal({
   expense,
   onClose,
-  onCreated
+  onCreated,
+  onSaveRequest
 }: {
   expense: Expense | null;
   onClose: () => void;
   onCreated: () => Promise<void>;
+  onSaveRequest: SaveRequest;
 }) {
   const [uploading, setUploading] = useState(false);
   const [receiptFileId, setReceiptFileId] = useState(expense?.receiptFileId || "");
   const [receiptName, setReceiptName] = useState(expense?.receiptOriginalName || "");
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState("");
+  const [uploadMessage, setUploadMessage] = useState("");
   const [dirty, setDirty] = useState(false);
   useEscapeClose(onClose);
+
+  useEffect(() => {
+    return () => {
+      if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
+    };
+  }, [receiptPreviewUrl]);
 
   return (
     <div
@@ -2346,9 +2832,8 @@ function ExpenseModal({
             notes: form.get("notes") || null,
             receiptFileId: receiptFileId || null
           };
-          await fetch(expense ? `/api/expenses/${expense.id}` : "/api/expenses", {
+          await onSaveRequest(expense ? `/api/expenses/${expense.id}` : "/api/expenses", {
             method: expense ? "PATCH" : "POST",
-            headers: { "content-type": "application/json" },
             body: JSON.stringify(payload)
           });
           await onCreated();
@@ -2399,23 +2884,41 @@ function ExpenseModal({
               className="hidden"
               type="file"
               accept="image/*,.pdf"
+              capture={undefined}
               onChange={async (event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
                 setDirty(true);
+                if (file.size > 20 * 1024 * 1024) {
+                  setUploadMessage("文件太大，请选择 20MB 以内的图片或 PDF。");
+                  return;
+                }
+                if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
+                setReceiptPreviewUrl(file.type.startsWith("image/") ? URL.createObjectURL(file) : "");
                 setUploading(true);
+                setUploadMessage("正在上传到电脑...");
                 const form = new FormData();
                 form.append("file", file);
                 form.append("linkedEntityType", "expense");
-                const response = await fetch("/api/upload", { method: "POST", body: form });
-                const metadata = await response.json();
-                setReceiptFileId(String(metadata.id));
-                setReceiptName(file.name);
-                setUploading(false);
+                try {
+                  const response = await fetch("/api/upload", { method: "POST", body: form });
+                  if (!response.ok) throw new Error("上传失败");
+                  const metadata = await response.json();
+                  setReceiptFileId(String(metadata.id));
+                  setReceiptName(file.name);
+                  setUploadMessage("已上传到电脑。");
+                } catch {
+                  setUploadMessage("上传失败，请确认电脑端服务正在运行。");
+                } finally {
+                  setUploading(false);
+                }
               }}
             />
           </label>
-          {receiptFileId && isImageMime(expense?.receiptMimeType || "") && (
+          {uploadMessage && <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{uploadMessage}</div>}
+          {receiptPreviewUrl ? (
+            <img src={receiptPreviewUrl} alt="小票预览" className="h-40 w-full rounded-lg border border-slate-100 object-contain" />
+          ) : receiptFileId && isImageMime(expense?.receiptMimeType || "") && (
             <img src={`/api/uploads/${receiptFileId}`} alt="小票预览" className="h-40 w-full rounded-lg border border-slate-100 object-contain" />
           )}
         </div>
@@ -2434,7 +2937,8 @@ function QuickModal({
   expense,
   tasks,
   onClose,
-  onCreated
+  onCreated,
+  onSaveRequest
 }: {
   mode: ModalMode;
   task: Task | null;
@@ -2442,11 +2946,12 @@ function QuickModal({
   tasks: Task[];
   onClose: () => void;
   onCreated: () => Promise<void>;
+  onSaveRequest: SaveRequest;
 }) {
   useEscapeClose(onClose);
 
   if (mode === "expense") {
-    return <ExpenseModal expense={expense} onClose={onClose} onCreated={onCreated} />;
+    return <ExpenseModal expense={expense} onClose={onClose} onCreated={onCreated} onSaveRequest={onSaveRequest} />;
   }
 
   const isDeadlineForm = mode === "deadline" || task?.type === "deadline";
@@ -2538,9 +3043,8 @@ function QuickModal({
               alert("请至少添加一个待办条目。");
               return;
             }
-            await fetch("/api/todo-lists", {
+            await onSaveRequest("/api/todo-lists", {
               method: "POST",
-              headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 title: buildTodoListTitle(todoDate),
                 date: todoDate,
@@ -2550,9 +3054,8 @@ function QuickModal({
             });
           } else if (mode === "plan") {
             const taskIds = form.getAll("taskIds").map(String);
-            await fetch("/api/plans", {
+            await onSaveRequest("/api/plans", {
               method: "POST",
-              headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 title: form.get("title"),
                 type: form.get("planType"),
@@ -2563,9 +3066,8 @@ function QuickModal({
               })
             });
           } else if (mode === "counter") {
-            await fetch("/api/progress", {
+            await onSaveRequest("/api/progress", {
               method: "POST",
-              headers: { "content-type": "application/json" },
               body: JSON.stringify({
                 title: form.get("title"),
                 currentValue: Number(form.get("progressCurrent") || 0),
@@ -2596,9 +3098,8 @@ function QuickModal({
               progressEnabled,
               progressType: progressEnabled ? progressType : "none"
             };
-            await fetch(task ? `/api/tasks/${task.id}` : "/api/tasks", {
+            await onSaveRequest(task ? `/api/tasks/${task.id}` : "/api/tasks", {
               method: task ? "PATCH" : "POST",
-              headers: { "content-type": "application/json" },
               body: JSON.stringify(payload)
             });
           }
@@ -3507,6 +4008,10 @@ function formatTaskDateTime(value?: string | null) {
     hour12: false,
     hourCycle: "h23"
   });
+}
+
+function formatDateTime(value?: string | null) {
+  return formatTaskDateTime(value);
 }
 
 function formatDateOnly(value?: string | null) {
