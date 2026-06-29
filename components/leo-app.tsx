@@ -3019,13 +3019,13 @@ function MobileNav({
   onNavigate: (event: React.MouseEvent<HTMLAnchorElement>, item: (typeof navItems)[number]) => void;
 }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-9 gap-0 border-t border-slate-200 bg-white/95 px-1 pb-[calc(env(safe-area-inset-bottom)+0.45rem)] pt-1.5 shadow-soft backdrop-blur md:hidden">
+    <nav className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 flex max-w-[100dvw] gap-1 overflow-x-auto overflow-y-hidden border-t border-slate-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-soft backdrop-blur md:hidden">
       {navItems.slice(0, 9).map((item) => (
         <Link
           key={item.view}
           href={item.href}
           onClick={(event) => onNavigate(event, item)}
-          className={`flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[10px] leading-tight ${activeView === item.view ? "bg-slate-900 text-white" : "text-slate-600"}`}
+          className={`flex w-20 shrink-0 flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] leading-tight ${activeView === item.view ? "bg-slate-900 text-white" : "text-slate-600"}`}
         >
           {item.icon}
           <span className="w-full truncate text-center">{item.label.replace("（维修中）", "")}</span>
