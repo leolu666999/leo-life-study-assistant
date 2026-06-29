@@ -174,10 +174,14 @@ export function LeoApp({ initialView }: { initialView: View }) {
     if (showLoading) setLoading(false);
   }
 
-  function navigateView(event: React.MouseEvent<HTMLAnchorElement>, item: (typeof navItems)[number]) {
-    event.preventDefault();
+  function navigateItem(item: (typeof navItems)[number]) {
     setActiveView(item.view);
     window.history.pushState(null, "", item.href);
+  }
+
+  function navigateView(event: React.MouseEvent<HTMLAnchorElement>, item: (typeof navItems)[number]) {
+    event.preventDefault();
+    navigateItem(item);
   }
 
   async function mutate(url: string, options: RequestInit = {}) {
@@ -472,7 +476,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
         }}
       />
 
-      <MobileNav activeView={activeView} onNavigate={navigateView} />
+      <MobileNav activeView={activeView} onNavigate={navigateView} onSelect={navigateItem} />
 
       {pinnedProgress && (
         <PinnedProgress
@@ -3013,19 +3017,132 @@ function PinnedProgress({
 
 function MobileNav({
   activeView,
-  onNavigate
+  onNavigate,
+  onSelect
 }: {
   activeView: View;
   onNavigate: (event: React.MouseEvent<HTMLAnchorElement>, item: (typeof navItems)[number]) => void;
+  onSelect: (item: (typeof navItems)[number]) => void;
 }) {
+  const mobileItems = navItems.slice(0, 9);
+  const navRef = useRef<HTMLElement | null>(null);
+  const itemRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const longPressTimer = useRef<number | null>(null);
+  const blockNextClick = useRef(false);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const [scrubbing, setScrubbing] = useState(false);
+  const [scrubIndex, setScrubIndex] = useState(() => Math.max(0, mobileItems.findIndex((item) => item.view === activeView)));
+  const [sliderStyle, setSliderStyle] = useState({ left: 0, width: 0 });
+
+  function clearLongPressTimer() {
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
+  function updateSlider(index: number) {
+    const nav = navRef.current;
+    const item = itemRefs.current[index];
+    if (!nav || !item) return;
+    setSliderStyle({
+      left: item.offsetLeft - nav.scrollLeft,
+      width: item.offsetWidth
+    });
+  }
+
+  function itemIndexFromPoint(clientX: number) {
+    const index = itemRefs.current.findIndex((item) => {
+      if (!item) return false;
+      const rect = item.getBoundingClientRect();
+      return clientX >= rect.left && clientX <= rect.right;
+    });
+    return index >= 0 ? index : scrubIndex;
+  }
+
+  function startScrub(index: number) {
+    setScrubIndex(index);
+    updateSlider(index);
+    setScrubbing(true);
+    blockNextClick.current = true;
+  }
+
+  function handlePointerDown(event: React.PointerEvent<HTMLAnchorElement>, index: number) {
+    if (event.pointerType === "mouse") return;
+    clearLongPressTimer();
+    pointerStart.current = { x: event.clientX, y: event.clientY };
+    longPressTimer.current = window.setTimeout(() => {
+      startScrub(index);
+    }, 260);
+  }
+
+  function handlePointerMove(event: React.PointerEvent<HTMLAnchorElement>) {
+    if (!scrubbing) {
+      if (pointerStart.current) {
+        const moved = Math.hypot(event.clientX - pointerStart.current.x, event.clientY - pointerStart.current.y);
+        if (moved > 8) clearLongPressTimer();
+      }
+      return;
+    }
+    event.preventDefault();
+    const nextIndex = itemIndexFromPoint(event.clientX);
+    setScrubIndex(nextIndex);
+    updateSlider(nextIndex);
+  }
+
+  function finishScrub() {
+    clearLongPressTimer();
+    pointerStart.current = null;
+    if (scrubbing) {
+      const target = mobileItems[scrubIndex];
+      if (target) onSelect(target);
+      window.setTimeout(() => {
+        blockNextClick.current = false;
+      }, 80);
+    }
+    setScrubbing(false);
+  }
+
+  useEffect(() => {
+    if (scrubbing) updateSlider(scrubIndex);
+  }, [scrubbing, scrubIndex]);
+
   return (
-    <nav className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 flex max-w-[100dvw] gap-1 overflow-x-auto overflow-y-hidden border-t border-slate-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-soft backdrop-blur md:hidden">
-      {navItems.slice(0, 9).map((item) => (
+    <nav
+      ref={navRef}
+      className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 flex max-w-[100dvw] gap-1 overflow-x-auto overflow-y-hidden border-t border-slate-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-soft backdrop-blur md:hidden"
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishScrub}
+      onPointerCancel={finishScrub}
+      onScroll={() => {
+        if (scrubbing) updateSlider(scrubIndex);
+      }}
+    >
+      {scrubbing && (
+        <div
+          className="pointer-events-none absolute top-2 h-[52px] rounded-[18px] border border-white/70 bg-slate-900/12 shadow-[0_8px_24px_rgba(15,23,42,0.16)] backdrop-blur-md transition-[left,width] duration-100"
+          style={{ left: sliderStyle.left, width: sliderStyle.width }}
+        />
+      )}
+      {mobileItems.map((item, index) => (
         <Link
           key={item.view}
+          ref={(node) => {
+            itemRefs.current[index] = node;
+          }}
           href={item.href}
-          onClick={(event) => onNavigate(event, item)}
-          className={`flex w-20 shrink-0 flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] leading-tight ${activeView === item.view ? "bg-slate-900 text-white" : "text-slate-600"}`}
+          onPointerDown={(event) => handlePointerDown(event, index)}
+          onClick={(event) => {
+            if (blockNextClick.current) {
+              event.preventDefault();
+              blockNextClick.current = false;
+              return;
+            }
+            onNavigate(event, item);
+          }}
+          className={`relative z-10 flex w-20 shrink-0 select-none flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] leading-tight transition ${
+            activeView === item.view && !scrubbing ? "bg-slate-900 text-white" : scrubIndex === index && scrubbing ? "text-slate-950" : "text-slate-600"
+          }`}
         >
           {item.icon}
           <span className="w-full truncate text-center">{item.label.replace("（维修中）", "")}</span>
