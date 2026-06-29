@@ -326,8 +326,8 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const expenseTotals = useMemo(() => summarizeExpenses(expenses), [expenses]);
 
   return (
-    <div className={`theme-${background} min-h-screen pb-36 text-slate-900 ${pinnedProgress ? "pt-24 md:pt-0" : ""}`}>
-      <div className="flex min-h-screen">
+    <div className={`theme-${background} min-h-screen w-full max-w-full overflow-x-hidden pb-36 text-slate-900 ${pinnedProgress ? "pt-24 md:pt-0" : ""}`}>
+      <div className="flex min-h-screen w-full max-w-full overflow-x-hidden">
         <aside
           className={`sticky top-0 hidden h-screen shrink-0 border-r border-slate-200/80 bg-white/80 px-3 py-4 shadow-sm backdrop-blur transition-all duration-200 ease-out md:block ${
             collapsed ? "w-[76px]" : "w-64"
@@ -379,7 +379,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
           )}
         </aside>
 
-        <main className="mx-auto w-full max-w-7xl px-4 py-4 md:px-6 md:py-6">
+        <main className="mx-auto w-full max-w-full overflow-x-hidden px-3 py-4 md:max-w-7xl md:px-6 md:py-6">
           {loading ? (
             <div className="rounded-lg bg-white p-6 shadow-soft">正在加载 Leo 的本地数据...</div>
           ) : (
@@ -1867,7 +1867,7 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filtered.length === 0 && <EmptyBlock text="还没有重要文件。点右上角上传一个。" />}
           {filtered.map((file) => (
-            <article key={file.id} className="rounded-lg border border-slate-100 p-3">
+            <article key={file.id} className="min-w-0 rounded-lg border border-slate-100 p-3">
               <button
                 className="mb-3 flex h-36 w-full items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-slate-50 text-slate-400"
                 onClick={() => setPreviewFile(file)}
@@ -1913,7 +1913,7 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
                   </button>
                 </div>
               </div>
-              <div className="mt-2 truncate text-sm text-slate-500">{file.originalName}</div>
+              <div className="mt-2 break-all text-sm text-slate-500 md:truncate">{file.originalName}</div>
               {file.expiryDate && (
                 <div className={`mt-2 text-sm font-medium ${expiryCountdownClass(file.expiryDate)}`}>
                   到期 {formatDateOnly(file.expiryDate)} · {countdownText(file.expiryDate)}
@@ -2978,7 +2978,7 @@ function PinnedProgress({
   }, [open, setOpen]);
 
   return (
-    <div ref={containerRef} className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+10px)] z-40 md:bottom-4 md:left-[calc(50%+40px)] md:right-auto md:top-auto md:w-[560px] md:-translate-x-1/2">
+    <div ref={containerRef} className="fixed inset-x-2 top-[calc(env(safe-area-inset-top)+8px)] z-40 max-w-[calc(100vw-16px)] md:bottom-4 md:left-[calc(50%+40px)] md:right-auto md:top-auto md:w-[560px] md:max-w-none md:-translate-x-1/2">
       {open && (
         <div className="mb-2 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white p-2 shadow-soft">
           {items.map((progress) => (
@@ -2996,7 +2996,7 @@ function PinnedProgress({
           ))}
         </div>
       )}
-      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-soft">
+      <div className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-soft md:p-3">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{item.title}</div>
@@ -3019,16 +3019,16 @@ function MobileNav({
   onNavigate: (event: React.MouseEvent<HTMLAnchorElement>, item: (typeof navItems)[number]) => void;
 }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex gap-1 overflow-x-auto border-t border-slate-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-soft backdrop-blur md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-9 gap-0 border-t border-slate-200 bg-white/95 px-1 pb-[calc(env(safe-area-inset-bottom)+0.45rem)] pt-1.5 shadow-soft backdrop-blur md:hidden">
       {navItems.slice(0, 9).map((item) => (
         <Link
           key={item.view}
           href={item.href}
           onClick={(event) => onNavigate(event, item)}
-          className={`flex w-20 shrink-0 flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] ${activeView === item.view ? "bg-slate-900 text-white" : "text-slate-600"}`}
+          className={`flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[10px] leading-tight ${activeView === item.view ? "bg-slate-900 text-white" : "text-slate-600"}`}
         >
           {item.icon}
-          {item.label}
+          <span className="w-full truncate text-center">{item.label.replace("（维修中）", "")}</span>
         </Link>
       ))}
     </nav>
