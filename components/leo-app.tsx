@@ -483,7 +483,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
         }}
       />
 
-      <MobileNav activeView={activeView} onNavigate={navigateView} onSelect={navigateItem} />
+      <MobileNav activeView={activeView} onSelect={navigateItem} />
 
       {pinnedProgress && (
         <PinnedProgress
@@ -3024,18 +3024,16 @@ function PinnedProgress({
 
 function MobileNav({
   activeView,
-  onNavigate,
   onSelect
 }: {
   activeView: View;
-  onNavigate: (event: React.MouseEvent<HTMLAnchorElement>, item: (typeof navItems)[number]) => void;
   onSelect: (item: (typeof navItems)[number]) => void;
 }) {
   const mobileItems = navItems.slice(0, 9);
   const navRef = useRef<HTMLElement | null>(null);
-  const itemRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const longPressTimer = useRef<number | null>(null);
-  const blockNextClick = useRef(false);
+  const didScrub = useRef(false);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const [scrubbing, setScrubbing] = useState(false);
   const [scrubIndex, setScrubIndex] = useState(() => Math.max(0, mobileItems.findIndex((item) => item.view === activeView)));
@@ -3071,19 +3069,20 @@ function MobileNav({
     setScrubIndex(index);
     updateSlider(index);
     setScrubbing(true);
-    blockNextClick.current = true;
+    didScrub.current = true;
   }
 
-  function handlePointerDown(event: React.PointerEvent<HTMLAnchorElement>, index: number) {
+  function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>, index: number) {
     if (event.pointerType === "mouse") return;
     clearLongPressTimer();
     pointerStart.current = { x: event.clientX, y: event.clientY };
     longPressTimer.current = window.setTimeout(() => {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
       startScrub(index);
-    }, 260);
+    }, 180);
   }
 
-  function handlePointerMove(event: React.PointerEvent<HTMLAnchorElement>) {
+  function handlePointerMove(event: React.PointerEvent<HTMLElement>) {
     if (!scrubbing) {
       if (pointerStart.current) {
         const moved = Math.hypot(event.clientX - pointerStart.current.x, event.clientY - pointerStart.current.y);
@@ -3103,11 +3102,11 @@ function MobileNav({
     if (scrubbing) {
       const target = mobileItems[scrubIndex];
       if (target) onSelect(target);
-      window.setTimeout(() => {
-        blockNextClick.current = false;
-      }, 80);
     }
     setScrubbing(false);
+    window.setTimeout(() => {
+      didScrub.current = false;
+    }, 80);
   }
 
   useEffect(() => {
@@ -3121,39 +3120,41 @@ function MobileNav({
       onPointerMove={handlePointerMove}
       onPointerUp={finishScrub}
       onPointerCancel={finishScrub}
+      onContextMenu={(event) => event.preventDefault()}
       onScroll={() => {
         if (scrubbing) updateSlider(scrubIndex);
       }}
     >
       {scrubbing && (
         <div
-          className="pointer-events-none absolute top-2 h-[52px] rounded-[18px] border border-white/70 bg-slate-900/12 shadow-[0_8px_24px_rgba(15,23,42,0.16)] backdrop-blur-md transition-[left,width] duration-100"
+          className="pointer-events-none absolute top-2 h-[52px] rounded-[18px] border border-white/80 bg-white/45 shadow-[0_8px_26px_rgba(15,23,42,0.22)] ring-1 ring-slate-900/10 backdrop-blur-xl transition-[left,width] duration-100"
           style={{ left: sliderStyle.left, width: sliderStyle.width }}
         />
       )}
       {mobileItems.map((item, index) => (
-        <Link
+        <button
           key={item.view}
+          type="button"
           ref={(node) => {
             itemRefs.current[index] = node;
           }}
-          href={item.href}
+          aria-current={activeView === item.view ? "page" : undefined}
           onPointerDown={(event) => handlePointerDown(event, index)}
-          onClick={(event) => {
-            if (blockNextClick.current) {
-              event.preventDefault();
-              blockNextClick.current = false;
+          onContextMenu={(event) => event.preventDefault()}
+          onClick={() => {
+            if (didScrub.current) {
+              didScrub.current = false;
               return;
             }
-            onNavigate(event, item);
+            onSelect(item);
           }}
-          className={`relative z-10 flex w-20 shrink-0 select-none flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] leading-tight transition ${
+          className={`mobile-nav-item relative z-10 flex w-20 shrink-0 select-none flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] leading-tight transition ${
             activeView === item.view && !scrubbing ? "bg-slate-900 text-white" : scrubIndex === index && scrubbing ? "text-slate-950" : "text-slate-600"
           }`}
         >
           {item.icon}
           <span className="w-full truncate text-center">{item.label.replace("（维修中）", "")}</span>
-        </Link>
+        </button>
       ))}
     </nav>
   );

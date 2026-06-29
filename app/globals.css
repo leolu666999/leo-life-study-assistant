@@ -211,6 +211,16 @@ textarea {
     touch-action: pan-x;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .mobile-nav-item {
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   .app-modal-panel {
