@@ -1,6 +1,5 @@
-const CACHE_NAME = "leo-life-study-assistant-v1";
+const CACHE_NAME = "leo-life-study-assistant-v2";
 const SHELL_URLS = [
-  "/",
   "/offline.html",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
@@ -28,21 +27,16 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith("/api/")) return;
+  if (url.pathname.startsWith("/_next/") || url.pathname.startsWith("/__nextjs")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("/", copy));
-          return response;
-        })
-        .catch(async () => (await caches.match("/")) || caches.match("/offline.html"))
+        .catch(async () => caches.match("/offline.html"))
     );
     return;
   }
-
-  if (url.pathname.startsWith("/api/")) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {
