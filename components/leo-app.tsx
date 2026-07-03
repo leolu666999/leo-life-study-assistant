@@ -1012,7 +1012,9 @@ function Dashboard({
 
   useEffect(() => {
     const key = `leo-today-overview-dismissed-${localDateKey(today)}`;
-    if (localStorage.getItem(key) !== "1") {
+    const sessionKey = `leo-today-overview-auto-shown-${localDateKey(today)}`;
+    if (localStorage.getItem(key) !== "1" && sessionStorage.getItem(sessionKey) !== "1") {
+      sessionStorage.setItem(sessionKey, "1");
       setOverviewOpen(true);
     }
   }, []);
@@ -1037,6 +1039,7 @@ function Dashboard({
 
   function closeTodayOverview() {
     localStorage.setItem(`leo-today-overview-dismissed-${localDateKey(today)}`, "1");
+    sessionStorage.setItem(`leo-today-overview-auto-shown-${localDateKey(today)}`, "1");
     setOverviewOpen(false);
   }
 
@@ -2658,10 +2661,26 @@ function SettingsPage({
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
   const [currentUrl, setCurrentUrl] = useState("http://电脑局域网IP:3011");
+  const [phoneUrl, setPhoneUrl] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     setCurrentUrl(`${window.location.protocol}//${window.location.host}`);
+
+    async function refreshNetworkUrl() {
+      try {
+        const response = await fetch("/api/network", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as { url?: string };
+        setPhoneUrl(data.url || "");
+      } catch {
+        setPhoneUrl("");
+      }
+    }
+
+    void refreshNetworkUrl();
+    const timer = window.setInterval(refreshNetworkUrl, 15000);
+    return () => window.clearInterval(timer);
   }, []);
 
   return (
@@ -2684,9 +2703,14 @@ function SettingsPage({
           </div>
           <InfoRow label="当前端口" value="3011" />
           <InfoRow label="当前打开地址" value={currentUrl} />
+          <InfoRow label="手机输入这个网址" value={phoneUrl || "正在读取电脑局域网 IP..."} />
           {syncState.lastSyncAt && <InfoRow label="上次同步" value={formatDateTime(syncState.lastSyncAt)} />}
           <div className="space-y-3 text-sm text-slate-600">
-            <p>电脑和手机连接同一个 Wi-Fi 后，先在电脑上获取局域网 IP。</p>
+            <p>电脑和手机连接同一个 Wi‑Fi，或者电脑连接手机热点后，在手机浏览器里输入下面这个地址。</p>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="text-slate-500">实时手机访问网址</div>
+              <div className="mt-1 break-all font-mono text-base font-semibold text-slate-900">{phoneUrl || "正在读取..."}</div>
+            </div>
             <div className="rounded-lg bg-slate-50 p-3">
               <div className="font-medium text-slate-800">Mac 获取方式</div>
               <div className="mt-1">系统设置 → Wi‑Fi → 当前网络详情，查看 IP 地址。</div>
@@ -2699,8 +2723,8 @@ function SettingsPage({
             <div className="rounded-lg border border-slate-200 p-3">
               <div className="text-slate-500">手机访问格式</div>
               <div className="mt-1 break-all font-mono text-slate-900">http://电脑局域网IP:3011</div>
-              <div className="mt-2 text-slate-500">示例</div>
-              <div className="mt-1 break-all font-mono text-slate-900">http://192.168.1.23:3011</div>
+              <div className="mt-2 text-slate-500">当前示例</div>
+              <div className="mt-1 break-all font-mono text-slate-900">{phoneUrl || "http://192.168.1.23:3011"}</div>
             </div>
             <div className="rounded-lg border border-slate-200 p-3">
               <div className="font-medium text-slate-800">离线暂存</div>
