@@ -1,9 +1,8 @@
 import os from "node:os";
 import { NextResponse } from "next/server";
+import { defaultPort } from "@/lib/app-config";
 
 export const runtime = "nodejs";
-
-const port = 3011;
 
 export async function GET() {
   const interfaces = os.networkInterfaces();
@@ -21,8 +20,8 @@ export async function GET() {
     "";
 
   return NextResponse.json({
-    port,
+    port: defaultPort,
     ip: preferredIp,
-    url: preferredIp ? `http://${preferredIp}:${port}` : ""
+    url: preferredIp ? `http://${preferredIp}:${defaultPort}` : ""
   });
 }

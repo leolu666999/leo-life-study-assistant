@@ -1,4 +1,5 @@
 import { updateProgress } from "@/lib/db";
+import { mutationResponse } from "@/lib/realtime";
 
 export const runtime = "nodejs";
 
@@ -7,5 +8,5 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const body = await request.json();
   const progress = updateProgress(id, body);
   if (!progress) return Response.json({ error: "Progress item not found" }, { status: 404 });
-  return Response.json(progress);
+  return mutationResponse(progress, 200, "progress", "update");
 }

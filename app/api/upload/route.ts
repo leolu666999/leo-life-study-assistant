@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createUploadedFile, uploadsDir } from "@/lib/db";
+import { mutationResponse } from "@/lib/realtime";
 
 export const runtime = "nodejs";
 
@@ -30,5 +31,5 @@ export async function POST(request: Request) {
     linkedEntityId: String(form.get("linkedEntityId") ?? "") || null
   });
 
-  return Response.json(metadata, { status: 201 });
+  return mutationResponse(metadata, { status: 201 }, "uploads", "create");
 }

@@ -16,6 +16,7 @@ import type {
   TodoList,
   TodoListItem
 } from "./types";
+import { dataDir, dbPath, migrateLegacyUserDataIfNeeded, uploadsDir } from "./app-config";
 
 type DatabaseLike = {
   exec: (sql: string) => void;
@@ -41,10 +42,7 @@ type TodoListInput = Partial<TodoList> & {
   sourcePlanId?: string | null;
 };
 
-const rootDir = process.cwd();
-export const dataDir = path.join(rootDir, "data");
-export const uploadsDir = path.join(rootDir, "uploads");
-export const dbPath = path.join(dataDir, "leo_life_study.db");
+export { dataDir, dbPath, uploadsDir };
 
 declare global {
   // eslint-disable-next-line no-var
@@ -75,8 +73,7 @@ function localDateKey(date: Date) {
 }
 
 export function getDb() {
-  fs.mkdirSync(dataDir, { recursive: true });
-  fs.mkdirSync(uploadsDir, { recursive: true });
+  migrateLegacyUserDataIfNeeded();
 
   if (!globalThis.leoDb) {
     globalThis.leoDb = new sqlite.DatabaseSync(dbPath);
@@ -1414,8 +1411,8 @@ export function exportBackup() {
   return {
     exportedAt: now(),
     appName: "Leo的生活学习助手",
-    databasePath: "./data/leo_life_study.db",
-    uploadsPath: "./uploads",
+    databasePath: dbPath,
+    uploadsPath: uploadsDir,
     tasks: listTasks({ includeArchived: true }),
     plans: listPlans(),
     progressItems: listProgress(),

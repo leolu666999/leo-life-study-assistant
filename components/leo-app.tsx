@@ -295,6 +295,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   });
   const syncLockRef = useRef(false);
   const lastAutoSyncFailedAtRef = useRef(0);
+  const lastRealtimeRefreshAtRef = useRef(0);
 
   useEffect(() => {
     setActiveView(initialView);
@@ -348,6 +349,34 @@ export function LeoApp({ initialView }: { initialView: View }) {
       window.clearInterval(healthTimer);
       window.clearInterval(syncTimer);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof EventSource === "undefined") return;
+
+    const events = new EventSource("/api/events");
+    events.addEventListener("connected", () => {
+      setSyncState((current) => ({
+        ...current,
+        connection: "online",
+        message: current.pendingCount > 0 ? "已连接电脑，有待同步内容。" : "已连接电脑。"
+      }));
+    });
+    events.addEventListener("data-change", () => {
+      const nowTime = Date.now();
+      if (nowTime - lastRealtimeRefreshAtRef.current < 250) return;
+      lastRealtimeRefreshAtRef.current = nowTime;
+      void loadAll(false);
+    });
+    events.onerror = () => {
+      setSyncState((current) => ({
+        ...current,
+        connection: current.connection === "offline" ? "offline" : "checking",
+        message: "正在恢复实时连接..."
+      }));
+    };
+
+    return () => events.close();
   }, []);
 
   useEffect(() => {
@@ -2676,6 +2705,11 @@ function SettingsPage({
   const [uploadMessage, setUploadMessage] = useState("");
   const [currentUrl, setCurrentUrl] = useState("http://电脑局域网IP:3011");
   const [phoneUrl, setPhoneUrl] = useState("");
+  const [storageInfo, setStorageInfo] = useState({
+    databasePath: "正在读取...",
+    uploadsDir: "正在读取...",
+    port: "3011"
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2683,10 +2717,23 @@ function SettingsPage({
 
     async function refreshNetworkUrl() {
       try {
-        const response = await fetch("/api/network", { cache: "no-store" });
-        if (!response.ok) return;
-        const data = (await response.json()) as { url?: string };
-        setPhoneUrl(data.url || "");
+        const [networkResponse, healthResponse] = await Promise.all([
+          fetch("/api/network", { cache: "no-store" }),
+          fetch("/api/health", { cache: "no-store" })
+        ]);
+        if (networkResponse.ok) {
+          const data = (await networkResponse.json()) as { url?: string; port?: number };
+          setPhoneUrl(data.url || "");
+          setStorageInfo((current) => ({ ...current, port: String(data.port || current.port) }));
+        }
+        if (healthResponse.ok) {
+          const data = (await healthResponse.json()) as { databasePath?: string; uploadsDir?: string; port?: number };
+          setStorageInfo((current) => ({
+            databasePath: data.databasePath || current.databasePath,
+            uploadsDir: data.uploadsDir || current.uploadsDir,
+            port: String(data.port || current.port)
+          }));
+        }
       } catch {
         setPhoneUrl("");
       }
@@ -2703,9 +2750,9 @@ function SettingsPage({
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-lg bg-white p-4 shadow-soft">
           <SectionTitle title="本地存储" />
-          <InfoRow label="数据库路径" value="./data/leo_life_study.db" />
-          <InfoRow label="上传路径" value="./uploads" />
-          <InfoRow label="开发端口" value="3011" />
+          <InfoRow label="数据库路径" value={storageInfo.databasePath} />
+          <InfoRow label="上传路径" value={storageInfo.uploadsDir} />
+          <InfoRow label="服务端口" value={storageInfo.port} />
           <a className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" href="/api/backup/export">
             <Download size={16} /> 导出 JSON 备份
           </a>
@@ -2715,7 +2762,7 @@ function SettingsPage({
             <SectionTitle title="手机访问 / 同步状态" />
             <SyncStatusPill state={syncState} />
           </div>
-          <InfoRow label="当前端口" value="3011" />
+          <InfoRow label="当前端口" value={storageInfo.port} />
           <InfoRow label="当前打开地址" value={currentUrl} />
           <InfoRow label="手机输入这个网址" value={phoneUrl || "正在读取电脑局域网 IP..."} />
           {syncState.lastSyncAt && <InfoRow label="上次同步" value={formatDateTime(syncState.lastSyncAt)} />}

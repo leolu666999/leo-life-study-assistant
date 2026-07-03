@@ -1,4 +1,5 @@
 import { createTask, listTasks } from "@/lib/db";
+import { mutationResponse } from "@/lib/realtime";
 
 export const runtime = "nodejs";
 
@@ -8,5 +9,5 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  return Response.json(createTask(body), { status: 201 });
+  return mutationResponse(createTask(body), { status: 201 }, "tasks", "create");
 }

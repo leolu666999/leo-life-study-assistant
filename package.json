@@ -2,11 +2,45 @@
   "name": "leo-life-study-assistant",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3011",
     "build": "next build",
+    "postbuild": "node scripts/prepare-standalone.cjs",
     "start": "next start -H 0.0.0.0 -p 3011",
-    "lint": "next lint"
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "desktop:dev": "electron .",
+    "desktop:pack": "npm run build && electron-builder --mac dir",
+    "desktop:dist": "npm run build && electron-builder --mac dmg",
+    "build:desktop": "npm run desktop:pack"
+  },
+  "build": {
+    "appId": "com.leo.life-study-assistant",
+    "productName": "Leo的生活学习助手",
+    "asar": false,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "!node_modules/**/*",
+      "!.next/cache/**/*",
+      ".next/standalone/**/*",
+      "electron/**/*",
+      "scripts/**/*",
+      "package.json",
+      "package-lock.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dir",
+        "dmg"
+      ]
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}.${ext}"
+    }
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
@@ -19,6 +53,8 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "autoprefixer": "^10.4.20",
+    "electron": "^43.0.0",
+    "electron-builder": "^26.15.3",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"

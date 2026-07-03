@@ -1,4 +1,5 @@
 import { addProgressEntry, listProgressEntries } from "@/lib/db";
+import { mutationResponse } from "@/lib/realtime";
 
 export const runtime = "nodejs";
 
@@ -12,5 +13,5 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const body = await request.json();
   const task = addProgressEntry(id, body);
   if (!task) return Response.json({ error: "Task not found" }, { status: 404 });
-  return Response.json(task, { status: 201 });
+  return mutationResponse(task, { status: 201 }, "progress", "entry-create");
 }

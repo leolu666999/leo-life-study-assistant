@@ -1,4 +1,5 @@
 import { createExpense, listExpenses } from "@/lib/db";
+import { mutationResponse } from "@/lib/realtime";
 
 export const runtime = "nodejs";
 
@@ -8,5 +9,5 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  return Response.json(createExpense(body), { status: 201 });
+  return mutationResponse(createExpense(body), { status: 201 }, "expenses", "create");
 }

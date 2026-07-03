@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createExpense, createJournal, createTask, createTodoList } from "@/lib/db";
+import { broadcastDataChange } from "@/lib/realtime";
 import type { TaskType } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -33,6 +34,9 @@ export async function POST(request: Request) {
       };
     }
   });
+  if (results.some((item) => item.status === "synced")) {
+    broadcastDataChange("sync", "push");
+  }
 
   return NextResponse.json({
     ok: results.every((item) => item.status === "synced"),

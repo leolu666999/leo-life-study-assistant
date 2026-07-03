@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { dbPath, getDb } from "@/lib/db";
+import { appLogDir, dataDir, defaultPort, uploadsDir } from "@/lib/app-config";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,10 @@ export async function GET() {
       app: "Leo的生活学习助手",
       database: "ok",
       databasePath: dbPath,
+      dataDir,
+      uploadsDir,
+      logDir: appLogDir,
+      port: defaultPort,
       time: new Date().toISOString()
     });
   } catch (error) {

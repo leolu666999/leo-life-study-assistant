@@ -1,6 +1,8 @@
 node_modules/
 .next/
 out/
+dist/
+.codex-backups/
 
 # Local user data. Keep folders in the repo, but never commit real data.
 data/*
