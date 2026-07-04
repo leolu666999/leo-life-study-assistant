@@ -3,6 +3,7 @@ node_modules/
 out/
 dist/
 .codex-backups/
+build/icon.iconset/
 
 # Local user data. Keep folders in the repo, but never commit real data.
 data/*
