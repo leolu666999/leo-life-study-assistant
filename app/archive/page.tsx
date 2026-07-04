@@ -1,5 +1,5 @@
-import { LeoApp } from "@/components/leo-app";
+import { redirect } from "next/navigation";
 
 export default function ArchivePage() {
-  return <LeoApp initialView="archive" />;
+  redirect("/tasks?status=completed");
 }

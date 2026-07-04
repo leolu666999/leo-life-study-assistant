@@ -90,11 +90,11 @@ const navItems: Array<{ view: View; href: string; label: string; icon: React.Rea
   { view: "journal", href: "/journal", label: "日记", icon: <NotebookPen size={18} /> },
   { view: "expenses", href: "/expenses", label: "记账", icon: <WalletCards size={18} /> },
   { view: "files", href: "/files", label: "文件", icon: <FileText size={18} /> },
-  { view: "archive", href: "/archive", label: "所有任务", icon: <Archive size={18} /> },
   { view: "settings", href: "/settings", label: "设置", icon: <Settings size={18} /> }
 ];
 
 function viewFromPath(pathname: string): View {
+  if (pathname === "/archive") return "tasks";
   return navItems.find((item) => item.href === pathname)?.view || "dashboard";
 }
 
@@ -804,14 +804,18 @@ export function LeoApp({ initialView }: { initialView: View }) {
               )}
               {activeView === "tasks" && (
                 <TasksPage
-                  tasks={tasks}
+                  tasks={mergeAllTasks(tasks, archiveTasks)}
                   onOpenModal={setModal}
                   onComplete={completeTaskSmooth}
+                  onRestore={(id) => mutate(`/api/tasks/${id}/restore`, { method: "POST" })}
                   onEdit={(task) => {
                     setEditingTask(task);
                     setModal("task");
                   }}
                   onSave={mutate}
+                  onDelete={async (id) => {
+                    if (confirm("确定永久删除这条任务吗？")) await mutate(`/api/tasks/${id}`, { method: "DELETE" });
+                  }}
                   onProgressUpdate={updateTaskProgressSmooth}
                   onToggleSubtask={toggleTaskSubtask}
                 />
@@ -843,15 +847,6 @@ export function LeoApp({ initialView }: { initialView: View }) {
               {activeView === "progress" && <ProgressPage progress={progress} onSave={mutate} onOpenModal={setModal} />}
               {activeView === "courses" && <CoursesPage courses={courses} onSave={mutate} />}
               {activeView === "journal" && <JournalPage journal={journal} onSave={mutate} />}
-              {activeView === "archive" && (
-                <ArchivePage
-                  tasks={archiveTasks}
-                  onRestore={(id) => mutate(`/api/tasks/${id}/restore`, { method: "POST" })}
-                  onDelete={async (id) => {
-                    if (confirm("确定永久删除这条记录吗？")) await mutate(`/api/tasks/${id}`, { method: "DELETE" });
-                  }}
-                />
-              )}
               {activeView === "settings" && (
                 <SettingsPage
                   background={background}
@@ -1244,34 +1239,129 @@ function TasksPage({
   tasks,
   onOpenModal,
   onComplete,
+  onRestore,
   onEdit,
   onSave,
+  onDelete,
   onProgressUpdate,
   onToggleSubtask
 }: {
   tasks: Task[];
   onOpenModal: (mode: ModalMode) => void;
   onComplete: (id: string) => void;
+  onRestore: (id: string) => void;
   onEdit: (task: Task) => void;
   onSave: (url: string, options?: RequestInit) => Promise<void>;
+  onDelete: (id: string) => void;
   onProgressUpdate: (taskId: string, nextValue: number) => Promise<void>;
   onToggleSubtask: (taskId: string, subtaskId: string, completed: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
-  const filtered = tasks.filter((task) => task.title.toLowerCase().includes(query.toLowerCase()));
+  const [statusFilter, setStatusFilter] = useState<"active" | "completed" | "all">("active");
+  const [typeFilter, setTypeFilter] = useState<TaskType | "">("");
+  const [tag, setTag] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [sort, setSort] = useState("due-nearest");
+  const statusTabs: Array<["active" | "completed" | "all", string]> = [
+    ["active", "进行中"],
+    ["completed", "已完成"],
+    ["all", "全部"]
+  ];
+  const typeTabs: Array<[TaskType | "", string]> = [
+    ["", "全部"],
+    ["todo", "Task"],
+    ["deadline", "Deadline"],
+    ["counter", "Counter"],
+    ["checklist", "清单"]
+  ];
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("status");
+    if (status === "completed" || status === "all") setStatusFilter(status);
+  }, []);
+
+  const filtered = tasks
+    .filter(isTaskCardGridItem)
+    .filter((task) => {
+      const normalizedType = normalizeType(task.type);
+      const isCompletedGroup = task.status === "completed" || task.status === "archived";
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && !isCompletedGroup) ||
+        (statusFilter === "completed" && isCompletedGroup);
+      return (
+        matchesStatus &&
+        task.title.toLowerCase().includes(query.toLowerCase()) &&
+        (!typeFilter || normalizedType === typeFilter) &&
+        (!tag || task.tags.some((item) => item.toLowerCase().includes(tag.toLowerCase()))) &&
+        (!startDate || Boolean(task.startDate) && String(task.startDate) >= startDate) &&
+        (!dueDate || Boolean(task.dueDate) && String(task.dueDate) <= dueDate)
+      );
+    })
+    .sort((a, b) => sortTasks(a, b, sort));
+
   return (
     <>
       <PageHeader
         title="任务"
-        subtitle="统一管理任务、截止日期、清单和计数目标。"
+        subtitle="统一管理任务、截止日期、清单和计数目标"
         actions={<ActionButton onClick={() => onOpenModal("task")} icon={<Plus size={16} />} label="新建任务" />}
       />
-      <SearchBox value={query} onChange={setQuery} placeholder="搜索任务标题" />
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+        {statusTabs.map(([value, label]) => (
+          <button
+            key={value}
+            className={`shrink-0 rounded-lg px-4 py-2 text-sm font-medium ${
+              statusFilter === value ? "bg-slate-900 text-white" : "bg-white text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+            }`}
+            onClick={() => setStatusFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+          {typeTabs.map(([value, label]) => (
+            <button
+              key={value || "all"}
+              className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${
+                typeFilter === value ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+              onClick={() => setTypeFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="grid gap-3 md:grid-cols-6">
+          <SearchBox value={query} onChange={setQuery} placeholder="搜索任务标题" className="mb-0 md:col-span-2" />
+          <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="标签" />
+          <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} title="开始日期" />
+          <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} title="截止日期" />
+          <Select
+            value={sort}
+            onChange={(event) => setSort(event.target.value)}
+            options={[
+              ["due-nearest", "离截止时间最近"],
+              ["due-farthest", "离截止时间最远"],
+              ["created-newest", "创建时间最新"],
+              ["created-oldest", "创建时间最早"],
+              ["title", "标题排序"]
+            ]}
+          />
+        </div>
+      </section>
       <TaskGrid
         tasks={filtered}
         onComplete={onComplete}
+        onRestore={onRestore}
         onEdit={onEdit}
         onSave={onSave}
+        onDelete={onDelete}
         onProgressUpdate={onProgressUpdate}
         onToggleSubtask={onToggleSubtask}
       />
@@ -1359,68 +1449,38 @@ function TodoListPreviewCard({ items, onToggle }: { items: TodoListItem[]; onTog
 function TaskGrid({
   tasks,
   onComplete,
+  onRestore,
   onEdit,
   onSave,
+  onDelete,
   onProgressUpdate,
   onToggleSubtask
 }: {
   tasks: Task[];
   onComplete: (id: string) => void;
+  onRestore?: (id: string) => void;
   onEdit: (task: Task) => void;
   onSave: (url: string, options?: RequestInit) => Promise<void>;
+  onDelete?: (id: string) => void;
   onProgressUpdate: (taskId: string, nextValue: number) => Promise<void>;
   onToggleSubtask: (taskId: string, subtaskId: string, completed: boolean) => void;
 }) {
-  const visibleTasks = tasks.filter(isTaskCardGridItem);
-  const activeTasks = visibleTasks.filter((task) => task.status !== "completed");
-  const completedTasks = visibleTasks.filter((task) => task.status === "completed");
-  if (visibleTasks.length === 0) return <EmptyBlock text="暂无任务。新建一个，让今天有个明确抓手。" />;
+  if (tasks.length === 0) return <EmptyBlock text="没有符合条件的任务。" />;
   return (
-    <div className="space-y-4">
-      {activeTasks.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {activeTasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onComplete={onComplete}
-              onEdit={onEdit}
-              onSave={onSave}
-              onProgressUpdate={onProgressUpdate}
-              onToggleSubtask={onToggleSubtask}
-            />
-          ))}
-        </div>
-      )}
-      {activeTasks.length > 0 && completedTasks.length > 0 && (
-        <div className="flex items-center gap-3 py-1 text-xs font-medium text-slate-400">
-          <div className="h-px flex-1 border-t border-dashed border-slate-300" />
-          <span>已完成</span>
-          <div className="h-px flex-1 border-t border-dashed border-slate-300" />
-        </div>
-      )}
-      {completedTasks.length > 0 && activeTasks.length === 0 && (
-        <div className="flex items-center gap-3 py-1 text-xs font-medium text-slate-400">
-          <div className="h-px flex-1 border-t border-dashed border-slate-300" />
-          <span>已完成</span>
-          <div className="h-px flex-1 border-t border-dashed border-slate-300" />
-        </div>
-      )}
-      {completedTasks.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {completedTasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onComplete={onComplete}
-              onEdit={onEdit}
-              onSave={onSave}
-              onProgressUpdate={onProgressUpdate}
-              onToggleSubtask={onToggleSubtask}
-            />
-          ))}
-        </div>
-      )}
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {tasks.map((task) => (
+        <TaskCard
+          key={task.id}
+          task={task}
+          onComplete={onComplete}
+          onRestore={onRestore}
+          onEdit={onEdit}
+          onSave={onSave}
+          onDelete={onDelete}
+          onProgressUpdate={onProgressUpdate}
+          onToggleSubtask={onToggleSubtask}
+        />
+      ))}
     </div>
   );
 }
@@ -1433,22 +1493,33 @@ function mergeDashboardTasks(activeTasks: Task[], completedTasks: Task[]) {
   return Array.from(taskMap.values());
 }
 
+function mergeAllTasks(activeTasks: Task[], archivedTasks: Task[]) {
+  const taskMap = new Map<string, Task>();
+  [...activeTasks, ...archivedTasks].forEach((task) => taskMap.set(task.id, task));
+  return Array.from(taskMap.values());
+}
+
 function TaskCard({
   task,
   onComplete,
+  onRestore,
   onEdit,
   onSave,
+  onDelete,
   onProgressUpdate,
   onToggleSubtask
 }: {
   task: Task;
   onComplete: (id: string) => void;
+  onRestore?: (id: string) => void;
   onEdit: (task: Task) => void;
   onSave: (url: string, options?: RequestInit) => Promise<void>;
+  onDelete?: (id: string) => void;
   onProgressUpdate: (taskId: string, nextValue: number) => Promise<void>;
   onToggleSubtask: (taskId: string, subtaskId: string, completed: boolean) => void;
 }) {
-  const urgent = task.status !== "completed" && isDueWithin24HoursOrOverdue(task.dueDate);
+  const completedOrArchived = task.status === "completed" || task.status === "archived";
+  const urgent = !completedOrArchived && isDueWithin24HoursOrOverdue(task.dueDate);
   const hasProgress = Boolean(task.progressEnabled || task.progressTarget);
   const visibleTaskTags = task.tags.filter(
     (tag) => task.type !== "deadline" || !["deadline", "截止"].includes(tag.trim().toLowerCase())
@@ -1476,7 +1547,7 @@ function TaskCard({
   return (
     <article
       className={`flex min-h-[220px] flex-col rounded-lg border p-4 shadow-soft ${
-        urgent ? "border-red-200 bg-red-50" : task.status === "completed" ? "border-slate-200 bg-slate-50/70" : "border-slate-200 bg-white"
+        urgent ? "border-red-200 bg-red-50" : completedOrArchived ? "border-slate-200 bg-slate-50/70 opacity-90" : "border-slate-200 bg-white"
       }`}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -1490,9 +1561,11 @@ function TaskCard({
             ))}
           </div>
         </div>
-        <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-white" onClick={() => onEdit(task)} title="编辑">
-          <Menu size={16} />
-        </button>
+        {!completedOrArchived && (
+          <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-white" onClick={() => onEdit(task)} title="编辑">
+            <Menu size={16} />
+          </button>
+        )}
       </div>
       {task.description && <p className="mb-3 line-clamp-3 text-sm text-slate-600">{task.description}</p>}
       {task.dueDate && (
@@ -1562,14 +1635,37 @@ function TaskCard({
         </div>
       )}
       <div className="mt-auto pt-4">
-        {task.status === "completed" ? (
-          <button className="flex w-full cursor-default items-center justify-center gap-2 rounded-lg bg-slate-200 px-3 py-2 text-sm font-medium text-slate-500" disabled>
-            <Check size={15} /> 已完成
-          </button>
+        {completedOrArchived ? (
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            {onRestore ? (
+              <button className="flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50" onClick={() => onRestore(task.id)}>
+                <RotateCcw size={15} /> 恢复
+              </button>
+            ) : (
+              <button className="flex cursor-default items-center justify-center gap-2 rounded-lg bg-slate-200 px-3 py-2 text-sm font-medium text-slate-500" disabled>
+                <Check size={15} /> 已完成
+              </button>
+            )}
+            {onDelete && (
+              <button className="flex items-center justify-center rounded-lg border border-red-200 px-3 py-2 text-red-600 hover:bg-red-50" onClick={() => onDelete(task.id)} title="永久删除">
+                <Trash2 size={15} />
+              </button>
+            )}
+          </div>
         ) : (
-          <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => onComplete(task.id)}>
-            <Check size={15} /> 完成
-          </button>
+          <div className={onDelete ? "grid grid-cols-[1fr_auto_auto] gap-2" : "grid grid-cols-[1fr_auto] gap-2"}>
+            <button className="flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => onComplete(task.id)}>
+              <Check size={15} /> 完成
+            </button>
+            <button className="flex items-center justify-center rounded-lg border border-slate-200 px-3 py-2 text-slate-600 hover:bg-slate-50" onClick={() => onSave(`/api/tasks/${task.id}/archive`, { method: "POST" })} title="归档">
+              <Archive size={15} />
+            </button>
+            {onDelete && (
+              <button className="flex items-center justify-center rounded-lg border border-red-200 px-3 py-2 text-red-600 hover:bg-red-50" onClick={() => onDelete(task.id)} title="永久删除">
+                <Trash2 size={15} />
+              </button>
+            )}
+          </div>
         )}
       </div>
     </article>
@@ -2580,109 +2676,6 @@ function ExpenseStatCard({ title, amount }: { title: string; amount: Record<stri
       <div className="text-sm text-slate-500">{title}</div>
       <div className="mt-2 text-2xl font-semibold">{formatExpenseTotals(amount)}</div>
     </section>
-  );
-}
-
-function ArchivePage({
-  tasks,
-  onRestore,
-  onDelete
-}: {
-  tasks: Task[];
-  onRestore: (id: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [type, setType] = useState<TaskType | "">("");
-  const [sort, setSort] = useState("nearest");
-  const [tag, setTag] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const typeTabs: Array<[TaskType | "", string]> = [
-    ["", "全部"],
-    ["todo", "Task"],
-    ["deadline", "Deadline"],
-    ["counter", "Counter"],
-    ["checklist", "清单"]
-  ];
-  const filtered = tasks
-    .filter((task) => {
-      const normalizedType = normalizeType(task.type);
-      const date = task.completedAt || task.archivedAt || task.dueDate || task.startDate || task.createdAt || "";
-      return (
-        task.title.toLowerCase().includes(query.toLowerCase()) &&
-        (!type || normalizedType === type) &&
-        (!tag || task.tags.some((item) => item.toLowerCase().includes(tag.toLowerCase()))) &&
-        (!from || date >= from) &&
-        (!to || date <= to)
-      );
-    })
-    .sort((a, b) => sortTasks(a, b, sort));
-
-  return (
-    <>
-      <PageHeader
-        title="所有任务"
-        subtitle="完成后的 Task、Deadline 和计数目标会从首页消失，但会保留在这里。"
-        actions={
-          <Select
-            value={sort}
-            onChange={(event) => setSort(event.target.value)}
-            options={[
-              ["nearest", "离现在最近"],
-              ["earliest", "时间最早"],
-              ["latest", "时间最晚"]
-            ]}
-          />
-        }
-      />
-      <div className="mb-4 rounded-lg bg-white p-4 shadow-soft">
-        <div className="mb-4 flex flex-wrap gap-2">
-          {typeTabs.map(([value, label]) => (
-            <button
-              key={value || "all"}
-              className={`rounded-lg px-3 py-2 text-sm font-medium ${
-                type === value ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-              onClick={() => setType(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="grid gap-3 md:grid-cols-4">
-          <SearchBox value={query} onChange={setQuery} placeholder="搜索标题" className="mb-0 md:col-span-2" />
-        <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="标签" />
-          <div className="grid grid-cols-2 gap-2">
-            <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-            <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
-          </div>
-        </div>
-      </div>
-      <div className="space-y-3">
-        {filtered.length === 0 && <EmptyBlock text="没有符合条件的任务。" />}
-        {filtered.map((task) => (
-          <div key={task.id} className="flex flex-col justify-between gap-3 rounded-lg bg-white p-4 shadow-soft md:flex-row md:items-center">
-            <div>
-              <div className="font-semibold">{task.title}</div>
-              <div className="text-sm text-slate-500">
-                {typeLabels[task.type]} · {statusLabel(task.status)} · {task.dueDate ? task.dueDate : `创建 ${task.createdAt.slice(0, 10)}`}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {task.status !== "not_started" && (
-                <button className="rounded-lg border border-slate-200 p-2" onClick={() => onRestore(task.id)} title="恢复到未开始">
-                  <RotateCcw size={16} />
-                </button>
-              )}
-              <button className="rounded-lg border border-red-200 p-2 text-red-600" onClick={() => onDelete(task.id)} title="永久删除">
-                <Trash2 size={16} />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
   );
 }
 
@@ -3970,10 +3963,23 @@ function taskTime(task: Task) {
 }
 
 function sortTasks(a: Task, b: Task, sort: string) {
+  if (sort === "due-nearest") return taskDueTime(a) - taskDueTime(b);
+  if (sort === "due-farthest") return taskDueTime(b) - taskDueTime(a);
+  if (sort === "created-newest") return createdTime(b) - createdTime(a);
+  if (sort === "created-oldest") return createdTime(a) - createdTime(b);
+  if (sort === "title") return a.title.localeCompare(b.title, "zh-Hans-CN");
   if (sort === "earliest") return taskTime(a) - taskTime(b);
   if (sort === "latest") return taskTime(b) - taskTime(a);
   const nowTime = Date.now();
   return Math.abs(taskTime(a) - nowTime) - Math.abs(taskTime(b) - nowTime);
+}
+
+function taskDueTime(task: Task) {
+  return parseTaskDate(task.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+}
+
+function createdTime(task: Task) {
+  return parseTaskDate(task.createdAt)?.getTime() ?? 0;
 }
 
 function isTaskCardGridItem(task: Task) {
