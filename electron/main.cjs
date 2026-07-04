@@ -19,6 +19,11 @@ let mainWindow = null;
 let backendProcess = null;
 let backendOwnedByDesktop = false;
 
+const singleInstanceLock = app.requestSingleInstanceLock();
+if (!singleInstanceLock) {
+  app.exit(0);
+}
+
 function ensureDirs() {
   fs.mkdirSync(appDataDir, { recursive: true });
   fs.mkdirSync(logDir, { recursive: true });
@@ -127,6 +132,13 @@ function startBackend() {
   });
 }
 
+function stopOwnedBackend(signal = "SIGTERM") {
+  if (backendOwnedByDesktop && backendProcess && !backendProcess.killed) {
+    log("Stopping desktop-owned backend", { pid: backendProcess.pid, signal });
+    backendProcess.kill(signal);
+  }
+}
+
 async function waitForBackend() {
   if (await checkHealth()) {
     backendOwnedByDesktop = false;
@@ -218,15 +230,31 @@ async function boot() {
 
 app.whenReady().then(boot);
 
+app.on("second-instance", () => {
+  log("Second app instance requested; focusing existing window");
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
+
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) void boot();
 });
 
 app.on("before-quit", () => {
   log("Desktop app quitting", { ownedBackend: backendOwnedByDesktop, backendPid: backendProcess?.pid });
-  if (backendOwnedByDesktop && backendProcess) {
-    backendProcess.kill("SIGTERM");
-  }
+  stopOwnedBackend();
+});
+
+process.on("SIGINT", () => {
+  stopOwnedBackend("SIGINT");
+  app.quit();
+});
+
+process.on("SIGTERM", () => {
+  stopOwnedBackend("SIGTERM");
+  app.quit();
 });
 
 app.on("window-all-closed", () => {
