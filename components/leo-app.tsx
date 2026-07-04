@@ -31,7 +31,22 @@ import {
   WalletCards,
   X
 } from "lucide-react";
-import type { Course, Expense, ImportantFile, JournalEntry, Plan, ProgressItem, Task, TaskType, TodoList, TodoListItem } from "@/lib/types";
+import type {
+  Course,
+  CourseOccurrence,
+  Expense,
+  ImportantFile,
+  JournalEntry,
+  Plan,
+  ProgressItem,
+  Task,
+  TaskType,
+  TimetableCourse,
+  TimetableImportPreview,
+  TimetableSource,
+  TodoList,
+  TodoListItem
+} from "@/lib/types";
 
 type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "progress" | "courses" | "journal" | "archive" | "settings";
 type ModalMode = "task" | "deadline" | "plan" | "todoList" | "counter" | "expense" | null;
@@ -845,7 +860,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
                 />
               )}
               {activeView === "progress" && <ProgressPage progress={progress} onSave={mutate} onOpenModal={setModal} />}
-              {activeView === "courses" && <CoursesPage courses={courses} onSave={mutate} />}
+              {activeView === "courses" && <CoursesPage courses={courses} />}
               {activeView === "journal" && <JournalPage journal={journal} onSave={mutate} />}
               {activeView === "settings" && (
                 <SettingsPage
@@ -2134,60 +2149,328 @@ function ProgressPage({
   );
 }
 
-function CoursesPage({ courses, onSave }: { courses: Course[]; onSave: (url: string, options?: RequestInit) => Promise<void> }) {
+type TimetableViewMode = "day" | "week" | "month" | "semester";
+type TimetableEditScope = "single" | "week" | "month" | "future" | "series";
+
+function startOfLocalDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function filterOccurrencesForView(occurrences: CourseOccurrence[], view: TimetableViewMode, anchorDate: string) {
+  const anchor = startOfLocalDay(new Date(`${anchorDate}T00:00:00`));
+  let start = new Date(anchor);
+  let end = addDays(start, 1);
+  if (view === "week") {
+    const day = (start.getDay() + 6) % 7;
+    start = addDays(start, -day);
+    end = addDays(start, 7);
+  } else if (view === "month") {
+    start.setDate(1);
+    end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+  } else if (view === "semester") {
+    return occurrences
+      .filter((occurrence) => occurrence.status !== "cancelled")
+      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  }
+  return occurrences
+    .filter((occurrence) => {
+      const startAt = new Date(occurrence.startAt);
+      const endAt = new Date(occurrence.endAt);
+      return occurrence.status !== "cancelled" && endAt >= start && startAt < end;
+    })
+    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+}
+
+function promptScope(message = "修改范围：single / week / month / future / series"): TimetableEditScope | null {
+  const value = prompt(message, "single")?.trim() as TimetableEditScope | undefined;
+  if (!value) return null;
+  return ["single", "week", "month", "future", "series"].includes(value) ? value : null;
+}
+
+function TimetableOccurrenceRow({ occurrence }: { occurrence: CourseOccurrence }) {
+  const course = occurrence.course;
+  return (
+    <div className="grid gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm md:grid-cols-[1.2fr_1fr_1fr]">
+      <div className="font-medium text-slate-900">{course?.courseCode ?? "COURSE"} · {course?.courseName ?? "未命名课程"}</div>
+      <div className="text-slate-600">{formatTaskDateTime(occurrence.startAt)} - {formatTaskDateTime(occurrence.endAt)}</div>
+      <div className="text-slate-500">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>
+    </div>
+  );
+}
+
+function TimetableOccurrenceCard({
+  occurrence,
+  onEdit,
+  onCancel
+}: {
+  occurrence: CourseOccurrence;
+  onEdit: () => void;
+  onCancel: () => void;
+}) {
+  const course = occurrence.course;
+  return (
+    <article className="rounded-lg border border-slate-100 bg-white p-4 shadow-soft">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-slate-950">{course?.courseCode ?? "COURSE"}</span>
+            <Badge>{course?.activityType ?? "课程"}</Badge>
+          </div>
+          <div className="mt-1 text-sm font-medium text-slate-700">{course?.courseName ?? course?.activityName ?? "未命名课程"}</div>
+        </div>
+        <div className="flex gap-2">
+          <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={onEdit} title="编辑地点">
+            <Settings size={16} />
+          </button>
+          <button className="rounded-lg border border-red-200 p-2 text-red-500 hover:bg-red-50" onClick={onCancel} title="取消课程">
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+      <div className="space-y-2 text-sm text-slate-600">
+        <div>{formatTaskDateTime(occurrence.startAt)} - {formatTaskDateTime(occurrence.endAt)}</div>
+        <div>{occurrence.location || course?.defaultLocation || "地点待确认"}</div>
+        {occurrence.notes && <div className="line-clamp-2 text-slate-500">{occurrence.notes}</div>}
+      </div>
+    </article>
+  );
+}
+
+function CoursesPage({ courses }: { courses: Course[] }) {
+  const [sources, setSources] = useState<TimetableSource[]>([]);
+  const [timetableCourses, setTimetableCourses] = useState<TimetableCourse[]>([]);
+  const [occurrences, setOccurrences] = useState<CourseOccurrence[]>([]);
+  const [preview, setPreview] = useState<TimetableImportPreview | null>(null);
+  const [importMode, setImportMode] = useState<"feed" | "file" | "screenshot">("feed");
+  const [feedUrl, setFeedUrl] = useState("");
+  const [semester, setSemester] = useState("Semester 1");
+  const [academicYear, setAcademicYear] = useState(String(new Date().getFullYear()));
+  const [view, setView] = useState<TimetableViewMode>("week");
+  const [anchorDate, setAnchorDate] = useState(localDateKey(new Date()));
+  const [importMessage, setImportMessage] = useState("");
+
+  useEffect(() => {
+    void loadTimetable();
+  }, []);
+
+  async function loadTimetable() {
+    const response = await fetch("/api/timetable?includeCancelled=1", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = (await response.json()) as {
+      sources: TimetableSource[];
+      courses: TimetableCourse[];
+      occurrences: CourseOccurrence[];
+    };
+    setSources(data.sources);
+    setTimetableCourses(data.courses);
+    setOccurrences(data.occurrences);
+  }
+
+  async function previewFeed() {
+    setImportMessage("正在读取课表...");
+    const response = await fetch("/api/timetable/import/preview", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        feedUrl,
+        semester,
+        academicYear: Number(academicYear),
+        timezone: "Australia/Sydney"
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setImportMessage(data.error || "读取失败");
+      return;
+    }
+    setPreview(data);
+    setImportMessage("已生成导入预览，请检查后确认。");
+  }
+
+  async function previewFile(file: File | null) {
+    if (!file) return;
+    setImportMessage("正在解析 ICS 文件...");
+    const form = new FormData();
+    form.append("file", file);
+    form.append("semester", semester);
+    form.append("academicYear", academicYear);
+    form.append("timezone", "Australia/Sydney");
+    const response = await fetch("/api/timetable/import/preview", { method: "POST", body: form });
+    const data = await response.json();
+    if (!response.ok) {
+      setImportMessage(data.error || "解析失败");
+      return;
+    }
+    setPreview(data);
+    setImportMessage("已生成导入预览，请检查后确认。");
+  }
+
+  async function confirmImport() {
+    if (!preview) return;
+    const response = await fetch("/api/timetable/import/confirm", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(preview)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setImportMessage(data.error || "保存失败");
+      return;
+    }
+    setImportMessage(`导入完成：新增 ${data.created}，更新 ${data.updated}，跳过 ${data.skipped}，冲突 ${data.conflicts}`);
+    setPreview(null);
+    await loadTimetable();
+  }
+
+  async function updateOccurrence(occurrence: CourseOccurrence) {
+    const scope = promptScope();
+    if (!scope) return;
+    const location = prompt("新的地点", occurrence.location || "");
+    if (location === null) return;
+    await fetch(`/api/timetable/occurrences/${occurrence.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scope, patch: { location } })
+    });
+    await loadTimetable();
+  }
+
+  async function cancelOccurrence(occurrence: CourseOccurrence) {
+    const scope = promptScope("取消范围：single / week / month / future / series");
+    if (!scope) return;
+    if (!confirm("确定取消选中范围内的课程吗？")) return;
+    await fetch(`/api/timetable/occurrences/${occurrence.id}?scope=${encodeURIComponent(scope)}`, { method: "DELETE" });
+    await loadTimetable();
+  }
+
+  const visibleOccurrences = filterOccurrencesForView(occurrences, view, anchorDate);
+
   return (
     <>
-      <PageHeader title="课程" subtitle="手动维护课程、上课时间和地点；Canvas / USYD 同步先作为未来功能占位。" />
-      <form
-        className="mb-4 grid gap-3 rounded-lg bg-white p-4 shadow-soft md:grid-cols-6"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const form = new FormData(event.currentTarget);
-          void onSave("/api/courses", {
-            method: "POST",
-            body: JSON.stringify({
-              code: form.get("code"),
-              name: form.get("name"),
-              semester: form.get("semester"),
-              sessions: [
-                {
-                  dayOfWeek: Number(form.get("dayOfWeek")),
-                  startTime: form.get("startTime"),
-                  endTime: form.get("endTime"),
-                  type: form.get("type"),
-                  location: form.get("location")
-                }
-              ]
-            })
-          });
-          event.currentTarget.reset();
-        }}
-      >
-        <Input name="code" placeholder="课程代码" required />
-        <Input name="name" placeholder="课程名称" required />
-        <Input name="semester" placeholder="学期" defaultValue="Semester 1" />
-        <Select name="dayOfWeek" options={[["1", "周一"], ["2", "周二"], ["3", "周三"], ["4", "周四"], ["5", "周五"], ["6", "周六"], ["0", "周日"]]} />
-        <Input name="startTime" type="time" defaultValue="09:00" />
-        <Input name="endTime" type="time" defaultValue="10:00" />
-        <Select name="type" options={[["lecture", "Lecture"], ["tutorial", "Tutorial"], ["lab", "Lab"], ["seminar", "Seminar"], ["other", "Other"]]} />
-        <Input name="location" placeholder="地点" className="md:col-span-2" />
-        <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white md:col-span-3">添加课程</button>
-      </form>
-      <div className="grid gap-4 lg:grid-cols-2">
-        {courses.map((course) => (
-          <section key={course.id} className="rounded-lg bg-white p-4 shadow-soft">
-            <div className="text-lg font-semibold">{course.code} · {course.name}</div>
-            <div className="text-sm text-slate-500">{course.semester}</div>
-            <div className="mt-4 space-y-2">
-              {course.sessions.map((session) => (
-                <div key={session.id} className="rounded-lg border border-slate-200 p-3 text-sm">
-                  周{session.dayOfWeek === 0 ? "日" : session.dayOfWeek} · {session.startTime}-{session.endTime} · {session.type} · {session.location}
-                </div>
-              ))}
+      <PageHeader title="课程" subtitle="导入、同步和管理完整学期课表。" />
+      <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+          {(["feed", "file", "screenshot"] as const).map((mode) => (
+            <button
+              key={mode}
+              className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${
+                importMode === mode ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+              onClick={() => setImportMode(mode)}
+            >
+              {mode === "feed" ? "订阅链接" : mode === "file" ? "上传 ICS 文件" : "上传课表截图"}
+            </button>
+          ))}
+        </div>
+        <div className="grid gap-3 md:grid-cols-5">
+          <Input value={semester} onChange={(event) => setSemester(event.target.value)} placeholder="学期" />
+          <Input value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} placeholder="年份" inputMode="numeric" />
+          {importMode === "feed" && (
+            <>
+              <Input value={feedUrl} onChange={(event) => setFeedUrl(event.target.value)} placeholder="Calendar Feed URL" className="md:col-span-2" />
+              <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => void previewFeed()}>
+                读取课表
+              </button>
+            </>
+          )}
+          {importMode === "file" && (
+            <label className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600 md:col-span-3">
+              上传 .ics 文件
+              <input className="hidden" type="file" accept=".ics,text/calendar" onChange={(event) => void previewFile(event.target.files?.[0] ?? null)} />
+            </label>
+          )}
+          {importMode === "screenshot" && (
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-600 md:col-span-3">
+              截图识别入口已预留：可多选 PNG/JPG/WebP，识别结果只会进入预览，不会直接写入正式课表。
+              <input className="mt-2 block w-full text-xs" type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={() => setImportMessage("截图已选择。结构化 OCR 将作为下一阶段接入；当前不会写入数据库。")} />
             </div>
-          </section>
-        ))}
-      </div>
+          )}
+        </div>
+        {importMessage && <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{importMessage}</div>}
+      </section>
+
+      {preview && (
+        <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
+          <div className="mb-3 flex flex-col justify-between gap-3 md:flex-row md:items-center">
+            <div>
+              <SectionTitle title="导入预览" />
+              <div className="text-sm text-slate-500">
+                {preview.summary.courseCount} 门课程 · {preview.summary.occurrenceCount} 节课 · 重复 {preview.summary.duplicateCount} · 冲突 {preview.summary.conflictCount}
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                {preview.summary.semesterStart ? formatTaskDateTime(preview.summary.semesterStart) : "未知开始"} - {preview.summary.semesterEnd ? formatTaskDateTime(preview.summary.semesterEnd) : "未知结束"}
+              </div>
+            </div>
+            <ActionButton onClick={() => void confirmImport()} icon={<Check size={16} />} label="确认导入" />
+          </div>
+          <div className="max-h-72 space-y-2 overflow-auto">
+            {preview.occurrences.slice(0, 80).map((occurrence) => (
+              <TimetableOccurrenceRow key={occurrence.id} occurrence={occurrence} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
+        <div className="mb-4 grid gap-3 md:grid-cols-[auto_auto_1fr] md:items-center">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {(["day", "week", "month", "semester"] as const).map((item) => (
+              <button
+                key={item}
+                className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${
+                  view === item ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+                onClick={() => setView(item)}
+              >
+                {item === "day" ? "日" : item === "week" ? "周" : item === "month" ? "月" : "学期"}
+              </button>
+            ))}
+          </div>
+          <Input type="date" value={anchorDate} onChange={(event) => setAnchorDate(event.target.value)} />
+          <div className="text-sm text-slate-500 md:text-right">
+            来源 {sources.length} · 课程系列 {timetableCourses.length} · 当前显示 {visibleOccurrences.length}
+          </div>
+        </div>
+        <div className={view === "week" ? "grid min-w-full gap-3 overflow-x-auto md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
+          {visibleOccurrences.length === 0 && <EmptyBlock text="当前范围没有课程。" />}
+          {visibleOccurrences.map((occurrence) => (
+            <TimetableOccurrenceCard
+              key={occurrence.id}
+              occurrence={occurrence}
+              onEdit={() => void updateOccurrence(occurrence)}
+              onCancel={() => void cancelOccurrence(occurrence)}
+            />
+          ))}
+        </div>
+      </section>
+
+      {courses.length > 0 && (
+        <section className="rounded-lg bg-white p-4 shadow-soft">
+          <SectionTitle title="旧手动课程（只读）" />
+          <div className="grid gap-3 lg:grid-cols-2">
+            {courses.map((course) => (
+              <div key={course.id} className="rounded-lg border border-slate-200 p-3">
+                <div className="font-semibold">{course.code} · {course.name}</div>
+                <div className="text-sm text-slate-500">{course.semester}</div>
+                <div className="mt-2 space-y-1 text-sm text-slate-600">
+                  {course.sessions.map((session) => (
+                    <div key={session.id}>周{session.dayOfWeek === 0 ? "日" : session.dayOfWeek} · {session.startTime}-{session.endTime} · {session.type} · {session.location}</div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }

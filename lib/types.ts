@@ -136,6 +136,90 @@ export type Assignment = {
   linkedTaskId?: string | null;
 };
 
+export type TimetableSourceType = "calendar_feed" | "ics_file" | "screenshot";
+export type TimetableSyncStatus = "idle" | "success" | "failed";
+export type CourseOccurrenceStatus = "scheduled" | "cancelled" | "completed";
+
+export type TimetableSource = {
+  id: string;
+  type: TimetableSourceType;
+  name: string;
+  feedUrl?: string | null;
+  semester: string;
+  academicYear: number;
+  timezone: string;
+  lastSyncedAt?: string | null;
+  lastSyncStatus: TimetableSyncStatus;
+  lastSyncError?: string | null;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TimetableCourse = {
+  id: string;
+  courseCode: string;
+  courseName: string;
+  activityType: string;
+  activityName?: string | null;
+  semester: string;
+  academicYear: number;
+  defaultLocation?: string | null;
+  campus?: string | null;
+  color: string;
+  notes?: string | null;
+  sourceType: "manual" | TimetableSourceType;
+  sourceId?: string | null;
+  externalUid?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CourseOccurrence = {
+  id: string;
+  courseId: string;
+  course?: TimetableCourse;
+  startAt: string;
+  endAt: string;
+  location?: string | null;
+  campus?: string | null;
+  status: CourseOccurrenceStatus;
+  isException: boolean;
+  originalStartAt?: string | null;
+  sourceUpdatedAt?: string | null;
+  localModifiedAt?: string | null;
+  localModifiedFields?: string[];
+  notes?: string | null;
+  sourceType?: "manual" | TimetableSourceType;
+  sourceId?: string | null;
+  externalUid?: string | null;
+  occurrenceStart?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TimetableImportPreview = {
+  source: {
+    type: TimetableSourceType;
+    name: string;
+    feedUrl?: string | null;
+    semester: string;
+    academicYear: number;
+    timezone: string;
+  };
+  summary: {
+    courseCount: number;
+    occurrenceCount: number;
+    semesterStart?: string | null;
+    semesterEnd?: string | null;
+    duplicateCount: number;
+    conflictCount: number;
+    unrecognizedFields: string[];
+  };
+  courses: TimetableCourse[];
+  occurrences: CourseOccurrence[];
+};
+
 export type JournalEntry = {
   id: string;
   date: string;

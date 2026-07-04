@@ -1,5 +1,4 @@
-import { createCourse, listCourses } from "@/lib/db";
-import { mutationResponse } from "@/lib/realtime";
+import { listCourses } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -8,6 +7,6 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  return mutationResponse(createCourse(body), { status: 201 }, "courses", "create");
+  await request.text();
+  return Response.json({ error: "旧的手动添加课程功能已停用，请使用课表导入。" }, { status: 410 });
 }

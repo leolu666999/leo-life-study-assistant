@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type {
   Assignment,
   ClassSession,
+  CourseOccurrence,
   Course,
   Expense,
   ImportantFile,
@@ -13,6 +14,9 @@ import type {
   Subtask,
   Task,
   TaskProgressEntry,
+  TimetableCourse,
+  TimetableImportPreview,
+  TimetableSource,
   TodoList,
   TodoListItem
 } from "./types";
@@ -225,6 +229,67 @@ function migrate(db: DatabaseLike) {
       notes TEXT,
       linkedTaskId TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS timetable_sources (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      feedUrl TEXT,
+      semester TEXT NOT NULL,
+      academicYear INTEGER NOT NULL,
+      timezone TEXT NOT NULL DEFAULT 'Australia/Sydney',
+      lastSyncedAt TEXT,
+      lastSyncStatus TEXT NOT NULL DEFAULT 'idle',
+      lastSyncError TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS timetable_courses (
+      id TEXT PRIMARY KEY,
+      courseCode TEXT NOT NULL,
+      courseName TEXT NOT NULL,
+      activityType TEXT NOT NULL,
+      activityName TEXT,
+      semester TEXT NOT NULL,
+      academicYear INTEGER NOT NULL,
+      defaultLocation TEXT,
+      campus TEXT,
+      color TEXT NOT NULL DEFAULT '#0f172a',
+      notes TEXT,
+      sourceType TEXT NOT NULL DEFAULT 'manual',
+      sourceId TEXT,
+      externalUid TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS course_occurrences (
+      id TEXT PRIMARY KEY,
+      courseId TEXT NOT NULL REFERENCES timetable_courses(id) ON DELETE CASCADE,
+      startAt TEXT NOT NULL,
+      endAt TEXT NOT NULL,
+      location TEXT,
+      campus TEXT,
+      status TEXT NOT NULL DEFAULT 'scheduled',
+      isException INTEGER NOT NULL DEFAULT 0,
+      originalStartAt TEXT,
+      sourceUpdatedAt TEXT,
+      localModifiedAt TEXT,
+      localModifiedFields TEXT NOT NULL DEFAULT '[]',
+      notes TEXT,
+      sourceType TEXT NOT NULL DEFAULT 'manual',
+      sourceId TEXT,
+      externalUid TEXT,
+      occurrenceStart TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_course_occurrences_source_instance
+      ON course_occurrences(sourceId, externalUid, occurrenceStart)
+      WHERE sourceId IS NOT NULL AND externalUid IS NOT NULL AND occurrenceStart IS NOT NULL;
 
     CREATE TABLE IF NOT EXISTS journal_entries (
       id TEXT PRIMARY KEY,
@@ -1146,6 +1211,251 @@ export function createCourse(input: {
     );
   }
   return listCourses().find((course) => course.id === id)!;
+}
+
+function safeJsonArray(value: unknown) {
+  try {
+    const parsed = JSON.parse(String(value ?? "[]"));
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function mapTimetableSource(row: Record<string, unknown>): TimetableSource {
+  return {
+    id: String(row.id),
+    type: row.type as TimetableSource["type"],
+    name: String(row.name),
+    feedUrl: row.feedUrl ? String(row.feedUrl) : null,
+    semester: String(row.semester),
+    academicYear: Number(row.academicYear),
+    timezone: String(row.timezone || "Australia/Sydney"),
+    lastSyncedAt: row.lastSyncedAt ? String(row.lastSyncedAt) : null,
+    lastSyncStatus: row.lastSyncStatus as TimetableSource["lastSyncStatus"],
+    lastSyncError: row.lastSyncError ? String(row.lastSyncError) : null,
+    enabled: Boolean(row.enabled),
+    createdAt: String(row.createdAt),
+    updatedAt: String(row.updatedAt)
+  };
+}
+
+function mapTimetableCourse(row: Record<string, unknown>): TimetableCourse {
+  return {
+    id: String(row.id),
+    courseCode: String(row.courseCode),
+    courseName: String(row.courseName),
+    activityType: String(row.activityType),
+    activityName: row.activityName ? String(row.activityName) : null,
+    semester: String(row.semester),
+    academicYear: Number(row.academicYear),
+    defaultLocation: row.defaultLocation ? String(row.defaultLocation) : null,
+    campus: row.campus ? String(row.campus) : null,
+    color: String(row.color || "#0f172a"),
+    notes: row.notes ? String(row.notes) : null,
+    sourceType: row.sourceType as TimetableCourse["sourceType"],
+    sourceId: row.sourceId ? String(row.sourceId) : null,
+    externalUid: row.externalUid ? String(row.externalUid) : null,
+    createdAt: String(row.createdAt),
+    updatedAt: String(row.updatedAt)
+  };
+}
+
+function mapCourseOccurrence(row: Record<string, unknown>, course?: TimetableCourse): CourseOccurrence {
+  return {
+    id: String(row.id),
+    courseId: String(row.courseId),
+    course,
+    startAt: String(row.startAt),
+    endAt: String(row.endAt),
+    location: row.location ? String(row.location) : null,
+    campus: row.campus ? String(row.campus) : null,
+    status: row.status as CourseOccurrence["status"],
+    isException: Boolean(row.isException),
+    originalStartAt: row.originalStartAt ? String(row.originalStartAt) : null,
+    sourceUpdatedAt: row.sourceUpdatedAt ? String(row.sourceUpdatedAt) : null,
+    localModifiedAt: row.localModifiedAt ? String(row.localModifiedAt) : null,
+    localModifiedFields: safeJsonArray(row.localModifiedFields),
+    notes: row.notes ? String(row.notes) : null,
+    sourceType: row.sourceType as CourseOccurrence["sourceType"],
+    sourceId: row.sourceId ? String(row.sourceId) : null,
+    externalUid: row.externalUid ? String(row.externalUid) : null,
+    occurrenceStart: row.occurrenceStart ? String(row.occurrenceStart) : null,
+    createdAt: String(row.createdAt),
+    updatedAt: String(row.updatedAt)
+  };
+}
+
+export function listTimetableSources() {
+  return getDb()
+    .prepare("SELECT * FROM timetable_sources ORDER BY updatedAt DESC")
+    .all()
+    .map(mapTimetableSource);
+}
+
+export function getTimetableSource(id: string) {
+  const row = getDb().prepare("SELECT * FROM timetable_sources WHERE id = ?").get(id);
+  return row ? mapTimetableSource(row) : null;
+}
+
+export function listTimetableCourses() {
+  return getDb()
+    .prepare("SELECT * FROM timetable_courses ORDER BY courseCode ASC, activityType ASC")
+    .all()
+    .map(mapTimetableCourse);
+}
+
+export function listCourseOccurrences(input: { from?: string; to?: string; includeCancelled?: boolean } = {}) {
+  const db = getDb();
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+  if (input.from) {
+    clauses.push("o.endAt >= ?");
+    params.push(input.from);
+  }
+  if (input.to) {
+    clauses.push("o.startAt <= ?");
+    params.push(input.to);
+  }
+  if (!input.includeCancelled) clauses.push("o.status != 'cancelled'");
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const rows = db.prepare(`SELECT o.*, c.courseCode, c.courseName, c.activityType, c.activityName, c.semester, c.academicYear, c.defaultLocation, c.color, c.notes AS courseNotes, c.sourceType AS courseSourceType, c.sourceId AS courseSourceId, c.externalUid AS courseExternalUid, c.createdAt AS courseCreatedAt, c.updatedAt AS courseUpdatedAt FROM course_occurrences o JOIN timetable_courses c ON c.id = o.courseId ${where} ORDER BY o.startAt ASC`).all(...params);
+  return rows.map((row) => {
+    const course = mapTimetableCourse({
+      id: row.courseId,
+      courseCode: row.courseCode,
+      courseName: row.courseName,
+      activityType: row.activityType,
+      activityName: row.activityName,
+      semester: row.semester,
+      academicYear: row.academicYear,
+      defaultLocation: row.defaultLocation,
+      campus: row.campus,
+      color: row.color,
+      notes: row.courseNotes,
+      sourceType: row.courseSourceType,
+      sourceId: row.courseSourceId,
+      externalUid: row.courseExternalUid,
+      createdAt: row.courseCreatedAt,
+      updatedAt: row.courseUpdatedAt
+    });
+    return mapCourseOccurrence(row, course);
+  });
+}
+
+function findOrCreateTimetableSource(preview: TimetableImportPreview) {
+  const db = getDb();
+  const timestamp = now();
+  const existing = preview.source.feedUrl
+    ? db.prepare("SELECT * FROM timetable_sources WHERE feedUrl = ? AND type = ?").get(preview.source.feedUrl, preview.source.type)
+    : undefined;
+  if (existing) {
+    db.prepare("UPDATE timetable_sources SET name = ?, semester = ?, academicYear = ?, timezone = ?, enabled = 1, updatedAt = ? WHERE id = ?")
+      .run(preview.source.name, preview.source.semester, preview.source.academicYear, preview.source.timezone, timestamp, existing.id);
+    return String(existing.id);
+  }
+  const id = randomUUID();
+  db.prepare("INSERT INTO timetable_sources (id, type, name, feedUrl, semester, academicYear, timezone, lastSyncStatus, enabled, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, 'idle', 1, ?, ?)")
+    .run(id, preview.source.type, preview.source.name, preview.source.feedUrl ?? null, preview.source.semester, preview.source.academicYear, preview.source.timezone, timestamp, timestamp);
+  return id;
+}
+
+function findOrCreateTimetableCourse(course: TimetableCourse, sourceId: string) {
+  const db = getDb();
+  const timestamp = now();
+  const existing = db.prepare(
+    "SELECT * FROM timetable_courses WHERE sourceId = ? AND courseCode = ? AND courseName = ? AND activityType = ?"
+  ).get(sourceId, course.courseCode, course.courseName, course.activityType);
+  if (existing) {
+    db.prepare("UPDATE timetable_courses SET activityName = ?, defaultLocation = ?, campus = ?, notes = ?, updatedAt = ? WHERE id = ?")
+      .run(course.activityName ?? null, course.defaultLocation ?? null, course.campus ?? null, course.notes ?? null, timestamp, existing.id);
+    return String(existing.id);
+  }
+  const id = randomUUID();
+  db.prepare("INSERT INTO timetable_courses (id, courseCode, courseName, activityType, activityName, semester, academicYear, defaultLocation, campus, color, notes, sourceType, sourceId, externalUid, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .run(id, course.courseCode, course.courseName, course.activityType, course.activityName ?? null, course.semester, course.academicYear, course.defaultLocation ?? null, course.campus ?? null, course.color || "#0f172a", course.notes ?? null, course.sourceType, sourceId, course.externalUid ?? null, timestamp, timestamp);
+  return id;
+}
+
+export function importTimetablePreview(preview: TimetableImportPreview) {
+  const db = getDb();
+  const timestamp = now();
+  const sourceId = findOrCreateTimetableSource(preview);
+  const courseIdMap = new Map<string, string>();
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  let conflicts = 0;
+
+  for (const course of preview.courses) {
+    courseIdMap.set(course.id, findOrCreateTimetableCourse({ ...course, sourceId }, sourceId));
+  }
+
+  for (const occurrence of preview.occurrences) {
+    const courseId = courseIdMap.get(occurrence.courseId);
+    if (!courseId) continue;
+    const occurrenceStart = occurrence.occurrenceStart || occurrence.startAt;
+    const existing = occurrence.sourceId && occurrence.externalUid
+      ? db.prepare("SELECT * FROM course_occurrences WHERE sourceId = ? AND externalUid = ? AND occurrenceStart = ?").get(sourceId, occurrence.externalUid, occurrenceStart)
+      : undefined;
+    if (existing) {
+      const localFields = safeJsonArray(existing.localModifiedFields);
+      if (localFields.length > 0) {
+        conflicts += 1;
+        skipped += 1;
+        continue;
+      }
+      db.prepare("UPDATE course_occurrences SET courseId = ?, startAt = ?, endAt = ?, location = ?, campus = ?, status = ?, sourceUpdatedAt = ?, notes = ?, updatedAt = ? WHERE id = ?")
+        .run(courseId, occurrence.startAt, occurrence.endAt, occurrence.location ?? null, occurrence.campus ?? null, occurrence.status, timestamp, occurrence.notes ?? null, timestamp, existing.id);
+      updated += 1;
+    } else {
+      db.prepare("INSERT INTO course_occurrences (id, courseId, startAt, endAt, location, campus, status, isException, originalStartAt, sourceUpdatedAt, localModifiedFields, notes, sourceType, sourceId, externalUid, occurrenceStart, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(randomUUID(), courseId, occurrence.startAt, occurrence.endAt, occurrence.location ?? null, occurrence.campus ?? null, occurrence.status, occurrence.isException ? 1 : 0, occurrence.originalStartAt ?? null, timestamp, JSON.stringify([]), occurrence.notes ?? null, occurrence.sourceType || preview.source.type, sourceId, occurrence.externalUid ?? null, occurrenceStart, timestamp, timestamp);
+      created += 1;
+    }
+  }
+
+  db.prepare("UPDATE timetable_sources SET lastSyncedAt = ?, lastSyncStatus = 'success', lastSyncError = NULL, updatedAt = ? WHERE id = ?")
+    .run(timestamp, timestamp, sourceId);
+
+  return { sourceId, created, updated, skipped, conflicts };
+}
+
+function occurrenceScopeClause(occurrence: CourseOccurrence, scope: string) {
+  if (scope === "series") return { clause: "courseId = ?", params: [occurrence.courseId] };
+  if (scope === "future") return { clause: "courseId = ? AND startAt >= ?", params: [occurrence.courseId, occurrence.startAt] };
+  const start = new Date(occurrence.startAt);
+  const end = new Date(occurrence.startAt);
+  if (scope === "week") {
+    const day = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - day);
+    start.setHours(0, 0, 0, 0);
+    end.setTime(start.getTime());
+    end.setDate(end.getDate() + 7);
+  } else if (scope === "month") {
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    end.setTime(start.getTime());
+    end.setMonth(end.getMonth() + 1);
+  } else {
+    return { clause: "id = ?", params: [occurrence.id] };
+  }
+  return { clause: "courseId = ? AND startAt >= ? AND startAt < ?", params: [occurrence.courseId, start.toISOString(), end.toISOString()] };
+}
+
+export function updateCourseOccurrence(id: string, patch: Partial<CourseOccurrence>, scope = "single") {
+  const current = listCourseOccurrences({ includeCancelled: true }).find((item) => item.id === id);
+  if (!current) return null;
+  const timestamp = now();
+  const fields = ["startAt", "endAt", "location", "campus", "notes", "status"].filter((field) => field in patch);
+  const scopeWhere = occurrenceScopeClause(current, scope);
+  getDb().prepare(`UPDATE course_occurrences SET startAt = COALESCE(?, startAt), endAt = COALESCE(?, endAt), location = COALESCE(?, location), campus = COALESCE(?, campus), notes = COALESCE(?, notes), status = COALESCE(?, status), isException = 1, localModifiedAt = ?, localModifiedFields = ?, updatedAt = ? WHERE ${scopeWhere.clause} AND (localModifiedAt IS NULL OR ? = 'single')`)
+    .run(patch.startAt ?? null, patch.endAt ?? null, patch.location ?? null, patch.campus ?? null, patch.notes ?? null, patch.status ?? null, timestamp, JSON.stringify(fields), timestamp, ...scopeWhere.params, scope);
+  return listCourseOccurrences({ includeCancelled: true }).find((item) => item.id === id) ?? null;
+}
+
+export function cancelCourseOccurrence(id: string, scope = "single") {
+  return updateCourseOccurrence(id, { status: "cancelled" }, scope);
 }
 
 export function listJournal() {
