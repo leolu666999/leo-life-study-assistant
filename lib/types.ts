@@ -9,7 +9,7 @@ export type TaskType =
 export type TaskStatus = "not_started" | "in_progress" | "completed" | "archived";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 export type PlanType = "daily" | "weekly" | "monthly";
-export type TaskProgressType = "none" | "count" | "pages" | "percentage" | "custom_unit";
+export type TaskProgressType = "none" | "count" | "pages" | "percentage" | "time" | "custom" | "custom_unit";
 export type ExpenseCurrency = "AUD" | "CNY" | "USD";
 
 export type Task = {

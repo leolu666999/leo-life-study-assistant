@@ -17,7 +17,6 @@ import {
   ImageIcon,
   ListChecks,
   Menu,
-  Minus,
   NotebookPen,
   PanelLeft,
   Plus,
@@ -25,7 +24,6 @@ import {
   Search,
   Settings,
   SlidersHorizontal,
-  Target,
   Trash2,
   Upload,
   WalletCards,
@@ -48,7 +46,7 @@ import type {
   TodoListItem
 } from "@/lib/types";
 
-type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "progress" | "courses" | "journal" | "archive" | "settings";
+type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "courses" | "journal" | "archive" | "settings";
 type ModalMode = "task" | "deadline" | "plan" | "todoList" | "counter" | "expense" | null;
 type ReminderRule =
   | { type: "none" }
@@ -100,7 +98,6 @@ const navItems: Array<{ view: View; href: string; label: string; icon: React.Rea
   { view: "dashboard", href: "/", label: "首页", icon: <Home size={18} /> },
   { view: "tasks", href: "/tasks", label: "任务", icon: <ListChecks size={18} /> },
   { view: "plans", href: "/plans", label: "计划", icon: <CalendarDays size={18} /> },
-  { view: "progress", href: "/progress", label: "进度", icon: <Target size={18} /> },
   { view: "courses", href: "/courses", label: "课程（维修中）", icon: <BookOpen size={18} /> },
   { view: "journal", href: "/journal", label: "日记", icon: <NotebookPen size={18} /> },
   { view: "expenses", href: "/expenses", label: "记账", icon: <WalletCards size={18} /> },
@@ -110,6 +107,7 @@ const navItems: Array<{ view: View; href: string; label: string; icon: React.Rea
 
 function viewFromPath(pathname: string): View {
   if (pathname === "/archive") return "tasks";
+  if (pathname === "/progress" || pathname === "/progresses" || pathname === "/goals") return "tasks";
   return navItems.find((item) => item.href === pathname)?.view || "dashboard";
 }
 
@@ -705,13 +703,11 @@ export function LeoApp({ initialView }: { initialView: View }) {
       )
     );
 
-    const response = await fetch(`/api/tasks/${taskId}`, {
-      method: "PATCH",
+    const response = await fetch(`/api/tasks/${taskId}/progress-entries`, {
+      method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        progressEnabled: true,
-        progressCurrent: safeValue,
-        status: task?.status === "not_started" ? "in_progress" : task?.status
+        currentValueAfter: safeValue
       })
     });
 
@@ -859,7 +855,6 @@ export function LeoApp({ initialView }: { initialView: View }) {
                   onToggleTodoItem={toggleTodoItem}
                 />
               )}
-              {activeView === "progress" && <ProgressPage progress={progress} onSave={mutate} onOpenModal={setModal} />}
               {activeView === "courses" && <CoursesPage courses={courses} />}
               {activeView === "journal" && <JournalPage journal={journal} onSave={mutate} />}
               {activeView === "settings" && (
@@ -899,6 +894,11 @@ export function LeoApp({ initialView }: { initialView: View }) {
           open={progressOpen}
           setOpen={setProgressOpen}
           onPin={(id) => mutate(`/api/progress/${id}/pin`, { method: "POST" })}
+          onOpenTask={() => {
+            setProgressOpen(false);
+            setActiveView("tasks");
+            window.history.pushState(null, "", "/tasks?filter=progress");
+          }}
         />
       )}
 
@@ -1273,7 +1273,7 @@ function TasksPage({
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"active" | "completed" | "all">("active");
-  const [typeFilter, setTypeFilter] = useState<TaskType | "">("");
+  const [typeFilter, setTypeFilter] = useState<TaskType | "progress" | "">("");
   const [tag, setTag] = useState("");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -1283,19 +1283,22 @@ function TasksPage({
     ["completed", "已完成"],
     ["all", "全部"]
   ];
-  const typeTabs: Array<[TaskType | "", string]> = [
+  const typeTabs: Array<[TaskType | "progress" | "", string]> = [
     ["", "全部"],
     ["todo", "Task"],
     ["deadline", "Deadline"],
     ["counter", "Counter"],
-    ["checklist", "清单"]
+    ["checklist", "清单"],
+    ["progress", "有进度"]
   ];
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const status = params.get("status");
+    const filter = params.get("filter");
     if (status === "completed" || status === "all") setStatusFilter(status);
+    if (filter === "progress") setTypeFilter("progress");
   }, []);
 
   const filtered = tasks
@@ -1310,7 +1313,7 @@ function TasksPage({
       return (
         matchesStatus &&
         task.title.toLowerCase().includes(query.toLowerCase()) &&
-        (!typeFilter || normalizedType === typeFilter) &&
+        (!typeFilter || (typeFilter === "progress" ? Boolean(task.progressEnabled || task.progressTarget) : normalizedType === typeFilter)) &&
         (!tag || task.tags.some((item) => item.toLowerCase().includes(tag.toLowerCase()))) &&
         (!startDate || Boolean(task.startDate) && String(task.startDate) >= startDate) &&
         (!dueDate || Boolean(task.dueDate) && String(task.dueDate) <= dueDate)
@@ -1540,11 +1543,14 @@ function TaskCard({
     (tag) => task.type !== "deadline" || !["deadline", "截止"].includes(tag.trim().toLowerCase())
   );
   const [progressEditorOpen, setProgressEditorOpen] = useState(false);
-  const [progressDraft, setProgressDraft] = useState(String(task.progressCurrent ?? 0));
+  const [progressCurrentDraft, setProgressCurrentDraft] = useState(String(task.progressCurrent ?? 0));
+  const [progressDeltaDraft, setProgressDeltaDraft] = useState("");
+  const [progressDurationDraft, setProgressDurationDraft] = useState("");
+  const [progressNoteDraft, setProgressNoteDraft] = useState("");
   const [, setCountdownTick] = useState(0);
 
   useEffect(() => {
-    setProgressDraft(String(task.progressCurrent ?? 0));
+    setProgressCurrentDraft(String(task.progressCurrent ?? 0));
   }, [task.progressCurrent]);
 
   useEffect(() => {
@@ -1554,9 +1560,24 @@ function TaskCard({
   }, [task.type, task.dueDate]);
 
   async function saveProgressUpdate() {
-    const nextValue = Number(progressDraft);
-    if (!Number.isFinite(nextValue)) return;
-    await onProgressUpdate(task.id, nextValue);
+    const currentValueAfter = progressCurrentDraft.trim() === "" ? null : Number(progressCurrentDraft);
+    const amountDelta = progressDeltaDraft.trim() === "" ? null : Number(progressDeltaDraft);
+    const durationMinutes = progressDurationDraft.trim() === "" ? null : Number(progressDurationDraft);
+    if (currentValueAfter !== null && !Number.isFinite(currentValueAfter)) return;
+    if (amountDelta !== null && !Number.isFinite(amountDelta)) return;
+    if (durationMinutes !== null && !Number.isFinite(durationMinutes)) return;
+    await onSave(`/api/tasks/${task.id}/progress-entries`, {
+      method: "POST",
+      body: JSON.stringify({
+        currentValueAfter,
+        amountDelta,
+        durationMinutes,
+        note: progressNoteDraft.trim() || null
+      })
+    });
+    setProgressDeltaDraft("");
+    setProgressDurationDraft("");
+    setProgressNoteDraft("");
     setProgressEditorOpen(false);
   }
   return (
@@ -1603,9 +1624,27 @@ function TaskCard({
             <div className="mt-3 grid gap-2">
               <Input
                 inputMode="decimal"
-                value={progressDraft}
-                onChange={(event) => setProgressDraft(event.target.value)}
-                placeholder={`当前进度${task.progressUnit ? `（${task.progressUnit}）` : ""}`}
+                value={progressDeltaDraft}
+                onChange={(event) => setProgressDeltaDraft(event.target.value)}
+                placeholder={`本次完成量${task.progressUnit ? `（${task.progressUnit}）` : ""}`}
+              />
+              <Input
+                inputMode="decimal"
+                value={progressCurrentDraft}
+                onChange={(event) => setProgressCurrentDraft(event.target.value)}
+                placeholder={`更新后当前值${task.progressUnit ? `（${task.progressUnit}）` : ""}`}
+              />
+              <Input
+                inputMode="decimal"
+                value={progressDurationDraft}
+                onChange={(event) => setProgressDurationDraft(event.target.value)}
+                placeholder="本次用时（分钟）"
+              />
+              <textarea
+                className="min-h-[64px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
+                value={progressNoteDraft}
+                onChange={(event) => setProgressNoteDraft(event.target.value)}
+                placeholder="备注"
               />
               <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={saveProgressUpdate}>
                 保存
@@ -2105,47 +2144,6 @@ function PlanCard({ plan, onSave }: { plan: Plan; onSave: (url: string, options?
         </button>
       </div>
     </div>
-  );
-}
-
-function ProgressPage({
-  progress,
-  onSave,
-  onOpenModal
-}: {
-  progress: ProgressItem[];
-  onSave: (url: string, options?: RequestInit) => Promise<void>;
-  onOpenModal: (mode: ModalMode) => void;
-}) {
-  return (
-    <>
-      <PageHeader
-        title="进度"
-        subtitle="这里显示所有开启进度追踪的任务。"
-        actions={<ActionButton onClick={() => onOpenModal("counter")} icon={<Plus size={16} />} label="新建进度任务" />}
-      />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {progress.map((item) => (
-          <div key={item.id} className="rounded-lg bg-white p-4 shadow-soft">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
-                <div className="font-semibold">{item.title}</div>
-                <div className="text-sm text-slate-500">{item.category}</div>
-              </div>
-            </div>
-            <ProgressLine current={item.currentValue} target={item.targetValue} unit={item.unit} />
-            <div className="mt-4 flex gap-2">
-              <button className="rounded-lg border border-slate-200 p-2" onClick={() => onSave(`/api/progress/${item.id}`, { method: "PATCH", body: JSON.stringify({ currentValue: Math.max(0, item.currentValue - 1) }) })}>
-                <Minus size={16} />
-              </button>
-              <button className="rounded-lg border border-slate-200 p-2" onClick={() => onSave(`/api/progress/${item.id}`, { method: "PATCH", body: JSON.stringify({ currentValue: item.currentValue + 1 }) })}>
-                <Plus size={16} />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
   );
 }
 
@@ -3427,14 +3425,21 @@ function QuickModal({
               })
             });
           } else if (mode === "counter") {
-            await onSaveRequest("/api/progress", {
+            await onSaveRequest("/api/tasks", {
               method: "POST",
               body: JSON.stringify({
                 title: form.get("title"),
-                currentValue: Number(form.get("progressCurrent") || 0),
-                targetValue: Number(form.get("progressTarget") || 1),
-                unit: form.get("progressUnit"),
-                category: form.get("category") || "general"
+                description: "",
+                type: "counter",
+                status: "not_started",
+                priority: "medium",
+                tags: [String(form.get("category") || "进度")],
+                progressEnabled: true,
+                progressType,
+                progressCurrent: Number(form.get("progressCurrent") || 0),
+                progressTarget: Number(form.get("progressTarget") || 1),
+                progressUnit: form.get("progressUnit") || defaultProgressUnit(progressType),
+                pinnedToBottom: form.get("pinnedToBottom") === "on"
               })
             });
           } else {
@@ -3457,7 +3462,8 @@ function QuickModal({
               progressTarget: form.get("progressTarget") ? Number(form.get("progressTarget")) : null,
               progressUnit: progressEnabled ? form.get("progressUnit") || defaultProgressUnit(progressType) : null,
               progressEnabled,
-              progressType: progressEnabled ? progressType : "none"
+              progressType: progressEnabled ? progressType : "none",
+              pinnedToBottom: progressEnabled && form.get("pinnedToBottom") === "on"
             };
             await onSaveRequest(task ? `/api/tasks/${task.id}` : "/api/tasks", {
               method: task ? "PATCH" : "POST",
@@ -3518,12 +3524,27 @@ function QuickModal({
         ) : mode === "counter" ? (
           <div className="grid gap-3">
             <Input name="title" placeholder="进度名称" required />
+            <Select
+              value={progressType}
+              onChange={(event) => setProgressType(event.target.value as typeof progressType)}
+              options={[
+                ["count", "次数"],
+                ["pages", "阅读页数"],
+                ["percentage", "百分比"],
+                ["time", "时间"],
+                ["custom", "自定义单位"]
+              ]}
+            />
             <div className="grid gap-3 md:grid-cols-3">
               <Input name="progressCurrent" type="number" defaultValue="0" />
               <Input name="progressTarget" type="number" defaultValue="10" />
-              <Input name="progressUnit" placeholder="单位，例如 次 / 场 / %" />
+              <Input name="progressUnit" placeholder="单位，例如 次 / 页 / 小时 / %" defaultValue={defaultProgressUnit(progressType)} />
             </div>
             <Input name="category" placeholder="分类，例如 football / study" />
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <input type="checkbox" name="pinnedToBottom" defaultChecked={false} />
+              固定到底部进度条
+            </label>
           </div>
         ) : (
           <div className="grid gap-3">
@@ -3643,7 +3664,8 @@ function QuickModal({
                     ["count", "次数"],
                     ["pages", "阅读页数"],
                     ["percentage", "百分比"],
-                    ["custom_unit", "自定义单位"]
+                    ["time", "时间"],
+                    ["custom", "自定义单位"]
                   ]}
                 />
                 <div className="grid gap-3 md:grid-cols-3">
@@ -3651,6 +3673,10 @@ function QuickModal({
                   <Input name="progressTarget" type="number" placeholder="目标值" defaultValue={task?.progressTarget ?? (progressType === "percentage" ? 100 : "")} />
                   <Input name="progressUnit" placeholder="单位" defaultValue={task?.progressUnit || defaultProgressUnit(progressType)} />
                 </div>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input type="checkbox" name="pinnedToBottom" defaultChecked={Boolean(task?.pinnedToBottom)} />
+                  固定到底部进度条
+                </label>
               </div>
             )}
           </div>
@@ -3831,13 +3857,15 @@ function PinnedProgress({
   items,
   open,
   setOpen,
-  onPin
+  onPin,
+  onOpenTask
 }: {
   item: ProgressItem;
   items: ProgressItem[];
   open: boolean;
   setOpen: (value: boolean) => void;
   onPin: (id: string) => void;
+  onOpenTask: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -3869,17 +3897,29 @@ function PinnedProgress({
           ))}
         </div>
       )}
-      <div className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-soft md:p-3">
+      <button
+        type="button"
+        className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-left shadow-soft md:p-3"
+        onClick={onOpenTask}
+        title="打开任务页的有进度筛选"
+      >
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{item.title}</div>
             <ProgressLine current={item.currentValue} target={item.targetValue} unit={item.unit} compact />
           </div>
-          <button className="rounded-lg border border-slate-200 p-2" onClick={() => setOpen(!open)} title="展开进度列表">
+          <span
+            className="rounded-lg border border-slate-200 p-2"
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpen(!open);
+            }}
+            title="展开进度列表"
+          >
             <ChevronDown size={16} />
-          </button>
+          </span>
         </div>
-      </div>
+      </button>
     </div>
   );
 }
@@ -4224,7 +4264,8 @@ function statusLabel(status: string) {
 function progressTypeLabel(type?: string | null) {
   if (type === "pages") return "阅读页数";
   if (type === "percentage") return "百分比";
-  if (type === "custom_unit") return "自定义单位";
+  if (type === "time") return "时间";
+  if (type === "custom" || type === "custom_unit") return "自定义单位";
   if (type === "none") return "无进度";
   return "次数";
 }
@@ -4232,6 +4273,7 @@ function progressTypeLabel(type?: string | null) {
 function defaultProgressUnit(type?: string | null) {
   if (type === "pages") return "页";
   if (type === "percentage") return "%";
+  if (type === "time") return "小时";
   if (type === "count") return "次";
   return "";
 }

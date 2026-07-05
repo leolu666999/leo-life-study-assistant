@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function ProgressPage() {
+export default function GoalsPage() {
   redirect("/tasks?filter=progress");
 }

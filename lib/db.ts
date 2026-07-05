@@ -357,11 +357,13 @@ function migrate(db: DatabaseLike) {
         progressType = CASE
           WHEN progressUnit = '%' THEN 'percentage'
           WHEN progressUnit = '页' THEN 'pages'
+          WHEN progressUnit IN ('小时', '分钟', 'h', 'hour', 'hours') THEN 'time'
           WHEN progressUnit IS NOT NULL AND progressUnit != '' THEN 'count'
-          ELSE 'custom_unit'
+          ELSE 'custom'
         END
     WHERE progressTarget IS NOT NULL AND progressEnabled = 0;
   `);
+  migrateProgressItemsToTasks(db);
   migrateDailyPlansToTodoLists(db);
 }
 
@@ -425,6 +427,75 @@ function migrateDailyPlansToTodoLists(db: DatabaseLike) {
   );
 }
 
+function migrateProgressItemsToTasks(db: DatabaseLike) {
+  const flag = db.prepare("SELECT value FROM settings WHERE key = ?").get("progress_items_migrated_to_tasks");
+  if (flag?.value === "1") return;
+
+  const progressItems = db.prepare("SELECT * FROM progress_items ORDER BY createdAt ASC").all();
+  for (const item of progressItems) {
+    const timestamp = String(item.updatedAt ?? now());
+    const linkedTaskId = item.linkedTaskId ? String(item.linkedTaskId) : null;
+    const existingTask = linkedTaskId ? db.prepare("SELECT id FROM tasks WHERE id = ?").get(linkedTaskId) : undefined;
+    let taskId = existingTask?.id ? String(existingTask.id) : "";
+    const currentValue = Number(item.currentValue ?? 0);
+    const targetValue = Number(item.targetValue ?? 1);
+    const unit = String(item.unit ?? "");
+    const progressType = inferProgressType(unit);
+    const pinned = Number(item.pinned ?? 0) === 1;
+
+    if (taskId) {
+      db.prepare(`
+        UPDATE tasks
+        SET progressEnabled = 1,
+            progressCurrent = ?,
+            progressTarget = ?,
+            progressUnit = ?,
+            progressType = ?,
+            pinnedToBottom = ?,
+            updatedAt = ?
+        WHERE id = ?
+      `).run(currentValue, targetValue, unit, progressType, pinned ? 1 : 0, timestamp, taskId);
+    } else {
+      taskId = randomUUID();
+      const tags = normalizeTaskTags("counter", [String(item.category ?? "进度")]);
+      db.prepare(
+        `INSERT INTO tasks
+         (id, title, description, type, status, priority, tags_json, startDate, dueDate, createdAt, updatedAt,
+          completedAt, archivedAt, reminderRule, progressCurrent, progressTarget, progressUnit, progressEnabled,
+          progressType, pinnedToBottom, parentPlanId, originalImageId, notes)
+         VALUES (?, ?, '', 'counter', 'not_started', 'medium', ?, NULL, NULL, ?, ?, NULL, NULL, 'none', ?, ?, ?, 1, ?, ?, NULL, NULL, NULL)`
+      ).run(
+        taskId,
+        String(item.title ?? "进度任务"),
+        JSON.stringify(tags),
+        String(item.createdAt ?? timestamp),
+        timestamp,
+        currentValue,
+        targetValue,
+        unit,
+        progressType,
+        pinned ? 1 : 0
+      );
+      syncTags(taskId, tags, db);
+      db.prepare("UPDATE progress_items SET linkedTaskId = ?, updatedAt = ? WHERE id = ?").run(taskId, timestamp, item.id);
+    }
+
+    if (pinned) db.prepare("UPDATE tasks SET pinnedToBottom = CASE WHEN id = ? THEN 1 ELSE 0 END").run(taskId);
+    const existingEntry = db.prepare("SELECT id FROM task_progress_entries WHERE taskId = ? AND currentValueAfter = ? LIMIT 1").get(taskId, currentValue);
+    if (!existingEntry && currentValue !== 0) {
+      db.prepare(
+        "INSERT INTO task_progress_entries (id, taskId, createdAt, amountDelta, currentValueAfter, durationMinutes, note) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      ).run(randomUUID(), taskId, timestamp, null, currentValue, null, "从旧进度记录迁移");
+    }
+  }
+
+  db.prepare("INSERT OR REPLACE INTO settings (key, value, updatedAt) VALUES (?, ?, ?)").run(
+    "progress_items_migrated_to_tasks",
+    "1",
+    now()
+  );
+}
+
 function seed(db: DatabaseLike) {
   const createdAt = now();
   db.prepare("INSERT OR REPLACE INTO settings (key, value, updatedAt) VALUES (?, ?, ?)").run(
@@ -479,8 +550,9 @@ function rowToTask(row: Record<string, unknown>, subtasks: Subtask[] = [], progr
 function inferProgressType(unit: string) {
   if (unit === "%") return "percentage";
   if (unit === "页") return "pages";
+  if (["小时", "分钟", "h", "hour", "hours"].includes(unit)) return "time";
   if (unit) return "count";
-  return "custom_unit";
+  return "custom";
 }
 
 function rowToSubtask(row: Record<string, unknown>): Subtask {
@@ -796,7 +868,7 @@ export function listProgress() {
     ORDER BY pinnedToBottom DESC, updatedAt DESC
   `).all();
 
-  const taskProgress = taskRows.map((row) => ({
+  return taskRows.map((row) => ({
     id: String(row.id),
     title: String(row.title),
     currentValue: row.progressCurrent === null || row.progressCurrent === undefined ? 0 : Number(row.progressCurrent),
@@ -805,21 +877,6 @@ export function listProgress() {
     category: JSON.parse(String(row.tags_json ?? "[]"))[0] ?? String(row.type ?? "task"),
     linkedTaskId: String(row.id),
     pinned: Number(row.pinnedToBottom ?? 0) === 1,
-    createdAt: String(row.createdAt),
-    updatedAt: String(row.updatedAt)
-  })) as ProgressItem[];
-
-  if (taskProgress.length > 0) return taskProgress;
-
-  return db.prepare("SELECT * FROM progress_items ORDER BY pinned DESC, createdAt DESC").all().map((row) => ({
-    id: String(row.id),
-    title: String(row.title),
-    currentValue: Number(row.currentValue),
-    targetValue: Number(row.targetValue),
-    unit: String(row.unit ?? ""),
-    category: String(row.category ?? "general"),
-    linkedTaskId: row.linkedTaskId ? String(row.linkedTaskId) : null,
-    pinned: Number(row.pinned) === 1,
     createdAt: String(row.createdAt),
     updatedAt: String(row.updatedAt)
   })) as ProgressItem[];
