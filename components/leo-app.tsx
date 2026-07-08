@@ -3642,6 +3642,7 @@ function QuickModal({
   const [selectedTaskType, setSelectedTaskType] = useState<TaskType>(
     isDeadlineForm ? "deadline" : normalizeType(task?.type || "todo")
   );
+  const [priority, setPriority] = useState<Task["priority"]>(task?.priority || "medium");
   const [taskTags, setTaskTags] = useState<string[]>(() => {
     const initialTags = task?.tags || [];
     return normalizeType(task?.type) === "checklist" && !initialTags.includes("清单")
@@ -3757,7 +3758,7 @@ function QuickModal({
               description: form.get("description"),
               type: isDeadlineForm ? "deadline" : selectedTaskType,
               status: isDeadlineForm ? task?.status ?? "not_started" : form.get("status"),
-              priority: task?.priority ?? "medium",
+              priority: form.get("priority") || "medium",
               tags: selectedTaskType === "checklist" && !taskTags.includes("清单") ? [...taskTags, "清单"] : taskTags,
               subtasks: selectedTaskType === "checklist"
                 ? checklistItems
@@ -3857,7 +3858,11 @@ function QuickModal({
           </div>
         ) : (
           <div className="grid gap-3">
-            <Input name="title" placeholder="标题" defaultValue={task?.title || ""} required />
+            <Input name="title" placeholder="输入任务标题" defaultValue={task?.title || ""} required className="h-[52px] rounded-full px-5" />
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input name="startDate" type="date" defaultValue={task?.startDate || ""} />
+              <Input name="dueDate" type="datetime-local" defaultValue={toDateTimeInputValue(task?.dueDate)} />
+            </div>
             <TagEditor
               tags={taskTags}
               onChange={(tags) => {
@@ -3870,6 +3875,31 @@ function QuickModal({
               }}
             />
             <textarea name="description" className="min-h-[90px] rounded-lg border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="描述" defaultValue={task?.description || ""} />
+            <div className="grid gap-2">
+              <input type="hidden" name="priority" value={priority} />
+              <div className="text-xs font-medium text-slate-500">优先级</div>
+              <div className="grid grid-cols-3 gap-2 rounded-full bg-slate-100 p-1">
+                {([
+                  ["low", "低"],
+                  ["medium", "中"],
+                  ["high", "高"]
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                      priority === value ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-white"
+                    }`}
+                    onClick={() => {
+                      setPriority(value);
+                      setDirty(true);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {!isDeadlineForm && (
               <div className="grid gap-3 md:grid-cols-2">
                 <Select
@@ -3894,10 +3924,6 @@ function QuickModal({
                 }}
               />
             )}
-            <div className="grid gap-3 md:grid-cols-2">
-              <Input name="startDate" type="date" defaultValue={task?.startDate || ""} />
-              <Input name="dueDate" type="datetime-local" defaultValue={toDateTimeInputValue(task?.dueDate)} />
-            </div>
             <Select
               value={reminderType}
               onChange={(event) => setReminderType(event.target.value as ReminderRule["type"])}
