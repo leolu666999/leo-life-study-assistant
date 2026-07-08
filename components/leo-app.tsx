@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
+  Bell,
   BookOpen,
   CalendarDays,
   Check,
@@ -51,6 +52,9 @@ type ModalMode = "task" | "deadline" | "plan" | "todoList" | "counter" | "expens
 type ReminderRule =
   | { type: "none" }
   | { type: "deadline_24h" }
+  | { type: "daily_time"; time?: string }
+  | { type: "weekly_time"; weekdays?: number[]; time?: string }
+  | { type: "interval_days"; intervalDays?: number; time?: string; anchorDate?: string }
   | { type: "daily_until_due" }
   | { type: "hourly_until_due" }
   | {
@@ -68,6 +72,7 @@ type ReminderAlert = {
   title: string;
   detail: string;
 };
+type ReminderType = ReminderRule["type"];
 type TodoDraftItem = { id: string; title: string; completed: boolean };
 type TodoListEditItem = { id?: string; content: string; completed: boolean };
 type SyncConnection = "checking" | "online" | "offline";
@@ -298,6 +303,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const [background, setBackground] = useState("default");
   const [loading, setLoading] = useState(true);
   const [dismissedReminderKeys, setDismissedReminderKeys] = useState<string[]>([]);
+  const [reminderTick, setReminderTick] = useState(() => new Date());
   const [syncState, setSyncState] = useState<SyncState>({
     connection: "checking",
     saveStatus: "idle",
@@ -309,6 +315,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const syncLockRef = useRef(false);
   const lastAutoSyncFailedAtRef = useRef(0);
   const lastRealtimeRefreshAtRef = useRef(0);
+  const notifiedReminderKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setActiveView(initialView);
@@ -336,6 +343,11 @@ export function LeoApp({ initialView }: { initialView: View }) {
     void loadAll();
     void checkHealth(false);
     void refreshOfflineCounts();
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setReminderTick(new Date()), 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -722,9 +734,17 @@ export function LeoApp({ initialView }: { initialView: View }) {
 
   const pinnedProgress = progress.find((item) => item.pinned) || progress[0];
   const reminderAlerts = useMemo(
-    () => buildReminderAlerts(tasks, dismissedReminderKeys),
-    [tasks, dismissedReminderKeys]
+    () => buildReminderAlerts(tasks, dismissedReminderKeys, reminderTick),
+    [tasks, dismissedReminderKeys, reminderTick]
   );
+
+  useEffect(() => {
+    for (const alert of reminderAlerts) {
+      if (notifiedReminderKeysRef.current.has(alert.key)) continue;
+      notifiedReminderKeysRef.current.add(alert.key);
+      void sendBrowserTaskNotification(alert);
+    }
+  }, [reminderAlerts]);
   const todayCourses = useMemo(() => {
     const day = new Date().getDay();
     return courses.flatMap((course) =>
@@ -3624,7 +3644,20 @@ function QuickModal({
 
   const isDeadlineForm = mode === "deadline" || task?.type === "deadline";
   const initialReminder = parseReminderRule(task?.reminderRule);
-  const [reminderType, setReminderType] = useState<ReminderRule["type"]>(initialReminder.type);
+  const [reminderType, setReminderType] = useState<ReminderType>(initialReminder.type);
+  const [reminderEditorOpen, setReminderEditorOpen] = useState(false);
+  const [reminderTime, setReminderTime] = useState(
+    "time" in initialReminder && initialReminder.time ? initialReminder.time : "08:00"
+  );
+  const [weeklyReminderDays, setWeeklyReminderDays] = useState<number[]>(
+    initialReminder.type === "weekly_time" && initialReminder.weekdays?.length ? initialReminder.weekdays : [0]
+  );
+  const [intervalReminderDays, setIntervalReminderDays] = useState(
+    initialReminder.type === "interval_days" ? String(initialReminder.intervalDays ?? 7) : "7"
+  );
+  const [intervalAnchorDate, setIntervalAnchorDate] = useState(
+    initialReminder.type === "interval_days" && initialReminder.anchorDate ? initialReminder.anchorDate : localDateKey(new Date())
+  );
   const [customMode, setCustomMode] = useState<"hourly" | "daily" | "progress" | "before_due">(
     initialReminder.type === "custom" ? initialReminder.mode : "before_due"
   );
@@ -3668,6 +3701,20 @@ function QuickModal({
             : "Add Task";
 
   function serializeReminderRule() {
+    if (reminderType === "daily_time") {
+      return JSON.stringify({ type: "daily_time", time: reminderTime } satisfies ReminderRule);
+    }
+    if (reminderType === "weekly_time") {
+      return JSON.stringify({ type: "weekly_time", weekdays: weeklyReminderDays, time: reminderTime } satisfies ReminderRule);
+    }
+    if (reminderType === "interval_days") {
+      return JSON.stringify({
+        type: "interval_days",
+        intervalDays: Math.max(1, Number(intervalReminderDays || 1)),
+        time: reminderTime,
+        anchorDate: intervalAnchorDate
+      } satisfies ReminderRule);
+    }
     if (reminderType !== "custom") return reminderType;
     return JSON.stringify({
       type: "custom",
@@ -3924,67 +3971,55 @@ function QuickModal({
                 }}
               />
             )}
-            <Select
-              value={reminderType}
-              onChange={(event) => setReminderType(event.target.value as ReminderRule["type"])}
-              options={[
-                ["none", "不提醒"],
-                ["deadline_24h", "24 小时前"],
-                ["daily_until_due", "每天直到截止"],
-                ["hourly_until_due", "每小时直到截止"],
-                ["custom", "自定义"]
-              ]}
-            />
-            {reminderType === "custom" && (
-              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <Select
-                  value={customMode}
-                  onChange={(event) => setCustomMode(event.target.value as typeof customMode)}
-                  options={[
-                    ["before_due", "按截止前多久"],
-                    ["hourly", "按每小时频率"],
-                    ["daily", "按每天频率"],
-                    ["progress", "按进度百分比"]
-                  ]}
-                />
-                {(customMode === "hourly" || customMode === "daily") && (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={customMode === "daily" ? "24" : frequencyHours}
-                      onChange={(event) => setFrequencyHours(event.target.value)}
-                      disabled={customMode === "daily"}
-                      placeholder="频率，小时"
-                    />
-                    <Input type="number" min="1" value={maxCount} onChange={(event) => setMaxCount(event.target.value)} placeholder="提醒次数" />
-                  </div>
-                )}
-                {customMode === "progress" && (
-                  <Input
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={progressPercent}
-                    onChange={(event) => setProgressPercent(event.target.value)}
-                    placeholder="进度达到百分比"
-                  />
-                )}
-                {customMode === "before_due" && (
-                  <div className="grid gap-3 md:grid-cols-[1fr_160px]">
-                    <Input type="number" min="1" value={beforeAmount} onChange={(event) => setBeforeAmount(event.target.value)} placeholder="截止前多久" />
-                    <Select
-                      value={beforeUnit}
-                      onChange={(event) => setBeforeUnit(event.target.value as typeof beforeUnit)}
-                      options={[
-                        ["minutes", "分钟"],
-                        ["hours", "小时"],
-                        ["days", "天"]
-                      ]}
-                    />
-                  </div>
-                )}
-              </div>
+            <button
+              type="button"
+              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-left text-sm transition hover:bg-slate-100"
+              onClick={() => setReminderEditorOpen(true)}
+            >
+              <span className="inline-flex min-w-0 items-center gap-2">
+                <Bell size={16} className="shrink-0 text-slate-500" />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-slate-500">是否提醒</span>
+                  <span className="block truncate font-semibold text-slate-900">{reminderRuleLabel({
+                    type: reminderType,
+                    time: reminderTime,
+                    weekdays: weeklyReminderDays,
+                    intervalDays: Number(intervalReminderDays || 7),
+                    anchorDate: intervalAnchorDate
+                  })}</span>
+                </span>
+              </span>
+              <ChevronDown size={16} className="-rotate-90 text-slate-400" />
+            </button>
+            {reminderEditorOpen && (
+              <ReminderRuleEditor
+                reminderType={reminderType}
+                reminderTime={reminderTime}
+                weeklyReminderDays={weeklyReminderDays}
+                intervalReminderDays={intervalReminderDays}
+                intervalAnchorDate={intervalAnchorDate}
+                onChangeType={(value) => {
+                  setReminderType(value);
+                  setDirty(true);
+                }}
+                onChangeTime={(value) => {
+                  setReminderTime(value);
+                  setDirty(true);
+                }}
+                onChangeWeeklyDays={(value) => {
+                  setWeeklyReminderDays(value);
+                  setDirty(true);
+                }}
+                onChangeIntervalDays={(value) => {
+                  setIntervalReminderDays(value);
+                  setDirty(true);
+                }}
+                onChangeIntervalAnchorDate={(value) => {
+                  setIntervalAnchorDate(value);
+                  setDirty(true);
+                }}
+                onClose={() => setReminderEditorOpen(false)}
+              />
             )}
             <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
               <input type="checkbox" checked={progressEnabled} onChange={(event) => setProgressEnabled(event.target.checked)} />
@@ -4020,6 +4055,152 @@ function QuickModal({
           保存
         </button>
       </form>
+    </div>
+  );
+}
+
+function ReminderRuleEditor({
+  reminderType,
+  reminderTime,
+  weeklyReminderDays,
+  intervalReminderDays,
+  intervalAnchorDate,
+  onChangeType,
+  onChangeTime,
+  onChangeWeeklyDays,
+  onChangeIntervalDays,
+  onChangeIntervalAnchorDate,
+  onClose
+}: {
+  reminderType: ReminderType;
+  reminderTime: string;
+  weeklyReminderDays: number[];
+  intervalReminderDays: string;
+  intervalAnchorDate: string;
+  onChangeType: (value: ReminderType) => void;
+  onChangeTime: (value: string) => void;
+  onChangeWeeklyDays: (value: number[]) => void;
+  onChangeIntervalDays: (value: string) => void;
+  onChangeIntervalAnchorDate: (value: string) => void;
+  onClose: () => void;
+}) {
+  function chooseType(value: ReminderType) {
+    onChangeType(value);
+  }
+
+  function toggleWeekday(day: number) {
+    const next = weeklyReminderDays.includes(day)
+      ? weeklyReminderDays.filter((item) => item !== day)
+      : [...weeklyReminderDays, day].sort((a, b) => a - b);
+    onChangeWeeklyDays(next.length ? next : [day]);
+  }
+
+  async function applyAndClose() {
+    if (reminderType !== "none") {
+      await requestBrowserNotificationPermission();
+    }
+    onClose();
+  }
+
+  const options: Array<{ type: ReminderType; title: string; detail: string }> = [
+    { type: "none", title: "不提醒", detail: "默认选项，不发送通知" },
+    { type: "daily_time", title: "每天提醒一次", detail: `每天 ${reminderTime} 通知` },
+    { type: "deadline_24h", title: "截止前 24 小时", detail: "任务有截止时间时生效" },
+    { type: "weekly_time", title: "每周提醒", detail: `${weekdaysLabel(weeklyReminderDays)} ${reminderTime}` },
+    { type: "interval_days", title: "每隔几天提醒", detail: `每 ${Math.max(1, Number(intervalReminderDays || 1))} 天 ${reminderTime}` }
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center">
+      <section className="w-full max-w-xl rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.25)]">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-lg font-semibold text-slate-950">提醒设置</div>
+            <div className="mt-1 text-sm text-slate-500">选择任务通知方式</div>
+          </div>
+          <button type="button" className="rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50" onClick={onClose}>
+            关闭
+          </button>
+        </div>
+
+        <div className="grid gap-2">
+          {options.map((option) => {
+            const active = reminderType === option.type;
+            return (
+              <button
+                key={option.type}
+                type="button"
+                className={`rounded-2xl border px-3 py-3 text-left transition ${
+                  active ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-white"
+                }`}
+                onClick={() => chooseType(option.type)}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold">{option.title}</span>
+                  {active && <Check size={16} />}
+                </div>
+                <div className={`mt-1 text-xs ${active ? "text-slate-200" : "text-slate-500"}`}>{option.detail}</div>
+              </button>
+            );
+          })}
+        </div>
+
+        {(reminderType === "daily_time" || reminderType === "weekly_time" || reminderType === "interval_days") && (
+          <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-600">提醒时间</span>
+              <Input type="time" value={reminderTime} onChange={(event) => onChangeTime(event.target.value)} />
+            </label>
+            {reminderType === "weekly_time" && (
+              <div className="grid gap-2">
+                <div className="text-sm font-medium text-slate-600">星期</div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    [1, "周一"],
+                    [2, "周二"],
+                    [3, "周三"],
+                    [4, "周四"],
+                    [5, "周五"],
+                    [6, "周六"],
+                    [0, "周日"]
+                  ].map(([day, label]) => {
+                    const value = Number(day);
+                    const active = weeklyReminderDays.includes(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                          active ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                        onClick={() => toggleWeekday(value)}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {reminderType === "interval_days" && (
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-600">每隔几天</span>
+                  <Input type="number" min="1" value={intervalReminderDays} onChange={(event) => onChangeIntervalDays(event.target.value)} />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-600">从哪天开始</span>
+                  <Input type="date" value={intervalAnchorDate} onChange={(event) => onChangeIntervalAnchorDate(event.target.value)} />
+                </label>
+              </div>
+            )}
+          </div>
+        )}
+
+        <button type="button" className="mt-4 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white" onClick={() => void applyAndClose()}>
+          完成
+        </button>
+      </section>
     </div>
   );
 }
@@ -4955,6 +5136,7 @@ function parseReminderRule(value?: string | null): ReminderRule {
   if (value === "progress_based") return { type: "custom", mode: "progress", progressPercent: 80, maxCount: 1 };
   try {
     const parsed = JSON.parse(value) as ReminderRule;
+    if (["daily_time", "weekly_time", "interval_days"].includes(parsed.type)) return parsed;
     if (parsed.type === "custom") return parsed;
   } catch {
     return { type: "none" };
@@ -4962,27 +5144,42 @@ function parseReminderRule(value?: string | null): ReminderRule {
   return { type: "none" };
 }
 
-function buildReminderAlerts(tasks: Task[], dismissedKeys: string[]) {
+function buildReminderAlerts(tasks: Task[], dismissedKeys: string[], now = new Date()) {
   const dismissed = new Set(dismissedKeys);
   return tasks.flatMap((task) => {
     if (task.status === "completed" || task.status === "archived") return [];
-    const alert = buildReminderAlert(task);
+    const alert = buildReminderAlert(task, now);
     if (!alert || dismissed.has(alert.key)) return [];
     return [alert];
   });
 }
 
-function buildReminderAlert(task: Task): ReminderAlert | null {
+function buildReminderAlert(task: Task, now = new Date()): ReminderAlert | null {
   const rule = parseReminderRule(task.reminderRule);
   if (rule.type === "none") return null;
   const due = parseTaskDate(task.dueDate);
-  const now = new Date();
   const dueMs = due?.getTime();
   const nowMs = now.getTime();
 
   if (rule.type === "deadline_24h") {
     if (!dueMs || nowMs < dueMs - 24 * 60 * 60 * 1000 || nowMs > dueMs) return null;
     return makeReminderAlert(task, "24 小时截止提醒", "deadline_24h", "24h");
+  }
+
+  if (rule.type === "daily_time") {
+    if (!isReminderMinute(now, rule.time)) return null;
+    return makeReminderAlert(task, "每日任务提醒", "daily_time", slotKey("day", now), `每天 ${rule.time || "08:00"} 提醒`);
+  }
+
+  if (rule.type === "weekly_time") {
+    const weekdays = rule.weekdays?.length ? rule.weekdays : [0];
+    if (!weekdays.includes(now.getDay()) || !isReminderMinute(now, rule.time)) return null;
+    return makeReminderAlert(task, "每周任务提醒", "weekly_time", slotKey("day", now), `${weekdaysLabel(weekdays)} ${rule.time || "08:00"} 提醒`);
+  }
+
+  if (rule.type === "interval_days") {
+    if (!isReminderMinute(now, rule.time) || !isIntervalReminderDay(now, rule)) return null;
+    return makeReminderAlert(task, "周期任务提醒", "interval_days", slotKey("day", now), `每 ${Math.max(1, Number(rule.intervalDays || 1))} 天 ${rule.time || "08:00"} 提醒`);
   }
 
   if (rule.type === "daily_until_due") {
@@ -5019,13 +5216,78 @@ function buildReminderAlert(task: Task): ReminderAlert | null {
   return makeReminderAlert(task, rule.mode === "daily" ? "自定义每日提醒" : "自定义频率提醒", `custom_${rule.mode}`, slotKey(`${frequencyHours}h`, now));
 }
 
-function makeReminderAlert(task: Task, title: string, ruleKey: string, slot: string): ReminderAlert {
+function makeReminderAlert(task: Task, title: string, ruleKey: string, slot: string, detail?: string): ReminderAlert {
   return {
     task,
     key: `${task.id}:${ruleKey}:${slot}`,
     title,
-    detail: `截止时间：${formatTaskDateTime(task.dueDate)} · ${countdownText(task.dueDate)}`
+    detail: detail || `截止时间：${formatTaskDateTime(task.dueDate)} · ${countdownText(task.dueDate)}`
   };
+}
+
+function isReminderMinute(date: Date, time = "08:00") {
+  const [hour = "08", minute = "00"] = time.split(":");
+  return date.getHours() === Number(hour) && date.getMinutes() === Number(minute);
+}
+
+function isIntervalReminderDay(date: Date, rule: Extract<ReminderRule, { type: "interval_days" }>) {
+  const intervalDays = Math.max(1, Number(rule.intervalDays || 1));
+  const anchor = startOfLocalDay(rule.anchorDate ? new Date(`${rule.anchorDate}T00:00:00`) : date);
+  const today = startOfLocalDay(date);
+  const diffDays = Math.floor((today.getTime() - anchor.getTime()) / 86400000);
+  return diffDays >= 0 && diffDays % intervalDays === 0;
+}
+
+function weekdaysLabel(days: number[]) {
+  const labels = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  return [...days].sort((a, b) => a - b).map((day) => labels[day] || "周日").join("、");
+}
+
+function reminderRuleLabel(rule: {
+  type: ReminderType;
+  time?: string;
+  weekdays?: number[];
+  intervalDays?: number;
+  anchorDate?: string;
+}) {
+  if (rule.type === "none") return "不提醒";
+  if (rule.type === "daily_time") return `每天 ${rule.time || "08:00"}`;
+  if (rule.type === "deadline_24h") return "截止前 24 小时";
+  if (rule.type === "weekly_time") return `${weekdaysLabel(rule.weekdays?.length ? rule.weekdays : [0])} ${rule.time || "08:00"}`;
+  if (rule.type === "interval_days") return `每 ${Math.max(1, Number(rule.intervalDays || 1))} 天 ${rule.time || "08:00"}`;
+  if (rule.type === "daily_until_due") return "每天直到截止";
+  if (rule.type === "hourly_until_due") return "每小时直到截止";
+  return "自定义提醒";
+}
+
+async function requestBrowserNotificationPermission() {
+  if (typeof window === "undefined" || !("Notification" in window)) return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") return false;
+  const permission = await Notification.requestPermission();
+  return permission === "granted";
+}
+
+async function sendBrowserTaskNotification(alert: ReminderAlert) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  const body = `${alert.task.title}\n${alert.detail}`;
+  try {
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(alert.title, {
+        body,
+        tag: alert.key
+      });
+      return;
+    }
+  } catch {
+    // Fall back to page notifications when service worker notification is unavailable.
+  }
+  new Notification(alert.title, {
+    body,
+    tag: alert.key
+  });
 }
 
 function slotKey(unit: string, date: Date): string {
