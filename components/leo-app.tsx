@@ -4112,7 +4112,7 @@ function ReminderRuleEditor({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center">
-      <section className="w-full max-w-xl rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.25)]">
+      <section className="w-full max-w-4xl rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.25)]">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="text-lg font-semibold text-slate-950">提醒设置</div>
@@ -4123,79 +4123,120 @@ function ReminderRuleEditor({
           </button>
         </div>
 
-        <div className="grid gap-2">
-          {options.map((option) => {
-            const active = reminderType === option.type;
-            return (
-              <button
-                key={option.type}
-                type="button"
-                className={`rounded-2xl border px-3 py-3 text-left transition ${
-                  active ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-white"
-                }`}
-                onClick={() => chooseType(option.type)}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold">{option.title}</span>
-                  {active && <Check size={16} />}
-                </div>
-                <div className={`mt-1 text-xs ${active ? "text-slate-200" : "text-slate-500"}`}>{option.detail}</div>
-              </button>
-            );
-          })}
-        </div>
+        <div className="grid gap-4 md:grid-cols-[320px_1fr]">
+          <div className="grid content-start gap-2">
+            {options.map((option) => {
+              const active = reminderType === option.type;
+              return (
+                <button
+                  key={option.type}
+                  type="button"
+                  className={`rounded-2xl border px-3 py-3 text-left transition ${
+                    active ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-white"
+                  }`}
+                  onClick={() => chooseType(option.type)}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold">{option.title}</span>
+                    {active && <Check size={16} />}
+                  </div>
+                  <div className={`mt-1 text-xs ${active ? "text-slate-200" : "text-slate-500"}`}>{option.detail}</div>
+                </button>
+              );
+            })}
+          </div>
 
-        {(reminderType === "daily_time" || reminderType === "weekly_time" || reminderType === "interval_days") && (
-          <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-600">提醒时间</span>
-              <Input type="time" value={reminderTime} onChange={(event) => onChangeTime(event.target.value)} />
-            </label>
-            {reminderType === "weekly_time" && (
-              <div className="grid gap-2">
-                <div className="text-sm font-medium text-slate-600">星期</div>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    [1, "周一"],
-                    [2, "周二"],
-                    [3, "周三"],
-                    [4, "周四"],
-                    [5, "周五"],
-                    [6, "周六"],
-                    [0, "周日"]
-                  ].map(([day, label]) => {
-                    const value = Number(day);
-                    const active = weeklyReminderDays.includes(value);
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        className={`rounded-full px-3 py-2 text-sm font-medium transition ${
-                          active ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                        onClick={() => toggleWeekday(value)}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+          <div className="min-h-[360px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-4">
+              <div className="text-sm font-semibold text-slate-950">提醒参数</div>
+              <div className="mt-1 text-xs text-slate-500">{reminderRuleLabel({
+                type: reminderType,
+                time: reminderTime,
+                weekdays: weeklyReminderDays,
+                intervalDays: Number(intervalReminderDays || 7),
+                anchorDate: intervalAnchorDate
+              })}</div>
+            </div>
+
+            {reminderType === "none" && (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+                当前任务不会发送提醒通知。需要提醒时，在左侧选择一种提醒方式。
               </div>
             )}
-            {reminderType === "interval_days" && (
-              <div className="grid gap-3 md:grid-cols-2">
+
+            {reminderType === "deadline_24h" && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                系统会在任务截止前 24 小时提醒你。这个选项会使用任务里的截止时间，不需要额外设置。
+              </div>
+            )}
+
+            {(reminderType === "daily_time" || reminderType === "weekly_time" || reminderType === "interval_days") && (
+              <div className="grid gap-3">
                 <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-slate-600">每隔几天</span>
-                  <Input type="number" min="1" value={intervalReminderDays} onChange={(event) => onChangeIntervalDays(event.target.value)} />
+                  <span className="font-medium text-slate-600">提醒时间</span>
+                  <Input type="time" value={reminderTime} onChange={(event) => onChangeTime(event.target.value)} />
                 </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-slate-600">从哪天开始</span>
-                  <Input type="date" value={intervalAnchorDate} onChange={(event) => onChangeIntervalAnchorDate(event.target.value)} />
-                </label>
+
+                {reminderType === "weekly_time" && (
+                  <div className="grid gap-2">
+                    <div className="text-sm font-medium text-slate-600">星期</div>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        [1, "周一"],
+                        [2, "周二"],
+                        [3, "周三"],
+                        [4, "周四"],
+                        [5, "周五"],
+                        [6, "周六"],
+                        [0, "周日"]
+                      ].map(([day, label]) => {
+                        const value = Number(day);
+                        const active = weeklyReminderDays.includes(value);
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                              active ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-100"
+                            }`}
+                            onClick={() => toggleWeekday(value)}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {reminderType === "interval_days" && (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="grid gap-1 text-sm">
+                      <span className="font-medium text-slate-600">每隔几天</span>
+                      <Input type="number" min="1" value={intervalReminderDays} onChange={(event) => onChangeIntervalDays(event.target.value)} />
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      <span className="font-medium text-slate-600">从哪天开始</span>
+                      <Input type="date" value={intervalAnchorDate} onChange={(event) => onChangeIntervalAnchorDate(event.target.value)} />
+                    </label>
+                  </div>
+                )}
+
+                {reminderType === "daily_time" && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                    每天到这个时间，MacBook 会收到一次任务提醒。
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(reminderType === "daily_until_due" || reminderType === "hourly_until_due" || reminderType === "custom") && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                这是旧任务里的提醒规则，仍会保留并生效。需要新的固定时间提醒时，可以在左侧改选每天、每周或每隔几天提醒。
               </div>
             )}
           </div>
-        )}
+        </div>
 
         <button type="button" className="mt-4 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white" onClick={() => void applyAndClose()}>
           完成
