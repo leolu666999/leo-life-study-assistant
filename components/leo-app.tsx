@@ -2243,6 +2243,168 @@ function TimetableOccurrenceCard({
   );
 }
 
+function TimetableCalendarView({
+  occurrences,
+  view,
+  anchorDate,
+  onEdit,
+  onCancel
+}: {
+  occurrences: CourseOccurrence[];
+  view: "day" | "week";
+  anchorDate: string;
+  onEdit: (occurrence: CourseOccurrence) => void;
+  onCancel: (occurrence: CourseOccurrence) => void;
+}) {
+  const days = getTimetableDays(view, anchorDate);
+  const dayKeys = days.map((day) => localDateKey(day));
+  const visibleOccurrences = occurrences.filter((occurrence) => dayKeys.includes(localDateKey(new Date(occurrence.startAt))));
+  const hourRange = getTimetableHourRange(visibleOccurrences);
+  const hours = Array.from({ length: hourRange.end - hourRange.start + 1 }, (_, index) => hourRange.start + index);
+  const hourHeight = view === "day" ? 76 : 68;
+  const bodyHeight = (hourRange.end - hourRange.start) * hourHeight;
+  const timeColumnWidth = view === "day" ? 72 : 64;
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto">
+        <div
+          className="min-w-[760px]"
+          style={{ width: view === "day" ? "100%" : "max(100%, 980px)" }}
+        >
+          <div
+            className="grid border-b border-slate-200 bg-slate-50"
+            style={{ gridTemplateColumns: `${timeColumnWidth}px repeat(${days.length}, minmax(96px, 1fr))` }}
+          >
+            <div className="border-r border-slate-200 px-2 py-3 text-xs font-medium text-slate-400">时间</div>
+            {days.map((day) => (
+              <div key={day.toISOString()} className="border-r border-slate-200 px-3 py-2 last:border-r-0">
+                <div className="text-xs font-medium text-slate-500">{weekdayLabel(day)}</div>
+                <div className="mt-0.5 text-sm font-semibold text-slate-950">{monthDayLabel(day)}</div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: `${timeColumnWidth}px repeat(${days.length}, minmax(96px, 1fr))` }}
+          >
+            <div className="relative border-r border-slate-200 bg-slate-50" style={{ height: bodyHeight }}>
+              {hours.slice(0, -1).map((hour, index) => (
+                <div
+                  key={hour}
+                  className="absolute left-0 right-0 -translate-y-2 px-2 text-right text-[11px] font-medium text-slate-500"
+                  style={{ top: index * hourHeight }}
+                >
+                  {formatCalendarHour(hour)}
+                </div>
+              ))}
+            </div>
+
+            {days.map((day) => {
+              const dayKey = localDateKey(day);
+              const dayOccurrences = visibleOccurrences.filter((occurrence) => localDateKey(new Date(occurrence.startAt)) === dayKey);
+              const laidOut = layoutTimetableDayOccurrences(dayOccurrences);
+              return (
+                <div key={dayKey} className="relative border-r border-slate-200 last:border-r-0" style={{ height: bodyHeight }}>
+                  {hours.slice(0, -1).map((hour, index) => (
+                    <div
+                      key={hour}
+                      className="absolute left-0 right-0 border-t border-slate-100"
+                      style={{ top: index * hourHeight }}
+                    >
+                      <div className="h-[1px] border-t border-slate-50" />
+                    </div>
+                  ))}
+                  {laidOut.map(({ occurrence, lane, laneCount }) => {
+                    const startMinutes = minutesSinceMidnight(new Date(occurrence.startAt));
+                    const endMinutes = minutesSinceMidnight(new Date(occurrence.endAt));
+                    const top = Math.max(0, ((startMinutes - hourRange.start * 60) / 60) * hourHeight);
+                    const height = Math.max(36, ((endMinutes - startMinutes) / 60) * hourHeight - 4);
+                    const gap = 6;
+                    const width = `calc(${100 / laneCount}% - ${gap}px)`;
+                    const left = `calc(${(100 / laneCount) * lane}% + ${gap / 2}px)`;
+                    return (
+                      <TimetableCalendarEvent
+                        key={occurrence.id}
+                        occurrence={occurrence}
+                        top={top}
+                        height={height}
+                        width={width}
+                        left={left}
+                        compact={view === "week"}
+                        onEdit={() => onEdit(occurrence)}
+                        onCancel={() => onCancel(occurrence)}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimetableCalendarEvent({
+  occurrence,
+  top,
+  height,
+  width,
+  left,
+  compact,
+  onEdit,
+  onCancel
+}: {
+  occurrence: CourseOccurrence;
+  top: number;
+  height: number;
+  width: string;
+  left: string;
+  compact: boolean;
+  onEdit: () => void;
+  onCancel: () => void;
+}) {
+  const course = occurrence.course;
+  const color = course?.color || "#0f172a";
+  const background = calendarEventBackground(color);
+  return (
+    <article
+      className="absolute overflow-hidden rounded-md border p-2 text-left shadow-sm transition hover:z-20 hover:shadow-md"
+      style={{
+        top,
+        height,
+        width,
+        left,
+        borderColor: color,
+        background,
+        color: "#0f172a"
+      }}
+      title={`${course?.courseCode ?? "COURSE"} ${course?.activityType ?? ""} ${formatCalendarTimeRange(occurrence)}`}
+    >
+      <div className="flex items-start justify-between gap-1">
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-semibold leading-tight">{course?.courseCode ?? "COURSE"}</div>
+          <div className="truncate text-[11px] font-medium leading-tight text-slate-700">{course?.activityType ?? "课程"}</div>
+        </div>
+        <div className="flex shrink-0 gap-1 opacity-0 transition hover:opacity-100 focus-within:opacity-100">
+          <button className="rounded bg-white/80 p-1 text-slate-600 shadow-sm hover:bg-white" onClick={onEdit} title="编辑地点">
+            <Settings size={12} />
+          </button>
+          <button className="rounded bg-white/80 p-1 text-red-500 shadow-sm hover:bg-white" onClick={onCancel} title="取消课程">
+            <X size={12} />
+          </button>
+        </div>
+      </div>
+      <div className="mt-1 truncate text-[11px] leading-tight text-slate-700">{formatCalendarTimeRange(occurrence)}</div>
+      {!compact && <div className="mt-1 line-clamp-2 text-[11px] leading-tight text-slate-600">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>}
+      {compact && height > 72 && <div className="mt-1 line-clamp-2 text-[11px] leading-tight text-slate-600">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>}
+    </article>
+  );
+}
+
 function CoursesPage({ courses }: { courses: Course[] }) {
   const [sources, setSources] = useState<TimetableSource[]>([]);
   const [timetableCourses, setTimetableCourses] = useState<TimetableCourse[]>([]);
@@ -2438,17 +2600,31 @@ function CoursesPage({ courses }: { courses: Course[] }) {
             来源 {sources.length} · 课程系列 {timetableCourses.length} · 当前显示 {visibleOccurrences.length}
           </div>
         </div>
-        <div className={view === "week" ? "grid min-w-full gap-3 overflow-x-auto md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
-          {visibleOccurrences.length === 0 && <EmptyBlock text="当前范围没有课程。" />}
-          {visibleOccurrences.map((occurrence) => (
-            <TimetableOccurrenceCard
-              key={occurrence.id}
-              occurrence={occurrence}
-              onEdit={() => void updateOccurrence(occurrence)}
-              onCancel={() => void cancelOccurrence(occurrence)}
+        {view === "day" || view === "week" ? (
+          visibleOccurrences.length === 0 ? (
+            <EmptyBlock text="当前范围没有课程。" />
+          ) : (
+            <TimetableCalendarView
+              occurrences={visibleOccurrences}
+              view={view}
+              anchorDate={anchorDate}
+              onEdit={(occurrence) => void updateOccurrence(occurrence)}
+              onCancel={(occurrence) => void cancelOccurrence(occurrence)}
             />
-          ))}
-        </div>
+          )
+        ) : (
+          <div className="space-y-3">
+            {visibleOccurrences.length === 0 && <EmptyBlock text="当前范围没有课程。" />}
+            {visibleOccurrences.map((occurrence) => (
+              <TimetableOccurrenceCard
+                key={occurrence.id}
+                occurrence={occurrence}
+                onEdit={() => void updateOccurrence(occurrence)}
+                onCancel={() => void cancelOccurrence(occurrence)}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       {courses.length > 0 && (
@@ -4259,6 +4435,88 @@ function isImageMime(mime?: string | null) {
 
 function statusLabel(status: string) {
   return status === "not_started" ? "未开始" : status === "in_progress" ? "进行中" : status === "completed" ? "已完成" : "已归档";
+}
+
+function getTimetableDays(view: "day" | "week", anchorDate: string) {
+  const anchor = startOfLocalDay(new Date(`${anchorDate}T00:00:00`));
+  if (view === "day") return [anchor];
+  const mondayOffset = (anchor.getDay() + 6) % 7;
+  const monday = addDays(anchor, -mondayOffset);
+  return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
+}
+
+function getTimetableHourRange(occurrences: CourseOccurrence[]) {
+  if (occurrences.length === 0) return { start: 8, end: 18 };
+  const starts = occurrences.map((occurrence) => new Date(occurrence.startAt).getHours());
+  const ends = occurrences.map((occurrence) => {
+    const end = new Date(occurrence.endAt);
+    return end.getMinutes() > 0 ? end.getHours() + 1 : end.getHours();
+  });
+  return {
+    start: Math.max(0, Math.min(8, Math.min(...starts))),
+    end: Math.min(24, Math.max(18, Math.max(...ends)))
+  };
+}
+
+function layoutTimetableDayOccurrences(occurrences: CourseOccurrence[]) {
+  const sorted = [...occurrences].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  const active: Array<{ lane: number; end: number }> = [];
+  return sorted.map((occurrence) => {
+    const start = new Date(occurrence.startAt).getTime();
+    const end = new Date(occurrence.endAt).getTime();
+    for (let index = active.length - 1; index >= 0; index -= 1) {
+      if (active[index].end <= start) active.splice(index, 1);
+    }
+    const usedLanes = new Set(active.map((item) => item.lane));
+    let lane = 0;
+    while (usedLanes.has(lane)) lane += 1;
+    active.push({ lane, end });
+    const laneCount = Math.max(
+      1,
+      sorted.filter((item) => {
+        const itemStart = new Date(item.startAt).getTime();
+        const itemEnd = new Date(item.endAt).getTime();
+        return itemStart < end && itemEnd > start;
+      }).length
+    );
+    return { occurrence, lane: Math.min(lane, laneCount - 1), laneCount };
+  });
+}
+
+function minutesSinceMidnight(date: Date) {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function weekdayLabel(date: Date) {
+  return date.toLocaleDateString("zh-CN", { weekday: "short" });
+}
+
+function monthDayLabel(date: Date) {
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function formatCalendarHour(hour: number) {
+  if (hour === 0) return "12 AM";
+  if (hour < 12) return `${hour}:00 AM`;
+  if (hour === 12) return "12 PM";
+  return `${hour - 12}:00 PM`;
+}
+
+function formatCalendarTimeRange(occurrence: CourseOccurrence) {
+  const options: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit", hour12: false };
+  return `${new Date(occurrence.startAt).toLocaleTimeString("zh-CN", options)} - ${new Date(occurrence.endAt).toLocaleTimeString("zh-CN", options)}`;
+}
+
+function calendarEventBackground(color: string) {
+  const clean = color.startsWith("#") && (color.length === 7 || color.length === 4) ? color : "#0f172a";
+  if (clean.length === 4) {
+    const [, r, g, b] = clean;
+    return `rgba(${parseInt(`${r}${r}`, 16)}, ${parseInt(`${g}${g}`, 16)}, ${parseInt(`${b}${b}`, 16)}, 0.18)`;
+  }
+  const red = parseInt(clean.slice(1, 3), 16);
+  const green = parseInt(clean.slice(3, 5), 16);
+  const blue = parseInt(clean.slice(5, 7), 16);
+  return `rgba(${red}, ${green}, ${blue}, 0.16)`;
 }
 
 function progressTypeLabel(type?: string | null) {
