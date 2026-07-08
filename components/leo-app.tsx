@@ -98,7 +98,7 @@ const navItems: Array<{ view: View; href: string; label: string; icon: React.Rea
   { view: "dashboard", href: "/", label: "首页", icon: <Home size={18} /> },
   { view: "tasks", href: "/tasks", label: "任务", icon: <ListChecks size={18} /> },
   { view: "plans", href: "/plans", label: "计划", icon: <CalendarDays size={18} /> },
-  { view: "courses", href: "/courses", label: "课程（维修中）", icon: <BookOpen size={18} /> },
+  { view: "courses", href: "/courses", label: "课程", icon: <BookOpen size={18} /> },
   { view: "journal", href: "/journal", label: "日记", icon: <NotebookPen size={18} /> },
   { view: "expenses", href: "/expenses", label: "记账", icon: <WalletCards size={18} /> },
   { view: "files", href: "/files", label: "文件", icon: <FileText size={18} /> },
