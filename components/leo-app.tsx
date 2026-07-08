@@ -2150,6 +2150,34 @@ function PlanCard({ plan, onSave }: { plan: Plan; onSave: (url: string, options?
 type TimetableViewMode = "day" | "week" | "month" | "semester";
 type TimetableEditScope = "single" | "week" | "month" | "future" | "series";
 
+const USYD_OCHRE = "#E64626";
+const USYD_ACCESSIBLE_OCHRE = "#CE3D20";
+const USYD_CHARCOAL = "#424242";
+const USYD_LIGHT_GREY = "#F1F1F1";
+const USYD_SANDSTONE = "#FCEDE2";
+
+type TimetableCourseSlot = {
+  key: string;
+  activityType: string;
+  weekday: string;
+  timeRange: string;
+  location: string;
+  firstDate: Date;
+  lastDate: Date;
+  count: number;
+};
+
+type TimetableCourseSummary = {
+  key: string;
+  code: string;
+  name: string;
+  activities: string[];
+  slots: TimetableCourseSlot[];
+  occurrenceCount: number;
+  firstDate: Date;
+  lastDate: Date;
+};
+
 function startOfLocalDay(date: Date) {
   const next = new Date(date);
   next.setHours(0, 0, 0, 0);
@@ -2368,11 +2396,11 @@ function TimetableCalendarEvent({
   onCancel: () => void;
 }) {
   const course = occurrence.course;
-  const color = course?.color || "#0f172a";
-  const background = calendarEventBackground(color);
+  const color = usydCourseAccent(course?.courseCode);
+  const background = usydCourseBackground(course?.courseCode);
   return (
     <article
-      className="absolute overflow-hidden rounded-md border p-2 text-left shadow-sm transition hover:z-20 hover:shadow-md"
+      className="absolute overflow-hidden rounded-md border border-l-4 p-2 text-left shadow-sm transition hover:z-20 hover:shadow-md"
       style={{
         top,
         height,
@@ -2405,6 +2433,99 @@ function TimetableCalendarEvent({
   );
 }
 
+function TimetableCourseSummaryList({
+  summaries,
+  expandedKey,
+  onToggle
+}: {
+  summaries: TimetableCourseSummary[];
+  expandedKey: string | null;
+  onToggle: (key: string) => void;
+}) {
+  if (summaries.length === 0) {
+    return <EmptyBlock text="当前学期没有课程。" />;
+  }
+  return (
+    <div className="grid gap-3 lg:grid-cols-2">
+      {summaries.map((summary) => (
+        <TimetableCourseSummaryCard
+          key={summary.key}
+          summary={summary}
+          expanded={expandedKey === summary.key}
+          onToggle={() => onToggle(summary.key)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TimetableCourseSummaryCard({
+  summary,
+  expanded,
+  onToggle
+}: {
+  summary: TimetableCourseSummary;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const accent = usydCourseAccent(summary.code);
+  return (
+    <article
+      className="rounded-lg border bg-white p-4 shadow-soft transition"
+      style={{ borderColor: expanded ? accent : "#e2e8f0" }}
+    >
+      <button className="w-full text-left" onClick={onToggle}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="rounded-md px-2 py-1 text-sm font-semibold text-white"
+                style={{ background: accent }}
+              >
+                {summary.code}
+              </span>
+              {summary.activities.slice(0, 3).map((activity) => (
+                <Badge key={activity}>{activity}</Badge>
+              ))}
+              {summary.activities.length > 3 && <Badge>+{summary.activities.length - 3}</Badge>}
+            </div>
+            <div className="mt-2 truncate text-base font-semibold text-slate-950">{summary.name}</div>
+            <div className="mt-1 text-sm text-slate-500">
+              {summary.slots.length} 个上课安排 · {summary.occurrenceCount} 次课 · {monthDayLabel(summary.firstDate)} - {monthDayLabel(summary.lastDate)}
+            </div>
+          </div>
+          <ChevronDown
+            size={18}
+            className={`mt-1 shrink-0 text-slate-500 transition ${expanded ? "rotate-180" : ""}`}
+          />
+        </div>
+      </button>
+      {expanded && (
+        <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
+          {summary.slots.map((slot) => (
+            <div
+              key={slot.key}
+              className="rounded-lg border px-3 py-2 text-sm"
+              style={{ borderColor: USYD_LIGHT_GREY, background: USYD_SANDSTONE }}
+            >
+              <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                <div className="font-semibold text-slate-950">
+                  {slot.weekday} · {slot.timeRange}
+                </div>
+                <div className="text-xs font-medium text-slate-500">
+                  {slot.count} 次 · {monthDayLabel(slot.firstDate)} - {monthDayLabel(slot.lastDate)}
+                </div>
+              </div>
+              <div className="mt-1 text-slate-700">{slot.activityType}</div>
+              <div className="mt-1 text-slate-600">{slot.location}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
 function CoursesPage({ courses }: { courses: Course[] }) {
   const [sources, setSources] = useState<TimetableSource[]>([]);
   const [timetableCourses, setTimetableCourses] = useState<TimetableCourse[]>([]);
@@ -2417,6 +2538,7 @@ function CoursesPage({ courses }: { courses: Course[] }) {
   const [view, setView] = useState<TimetableViewMode>("week");
   const [anchorDate, setAnchorDate] = useState(localDateKey(new Date()));
   const [importMessage, setImportMessage] = useState("");
+  const [expandedCourseKey, setExpandedCourseKey] = useState<string | null>(null);
 
   useEffect(() => {
     void loadTimetable();
@@ -2513,6 +2635,8 @@ function CoursesPage({ courses }: { courses: Course[] }) {
   }
 
   const visibleOccurrences = filterOccurrencesForView(occurrences, view, anchorDate);
+  const semesterCourseSummaries = buildTimetableCourseSummaries(occurrences);
+  const displayCount = view === "semester" ? semesterCourseSummaries.length : visibleOccurrences.length;
 
   return (
     <>
@@ -2587,8 +2711,9 @@ function CoursesPage({ courses }: { courses: Course[] }) {
               <button
                 key={item}
                 className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${
-                  view === item ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  view === item ? "text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
+                style={view === item ? { background: USYD_CHARCOAL } : undefined}
                 onClick={() => setView(item)}
               >
                 {item === "day" ? "日" : item === "week" ? "周" : item === "month" ? "月" : "学期"}
@@ -2597,7 +2722,9 @@ function CoursesPage({ courses }: { courses: Course[] }) {
           </div>
           <Input type="date" value={anchorDate} onChange={(event) => setAnchorDate(event.target.value)} />
           <div className="text-sm text-slate-500 md:text-right">
-            来源 {sources.length} · 课程系列 {timetableCourses.length} · 当前显示 {visibleOccurrences.length}
+            {view === "semester"
+              ? `来源 ${sources.length} · 已选课程 ${semesterCourseSummaries.length} · 课程系列 ${timetableCourses.length}`
+              : `来源 ${sources.length} · 课程系列 ${timetableCourses.length} · 当前显示 ${displayCount}`}
           </div>
         </div>
         {view === "day" || view === "week" ? (
@@ -2612,6 +2739,12 @@ function CoursesPage({ courses }: { courses: Course[] }) {
               onCancel={(occurrence) => void cancelOccurrence(occurrence)}
             />
           )
+        ) : view === "semester" ? (
+          <TimetableCourseSummaryList
+            summaries={semesterCourseSummaries}
+            expandedKey={expandedCourseKey}
+            onToggle={(key) => setExpandedCourseKey((current) => current === key ? null : key)}
+          />
         ) : (
           <div className="space-y-3">
             {visibleOccurrences.length === 0 && <EmptyBlock text="当前范围没有课程。" />}
@@ -4507,16 +4640,98 @@ function formatCalendarTimeRange(occurrence: CourseOccurrence) {
   return `${new Date(occurrence.startAt).toLocaleTimeString("zh-CN", options)} - ${new Date(occurrence.endAt).toLocaleTimeString("zh-CN", options)}`;
 }
 
-function calendarEventBackground(color: string) {
-  const clean = color.startsWith("#") && (color.length === 7 || color.length === 4) ? color : "#0f172a";
-  if (clean.length === 4) {
-    const [, r, g, b] = clean;
-    return `rgba(${parseInt(`${r}${r}`, 16)}, ${parseInt(`${g}${g}`, 16)}, ${parseInt(`${b}${b}`, 16)}, 0.18)`;
+function buildTimetableCourseSummaries(occurrences: CourseOccurrence[]) {
+  const grouped = new Map<string, CourseOccurrence[]>();
+  for (const occurrence of occurrences) {
+    if (occurrence.status === "cancelled") continue;
+    const course = occurrence.course;
+    const key = course?.courseCode?.trim() || course?.courseName?.trim() || "COURSE";
+    grouped.set(key, [...(grouped.get(key) ?? []), occurrence]);
   }
-  const red = parseInt(clean.slice(1, 3), 16);
-  const green = parseInt(clean.slice(3, 5), 16);
-  const blue = parseInt(clean.slice(5, 7), 16);
-  return `rgba(${red}, ${green}, ${blue}, 0.16)`;
+
+  return Array.from(grouped.entries())
+    .map(([key, courseOccurrences]) => {
+      const sorted = [...courseOccurrences].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+      const code = sorted[0]?.course?.courseCode?.trim() || key;
+      const names = sorted
+        .map((occurrence) => cleanCourseDisplayName(occurrence.course?.courseName || occurrence.course?.activityName || code, code))
+        .filter(Boolean);
+      const name = names.sort((a, b) => a.length - b.length)[0] || sorted[0]?.course?.courseName || "未命名课程";
+      const activities = Array.from(new Set(sorted.map((occurrence) => occurrence.course?.activityType || "课程"))).sort();
+      const slotMap = new Map<string, CourseOccurrence[]>();
+
+      for (const occurrence of sorted) {
+        const startAt = new Date(occurrence.startAt);
+        const activityType = occurrence.course?.activityType || "课程";
+        const location = occurrence.location || occurrence.course?.defaultLocation || "地点待确认";
+        const slotKey = [
+          activityType,
+          startAt.getDay(),
+          formatCalendarTimeRange(occurrence),
+          location
+        ].join("|");
+        slotMap.set(slotKey, [...(slotMap.get(slotKey) ?? []), occurrence]);
+      }
+
+      const slots = Array.from(slotMap.entries())
+        .map(([slotKey, slotOccurrences]) => {
+          const slotSorted = [...slotOccurrences].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+          const first = slotSorted[0];
+          const last = slotSorted[slotSorted.length - 1];
+          const startAt = new Date(first.startAt);
+          return {
+            key: slotKey,
+            activityType: first.course?.activityType || "课程",
+            weekday: weekdayLabel(startAt),
+            timeRange: formatCalendarTimeRange(first),
+            location: first.location || first.course?.defaultLocation || "地点待确认",
+            firstDate: new Date(first.startAt),
+            lastDate: new Date(last.endAt),
+            count: slotSorted.length
+          };
+        })
+        .sort((a, b) => a.firstDate.getTime() - b.firstDate.getTime());
+
+      return {
+        key,
+        code,
+        name,
+        activities,
+        slots,
+        occurrenceCount: sorted.length,
+        firstDate: new Date(sorted[0].startAt),
+        lastDate: new Date(sorted[sorted.length - 1].endAt)
+      };
+    })
+    .sort((a, b) => a.code.localeCompare(b.code));
+}
+
+function cleanCourseDisplayName(name: string, code: string) {
+  const withoutCode = name.replace(new RegExp(`^${escapeRegExp(code)}\\s*[-–—:]?\\s*`, "i"), "");
+  return withoutCode
+    .replace(/,\s*(lecture|workshop|tutorial|practical|introduction|algebra|calculus|scan[a-z]*|\d+).*$/i, "")
+    .replace(/,\s*$/g, "")
+    .trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function usydCourseAccent(courseCode?: string | null) {
+  return hashString(courseCode || "") % 3 === 1 ? USYD_CHARCOAL : USYD_ACCESSIBLE_OCHRE;
+}
+
+function usydCourseBackground(courseCode?: string | null) {
+  return usydCourseAccent(courseCode) === USYD_CHARCOAL ? "rgba(66, 66, 66, 0.1)" : "rgba(230, 70, 38, 0.13)";
+}
+
+function hashString(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash);
 }
 
 function progressTypeLabel(type?: string | null) {
