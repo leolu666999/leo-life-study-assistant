@@ -2199,6 +2199,30 @@ type TimetableCourseSummary = {
   lastDate: Date;
 };
 
+const timetableTimeZone = "Australia/Sydney";
+
+function timetableDateParts(value: Date | string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timetableTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(typeof value === "string" ? new Date(value) : value);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "00";
+  return {
+    dateKey: `${part("year")}-${part("month")}-${part("day")}`,
+    hour: Number(part("hour")),
+    minute: Number(part("minute"))
+  };
+}
+
+function timetableDateKey(value: Date | string) {
+  return timetableDateParts(value).dateKey;
+}
+
 function startOfLocalDay(date: Date) {
   const next = new Date(date);
   next.setHours(0, 0, 0, 0);
@@ -2213,27 +2237,27 @@ function addDays(date: Date, days: number) {
 
 function filterOccurrencesForView(occurrences: CourseOccurrence[], view: TimetableViewMode, anchorDate: string) {
   const anchor = startOfLocalDay(new Date(`${anchorDate}T00:00:00`));
-  let start = new Date(anchor);
-  let end = addDays(start, 1);
   if (view === "week") {
-    const day = (start.getDay() + 6) % 7;
-    start = addDays(start, -day);
-    end = addDays(start, 7);
-  } else if (view === "month") {
-    start.setDate(1);
-    end = new Date(start);
-    end.setMonth(end.getMonth() + 1);
-  } else if (view === "semester") {
+    const day = (anchor.getDay() + 6) % 7;
+    const monday = addDays(anchor, -day);
+    const visibleDays = new Set(Array.from({ length: 7 }, (_, index) => localDateKey(addDays(monday, index))));
+    return occurrences
+      .filter((occurrence) => occurrence.status !== "cancelled" && visibleDays.has(timetableDateKey(occurrence.startAt)))
+      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  }
+  if (view === "month") {
+    const monthKey = anchorDate.slice(0, 7);
+    return occurrences
+      .filter((occurrence) => occurrence.status !== "cancelled" && timetableDateKey(occurrence.startAt).startsWith(monthKey))
+      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  }
+  if (view === "semester") {
     return occurrences
       .filter((occurrence) => occurrence.status !== "cancelled")
       .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
   }
   return occurrences
-    .filter((occurrence) => {
-      const startAt = new Date(occurrence.startAt);
-      const endAt = new Date(occurrence.endAt);
-      return occurrence.status !== "cancelled" && endAt >= start && startAt < end;
-    })
+    .filter((occurrence) => occurrence.status !== "cancelled" && timetableDateKey(occurrence.startAt) === anchorDate)
     .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
 }
 
@@ -2248,7 +2272,7 @@ function TimetableOccurrenceRow({ occurrence }: { occurrence: CourseOccurrence }
   return (
     <div className="grid gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm md:grid-cols-[1.2fr_1fr_1fr]">
       <div className="font-medium text-slate-900">{course?.courseCode ?? "COURSE"} · {course?.courseName ?? "未命名课程"}</div>
-      <div className="text-slate-600">{formatTaskDateTime(occurrence.startAt)} - {formatTaskDateTime(occurrence.endAt)}</div>
+      <div className="text-slate-600">{formatTimetableDateTime(occurrence.startAt)} - {formatTimetableDateTime(occurrence.endAt)}</div>
       <div className="text-slate-500">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>
     </div>
   );
@@ -2284,7 +2308,7 @@ function TimetableOccurrenceCard({
         </div>
       </div>
       <div className="space-y-2 text-sm text-slate-600">
-        <div>{formatTaskDateTime(occurrence.startAt)} - {formatTaskDateTime(occurrence.endAt)}</div>
+        <div>{formatTimetableDateTime(occurrence.startAt)} - {formatTimetableDateTime(occurrence.endAt)}</div>
         <div>{occurrence.location || course?.defaultLocation || "地点待确认"}</div>
         {occurrence.notes && <div className="line-clamp-2 text-slate-500">{occurrence.notes}</div>}
       </div>
@@ -2307,7 +2331,7 @@ function TimetableCalendarView({
 }) {
   const days = getTimetableDays(view, anchorDate);
   const dayKeys = days.map((day) => localDateKey(day));
-  const visibleOccurrences = occurrences.filter((occurrence) => dayKeys.includes(localDateKey(new Date(occurrence.startAt))));
+  const visibleOccurrences = occurrences.filter((occurrence) => dayKeys.includes(timetableDateKey(occurrence.startAt)));
   const hourRange = getTimetableHourRange(visibleOccurrences);
   const hours = Array.from({ length: hourRange.end - hourRange.start + 1 }, (_, index) => hourRange.start + index);
   const hourHeight = view === "day" ? 76 : 68;
@@ -2352,7 +2376,7 @@ function TimetableCalendarView({
 
             {days.map((day) => {
               const dayKey = localDateKey(day);
-              const dayOccurrences = visibleOccurrences.filter((occurrence) => localDateKey(new Date(occurrence.startAt)) === dayKey);
+              const dayOccurrences = visibleOccurrences.filter((occurrence) => timetableDateKey(occurrence.startAt) === dayKey);
               const laidOut = layoutTimetableDayOccurrences(dayOccurrences);
               return (
                 <div key={dayKey} className="relative border-r border-slate-200 last:border-r-0" style={{ height: bodyHeight }}>
@@ -2366,8 +2390,8 @@ function TimetableCalendarView({
                     </div>
                   ))}
                   {laidOut.map(({ occurrence, lane, laneCount }) => {
-                    const startMinutes = minutesSinceMidnight(new Date(occurrence.startAt));
-                    const endMinutes = minutesSinceMidnight(new Date(occurrence.endAt));
+                    const startMinutes = timetableMinutesSinceMidnight(occurrence.startAt);
+                    const endMinutes = timetableMinutesSinceMidnight(occurrence.endAt);
                     const top = Math.max(0, ((startMinutes - hourRange.start * 60) / 60) * hourHeight);
                     const height = Math.max(36, ((endMinutes - startMinutes) / 60) * hourHeight - 4);
                     const gap = 6;
@@ -2557,7 +2581,7 @@ function CoursesPage({ courses }: { courses: Course[] }) {
   const [semester, setSemester] = useState("Semester 1");
   const [academicYear, setAcademicYear] = useState(String(new Date().getFullYear()));
   const [view, setView] = useState<TimetableViewMode>("week");
-  const [anchorDate, setAnchorDate] = useState(localDateKey(new Date()));
+  const [anchorDate, setAnchorDate] = useState(timetableDateKey(new Date()));
   const [importMessage, setImportMessage] = useState("");
   const [expandedCourseKey, setExpandedCourseKey] = useState<string | null>(null);
 
@@ -2661,7 +2685,7 @@ function CoursesPage({ courses }: { courses: Course[] }) {
 
   return (
     <>
-      <PageHeader title="课程" subtitle="导入、同步和管理完整学期课表。" />
+      <PageHeader title="课程" subtitle="导入、同步和管理完整学期课表，所有时间均按悉尼时间显示。" />
       <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
         <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
           {(["feed", "file", "screenshot"] as const).map((mode) => (
@@ -2712,7 +2736,7 @@ function CoursesPage({ courses }: { courses: Course[] }) {
                 {preview.summary.courseCount} 门课程 · {preview.summary.occurrenceCount} 节课 · 重复 {preview.summary.duplicateCount} · 冲突 {preview.summary.conflictCount}
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                {preview.summary.semesterStart ? formatTaskDateTime(preview.summary.semesterStart) : "未知开始"} - {preview.summary.semesterEnd ? formatTaskDateTime(preview.summary.semesterEnd) : "未知结束"}
+                {preview.summary.semesterStart ? formatTimetableDateTime(preview.summary.semesterStart) : "未知开始"} - {preview.summary.semesterEnd ? formatTimetableDateTime(preview.summary.semesterEnd) : "未知结束"}
               </div>
             </div>
             <ActionButton onClick={() => void confirmImport()} icon={<Check size={16} />} label="确认导入" />
@@ -2744,8 +2768,8 @@ function CoursesPage({ courses }: { courses: Course[] }) {
           <Input type="date" value={anchorDate} onChange={(event) => setAnchorDate(event.target.value)} />
           <div className="text-sm text-slate-500 md:text-right">
             {view === "semester"
-              ? `来源 ${sources.length} · 已选课程 ${semesterCourseSummaries.length} · 课程系列 ${timetableCourses.length}`
-              : `来源 ${sources.length} · 课程系列 ${timetableCourses.length} · 当前显示 ${displayCount}`}
+              ? `悉尼时间 · 来源 ${sources.length} · 已选课程 ${semesterCourseSummaries.length} · 课程系列 ${timetableCourses.length}`
+              : `悉尼时间 · 来源 ${sources.length} · 课程系列 ${timetableCourses.length} · 当前显示 ${displayCount}`}
           </div>
         </div>
         {view === "day" || view === "week" ? (
@@ -4899,10 +4923,10 @@ function getTimetableDays(view: "day" | "week", anchorDate: string) {
 
 function getTimetableHourRange(occurrences: CourseOccurrence[]) {
   if (occurrences.length === 0) return { start: 8, end: 18 };
-  const starts = occurrences.map((occurrence) => new Date(occurrence.startAt).getHours());
+  const starts = occurrences.map((occurrence) => timetableDateParts(occurrence.startAt).hour);
   const ends = occurrences.map((occurrence) => {
-    const end = new Date(occurrence.endAt);
-    return end.getMinutes() > 0 ? end.getHours() + 1 : end.getHours();
+    const end = timetableDateParts(occurrence.endAt);
+    return end.minute > 0 ? end.hour + 1 : end.hour;
   });
   return {
     start: Math.max(0, Math.min(8, Math.min(...starts))),
@@ -4935,16 +4959,18 @@ function layoutTimetableDayOccurrences(occurrences: CourseOccurrence[]) {
   });
 }
 
-function minutesSinceMidnight(date: Date) {
-  return date.getHours() * 60 + date.getMinutes();
+function timetableMinutesSinceMidnight(value: Date | string) {
+  const parts = timetableDateParts(value);
+  return parts.hour * 60 + parts.minute;
 }
 
 function weekdayLabel(date: Date) {
-  return date.toLocaleDateString("zh-CN", { weekday: "short" });
+  return date.toLocaleDateString("zh-CN", { timeZone: timetableTimeZone, weekday: "short" });
 }
 
 function monthDayLabel(date: Date) {
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+  const [, month, day] = timetableDateKey(date).split("-");
+  return `${Number(month)}/${Number(day)}`;
 }
 
 function formatCalendarHour(hour: number) {
@@ -4955,8 +4981,25 @@ function formatCalendarHour(hour: number) {
 }
 
 function formatCalendarTimeRange(occurrence: CourseOccurrence) {
-  const options: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit", hour12: false };
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: timetableTimeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  };
   return `${new Date(occurrence.startAt).toLocaleTimeString("zh-CN", options)} - ${new Date(occurrence.endAt).toLocaleTimeString("zh-CN", options)}`;
+}
+
+function formatTimetableDateTime(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: timetableTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(new Date(value));
 }
 
 function buildTimetableCourseSummaries(occurrences: CourseOccurrence[]) {
@@ -4985,7 +5028,7 @@ function buildTimetableCourseSummaries(occurrences: CourseOccurrence[]) {
         const location = occurrence.location || occurrence.course?.defaultLocation || "地点待确认";
         const slotKey = [
           activityType,
-          startAt.getDay(),
+          weekdayLabel(startAt),
           formatCalendarTimeRange(occurrence),
           location
         ].join("|");
