@@ -116,17 +116,26 @@ function viewFromPath(pathname: string): View {
   return navItems.find((item) => item.href === pathname)?.view || "dashboard";
 }
 
+const escapeCloseStack: Array<() => void> = [];
+
 function useEscapeClose(onClose: () => void, enabled = true) {
   useEffect(() => {
     if (!enabled) return;
+    const closeCurrentLayer = () => onClose();
+    escapeCloseStack.push(closeCurrentLayer);
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      if (escapeCloseStack[escapeCloseStack.length - 1] !== closeCurrentLayer) return;
       event.preventDefault();
       event.stopPropagation();
-      onClose();
+      closeCurrentLayer();
     }
     document.addEventListener("keydown", handleKeyDown, true);
-    return () => document.removeEventListener("keydown", handleKeyDown, true);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, true);
+      const index = escapeCloseStack.lastIndexOf(closeCurrentLayer);
+      if (index >= 0) escapeCloseStack.splice(index, 1);
+    };
   }, [enabled, onClose]);
 }
 
@@ -1226,7 +1235,7 @@ function TodayOverviewDialog({ summary, onClose }: { summary: TodayOverviewSumma
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm"
-      onMouseDown={(event) => {
+      onPointerDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
@@ -1982,7 +1991,7 @@ function TodoListEditDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm"
-      onMouseDown={(event) => {
+      onPointerDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
@@ -3188,7 +3197,7 @@ function ImportantFileModal({
   const [fileTags, setFileTags] = useState<string[]>(file?.tags || []);
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [uploadMessage, setUploadMessage] = useState("");
-  const [dirty, setDirty] = useState(false);
+  const [, setDirty] = useState(false);
   useEscapeClose(onClose);
 
   useEffect(() => {
@@ -3200,8 +3209,8 @@ function ImportantFileModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !dirty) onClose();
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
       }}
     >
       <form
@@ -3541,7 +3550,7 @@ function ExpenseModal({
   const [receiptName, setReceiptName] = useState(expense?.receiptOriginalName || "");
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState("");
   const [uploadMessage, setUploadMessage] = useState("");
-  const [dirty, setDirty] = useState(false);
+  const [, setDirty] = useState(false);
   const [transactionType, setTransactionType] = useState<Expense["type"]>(expense?.type || "expense");
   const [category, setCategory] = useState(expense?.category || (expense?.type === "income" ? "外卖收入" : "吃饭"));
   useEscapeClose(onClose);
@@ -3555,8 +3564,8 @@ function ExpenseModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !dirty) onClose();
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
       }}
     >
       <form
@@ -3771,7 +3780,7 @@ function QuickModal({
       ? task.subtasks.map((subtask) => ({ id: subtask.id, title: subtask.title, completed: subtask.completed }))
       : [createTodoDraftItem()]
   );
-  const [dirty, setDirty] = useState(false);
+  const [, setDirty] = useState(false);
   const modalTitle = task
     ? "编辑任务"
     : mode === "todoList"
@@ -3824,8 +3833,8 @@ function QuickModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !dirty) onClose();
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
       }}
     >
       <form
@@ -4168,6 +4177,8 @@ function ReminderRuleEditor({
   onChangeIntervalAnchorDate: (value: string) => void;
   onClose: () => void;
 }) {
+  useEscapeClose(onClose);
+
   function chooseType(value: ReminderType) {
     onChangeType(value);
   }
@@ -4195,7 +4206,12 @@ function ReminderRuleEditor({
   ];
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center">
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <section className="w-full max-w-4xl rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.25)]">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
