@@ -303,6 +303,7 @@ function migrate(db: DatabaseLike) {
 
     CREATE TABLE IF NOT EXISTS expenses (
       id TEXT PRIMARY KEY,
+      type TEXT NOT NULL DEFAULT 'expense',
       title TEXT NOT NULL,
       amount REAL NOT NULL,
       currency TEXT NOT NULL DEFAULT 'AUD',
@@ -351,6 +352,7 @@ function migrate(db: DatabaseLike) {
   ensureColumn(db, "tasks", "pinnedToBottom", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "todo_lists", "sourcePlanId", "TEXT");
   ensureColumn(db, "important_files", "expiryDate", "TEXT");
+  ensureColumn(db, "expenses", "type", "TEXT NOT NULL DEFAULT 'expense'");
   db.exec(`
     UPDATE tasks
     SET progressEnabled = 1,
@@ -605,6 +607,7 @@ function rowToProgressEntry(row: Record<string, unknown>): TaskProgressEntry {
 function rowToExpense(row: Record<string, unknown>): Expense {
   return {
     id: String(row.id),
+    type: row.type === "income" ? "income" : "expense",
     title: String(row.title),
     amount: Number(row.amount),
     currency: String(row.currency ?? "AUD") as Expense["currency"],
@@ -1579,11 +1582,12 @@ export function createExpense(input: ExpenseInput) {
   const amount = Number(input.amount ?? 0);
   db.prepare(
     `INSERT INTO expenses
-     (id, title, amount, currency, category, date, merchant, paymentMethod, notes, receiptFileId, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     (id, type, title, amount, currency, category, date, merchant, paymentMethod, notes, receiptFileId, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
-    input.title ?? "未命名消费",
+    input.type === "income" ? "income" : "expense",
+    input.title ?? (input.type === "income" ? "未命名收入" : "未命名支出"),
     Number.isFinite(amount) ? amount : 0,
     input.currency ?? "AUD",
     input.category ?? "其他",
@@ -1608,10 +1612,11 @@ export function updateExpense(id: string, input: ExpenseInput) {
   const next = { ...current, ...input, amount: Number.isFinite(amount) ? amount : current.amount };
   db.prepare(
     `UPDATE expenses SET
-      title = ?, amount = ?, currency = ?, category = ?, date = ?, merchant = ?,
+      type = ?, title = ?, amount = ?, currency = ?, category = ?, date = ?, merchant = ?,
       paymentMethod = ?, notes = ?, receiptFileId = ?, updatedAt = ?
      WHERE id = ?`
   ).run(
+    next.type === "income" ? "income" : "expense",
     next.title,
     next.amount,
     next.currency,

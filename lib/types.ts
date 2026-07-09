@@ -232,6 +232,7 @@ export type JournalEntry = {
 
 export type Expense = {
   id: string;
+  type: "expense" | "income";
   title: string;
   amount: number;
   currency: ExpenseCurrency;

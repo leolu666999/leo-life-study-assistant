@@ -1,6 +1,6 @@
 # Leo 的生活学习助手 / Leo Life Study Assistant
 
-一个本地优先的生活、学习和出发准备管理工具。它把 To Do List、任务、Deadline、进度、记账、重要文件、计划和日记放在同一个轻量网页应用里，适合留学、搬家、备考、项目推进等需要大量本地资料管理的场景。
+一个本地优先的生活、学习和出发准备管理工具。它把 To Do List、任务、Deadline、进度、收支、重要文件、计划和日记放在同一个轻量网页应用里，适合留学、搬家、备考、项目推进等需要大量本地资料管理的场景。
 
 A local-first life and study dashboard for managing daily to-dos, tasks, deadlines, progress, expenses, important documents, plans, and journals in one lightweight web app. It is designed for study abroad preparation, moving logistics, personal projects, and day-to-day organization.
 
@@ -11,7 +11,7 @@ A local-first life and study dashboard for managing daily to-dos, tasks, deadlin
 - 每日 To Do List：按日期管理每日清单，支持勾选、编辑和从计划页查看。
 - Task / Deadline：长期任务和明确截止事项分开管理，Deadline 支持倒计时显示。
 - 进度追踪：任务可以开启进度条，例如阅读页数、训练次数、百分比目标。
-- 记账：记录消费、分类、支付方式和小票/账单图片。
+- 收支：记录收入与支出、分类、支付方式和凭证/账单图片。
 - 重要文件：保存护照、签证、学校、住宿、保险、交通等关键文件，可搜索、分类、添加标签和到期日。
 - 计划与日记：支持每日、每周、每月计划和简单复盘记录。
 

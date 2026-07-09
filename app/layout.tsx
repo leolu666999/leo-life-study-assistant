@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   applicationName: "Leo的生活学习助手",
   title: "Leo的生活学习助手",
-  description: "生活、学习、计划、记账和进度管理面板",
+  description: "生活、学习、计划、收支和进度管理面板",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

@@ -1,7 +1,7 @@
 {
   "name": "Leo的生活学习助手",
   "short_name": "Leo助手",
-  "description": "本地优先的生活、学习、计划、记账、文件和进度管理助手。",
+  "description": "本地优先的生活、学习、计划、收支、文件和进度管理助手。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

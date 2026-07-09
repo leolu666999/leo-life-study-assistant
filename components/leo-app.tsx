@@ -105,7 +105,7 @@ const navItems: Array<{ view: View; href: string; label: string; icon: React.Rea
   { view: "plans", href: "/plans", label: "计划", icon: <CalendarDays size={18} /> },
   { view: "courses", href: "/courses", label: "课程", icon: <BookOpen size={18} /> },
   { view: "journal", href: "/journal", label: "日记", icon: <NotebookPen size={18} /> },
-  { view: "expenses", href: "/expenses", label: "记账", icon: <WalletCards size={18} /> },
+  { view: "expenses", href: "/expenses", label: "收支", icon: <WalletCards size={18} /> },
   { view: "files", href: "/files", label: "文件", icon: <FileText size={18} /> },
   { view: "settings", href: "/settings", label: "设置", icon: <Settings size={18} /> }
 ];
@@ -140,6 +140,7 @@ const typeLabels: Record<TaskType, string> = {
 };
 
 const expenseCategories = ["吃饭", "超市", "交通", "足球", "大学", "房租", "手机/网络", "购物", "娱乐", "健康", "旅行", "其他"];
+const incomeCategories = ["外卖收入", "工资", "兼职", "奖学金", "退款", "礼金", "投资", "其他收入"];
 const importantFileCategories = ["证件", "签证", "学校", "住宿", "保险", "交通", "银行", "电话卡", "课程", "生活", "其他"];
 const paymentMethods = ["现金", "银行卡", "Apple Pay", "微信支付", "支付宝", "银行转账", "其他"];
 const offlineDbName = "leo-life-study-offline";
@@ -799,12 +800,12 @@ export function LeoApp({ initialView }: { initialView: View }) {
           {!collapsed && (
             <Link href="/expenses" className="mt-4 block rounded-lg border border-slate-100 bg-white p-3 shadow-sm transition hover:border-slate-200 hover:shadow-soft">
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-semibold">消费记录</span>
+                <span className="text-sm font-semibold">收支记录</span>
                 <WalletCards size={16} className="text-slate-400" />
               </div>
-              <div className="text-xs text-slate-500">今日</div>
-              <div className="text-lg font-semibold">{formatExpenseTotals(expenseTotals.today)}</div>
-              <div className="mt-2 truncate text-xs text-slate-500">本月 {formatExpenseTotals(expenseTotals.month)}</div>
+              <div className="text-xs text-slate-500">今日结余</div>
+              <div className="text-lg font-semibold">{formatExpenseTotals(expenseTotals.today.balance)}</div>
+              <div className="mt-2 truncate text-xs text-slate-500">本月结余 {formatExpenseTotals(expenseTotals.month.balance)}</div>
             </Link>
           )}
         </aside>
@@ -1127,7 +1128,7 @@ function Dashboard({
             <ActionButton onClick={() => onOpenModal("todoList")} icon={<ListChecks size={16} />} label="To Do List" />
             <ActionButton onClick={() => onOpenModal("task")} icon={<CirclePlus size={16} />} label="Add Task" />
             <ActionButton onClick={() => onOpenModal("deadline")} icon={<CalendarDays size={16} />} label="Add Deadline" />
-            <ActionButton onClick={() => onOpenModal("expense")} icon={<WalletCards size={16} />} label="记账" />
+            <ActionButton onClick={() => onOpenModal("expense")} icon={<WalletCards size={16} />} label="收支" />
           </>
         }
       />
@@ -2865,6 +2866,7 @@ function ExpensesPage({
   onSave: (url: string, options?: RequestInit) => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
+  const [transactionType, setTransactionType] = useState("");
   const [category, setCategory] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -2875,6 +2877,7 @@ function ExpensesPage({
     const text = `${expense.title} ${expense.merchant ?? ""}`.toLowerCase();
     return (
       text.includes(query.toLowerCase()) &&
+      (!transactionType || expense.type === transactionType) &&
       (!category || expense.category === category) &&
       (!from || expense.date >= from) &&
       (!to || expense.date <= to)
@@ -2884,24 +2887,29 @@ function ExpensesPage({
   return (
     <>
       <PageHeader
-        title="记账"
-        subtitle="记录每天消费，照片和账单保存在本地 uploads 文件夹。"
-        actions={<ActionButton onClick={onOpenModal} icon={<WalletCards size={16} />} label="新增消费" />}
+        title="收支"
+        subtitle="记录收入和支出，照片与账单保存在本地 uploads 文件夹。"
+        actions={<ActionButton onClick={onOpenModal} icon={<WalletCards size={16} />} label="新增收支" />}
       />
 
       <div className="mb-4 grid gap-3 md:grid-cols-3">
-        <ExpenseStatCard title="今日消费" amount={totals.today} />
-        <ExpenseStatCard title="本周消费" amount={totals.week} />
-        <ExpenseStatCard title="本月消费" amount={totals.month} />
+        <ExpenseStatCard title="今日" totals={totals.today} />
+        <ExpenseStatCard title="本周" totals={totals.week} />
+        <ExpenseStatCard title="本月" totals={totals.month} />
       </div>
 
       <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
-        <div className="grid gap-3 md:grid-cols-[1fr_160px_1fr]">
-          <SearchBox value={query} onChange={setQuery} placeholder="搜索消费标题或商家" className="mb-0" />
+        <div className="grid gap-3 md:grid-cols-[1fr_130px_160px_1fr]">
+          <SearchBox value={query} onChange={setQuery} placeholder="搜索收支标题或来源" className="mb-0" />
+          <Select
+            value={transactionType}
+            onChange={(event) => setTransactionType(event.target.value)}
+            options={[["", "全部收支"], ["income", "收入"], ["expense", "支出"]]}
+          />
           <Select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
-            options={[["", "全部分类"], ...expenseCategories.map((item) => [item, item] as [string, string])]}
+            options={[["", "全部分类"], ...[...expenseCategories, ...incomeCategories].map((item) => [item, item] as [string, string])]}
           />
           <div className="grid grid-cols-2 gap-2">
             <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
@@ -2912,11 +2920,11 @@ function ExpensesPage({
 
       <section className="rounded-lg bg-white p-4 shadow-soft">
         <div className="mb-3 flex items-center justify-between">
-          <SectionTitle title="消费记录列表" />
+          <SectionTitle title="收支记录" />
           <div className="text-sm text-slate-500">{filtered.length} 条</div>
         </div>
         <div className="space-y-3">
-          {filtered.length === 0 && <EmptyBlock text="还没有消费记录。点右上角新增一笔。" />}
+          {filtered.length === 0 && <EmptyBlock text="还没有符合条件的收支记录。点右上角新增一笔。" />}
           {filtered.map((expense) => (
             <article key={expense.id} className="flex flex-col gap-3 rounded-lg border border-slate-100 p-3 md:flex-row md:items-center">
               <button
@@ -2936,6 +2944,7 @@ function ExpensesPage({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold">{expense.title}</h3>
+                  <Badge>{expense.type === "income" ? "收入" : "支出"}</Badge>
                   <Badge>{expense.category}</Badge>
                 </div>
                 <div className="mt-1 text-sm text-slate-500">
@@ -2945,18 +2954,20 @@ function ExpensesPage({
               </div>
               <div className="flex items-center justify-between gap-3 md:min-w-[210px] md:justify-end">
                 <div className="text-right">
-                  <div className="text-lg font-semibold">{formatMoney(expense.amount, expense.currency)}</div>
+                  <div className={`text-lg font-semibold ${expense.type === "income" ? "text-emerald-600" : "text-red-600"}`}>
+                    {expense.type === "income" ? "+" : "-"}{formatMoney(expense.amount, expense.currency)}
+                  </div>
                   <div className="text-xs text-slate-500">{expense.createdAt.slice(0, 10)}</div>
                 </div>
-                <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => onEdit(expense)} title="编辑消费">
+                <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => onEdit(expense)} title="编辑收支">
                   <Menu size={16} />
                 </button>
                 <button
                   className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
                   onClick={async () => {
-                    if (confirm("确定删除这条消费记录吗？")) await onSave(`/api/expenses/${expense.id}`, { method: "DELETE" });
+                    if (confirm("确定删除这条收支记录吗？")) await onSave(`/api/expenses/${expense.id}`, { method: "DELETE" });
                   }}
-                  title="删除消费"
+                  title="删除收支"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -3280,11 +3291,30 @@ function ImportantFileModal({
   );
 }
 
-function ExpenseStatCard({ title, amount }: { title: string; amount: Record<string, number> }) {
+function ExpenseStatCard({
+  title,
+  totals
+}: {
+  title: string;
+  totals: { income: Record<string, number>; expense: Record<string, number>; balance: Record<string, number> };
+}) {
   return (
     <section className="rounded-lg bg-white p-4 shadow-soft">
       <div className="text-sm text-slate-500">{title}</div>
-      <div className="mt-2 text-2xl font-semibold">{formatExpenseTotals(amount)}</div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <div>
+          <div className="text-xs text-slate-400">收入</div>
+          <div className="mt-1 truncate text-sm font-semibold text-emerald-600">{formatExpenseTotals(totals.income)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-400">支出</div>
+          <div className="mt-1 truncate text-sm font-semibold text-red-600">{formatExpenseTotals(totals.expense)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-400">结余</div>
+          <div className="mt-1 truncate text-sm font-semibold">{formatExpenseTotals(totals.balance)}</div>
+        </div>
+      </div>
     </section>
   );
 }
@@ -3488,6 +3518,8 @@ function ExpenseModal({
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState("");
   const [uploadMessage, setUploadMessage] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [transactionType, setTransactionType] = useState<Expense["type"]>(expense?.type || "expense");
+  const [category, setCategory] = useState(expense?.category || (expense?.type === "income" ? "外卖收入" : "吃饭"));
   useEscapeClose(onClose);
 
   useEffect(() => {
@@ -3510,10 +3542,11 @@ function ExpenseModal({
           event.preventDefault();
           const form = new FormData(event.currentTarget);
           const payload = {
+            type: transactionType,
             title: form.get("title"),
             amount: Number(form.get("amount") || 0),
             currency: form.get("currency"),
-            category: form.get("category"),
+            category,
             date: form.get("date"),
             merchant: form.get("merchant") || null,
             paymentMethod: form.get("paymentMethod") || null,
@@ -3529,27 +3562,54 @@ function ExpenseModal({
         }}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">{expense ? "编辑消费" : "新增消费"}</h2>
+          <h2 className="text-xl font-semibold">{expense ? "编辑收支" : "新增收支"}</h2>
           <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>
             关闭
           </button>
         </div>
 
         <div className="grid gap-3">
-          <Input name="title" placeholder="消费标题" defaultValue={expense?.title || ""} required />
+          <div className="grid grid-cols-2 rounded-lg bg-slate-100 p-1">
+            {(["expense", "income"] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                  transactionType === type ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-white"
+                }`}
+                onClick={() => {
+                  setTransactionType(type);
+                  setCategory(type === "income" ? "外卖收入" : "吃饭");
+                  setDirty(true);
+                }}
+              >
+                {type === "income" ? "收入" : "支出"}
+              </button>
+            ))}
+          </div>
+          <Input
+            name="title"
+            placeholder={transactionType === "income" ? "收入标题，例如：送外卖" : "支出标题"}
+            defaultValue={expense?.title || ""}
+            required
+          />
           <div className="grid gap-3 md:grid-cols-3">
             <Input name="amount" type="number" min="0" step="0.01" placeholder="金额" defaultValue={expense?.amount ?? ""} required />
             <Select name="currency" defaultValue={expense?.currency || "AUD"} options={[["AUD", "AUD"], ["CNY", "CNY"], ["USD", "USD"]]} />
             <Select
-              name="category"
-              defaultValue={expense?.category || "吃饭"}
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
               required
-              options={expenseCategories.map((item) => [item, item] as [string, string])}
+              options={(transactionType === "income" ? incomeCategories : expenseCategories).map((item) => [item, item] as [string, string])}
             />
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             <Input name="date" type="date" defaultValue={expense?.date || new Date().toISOString().slice(0, 10)} required />
-            <Input name="merchant" placeholder="商家，可选" defaultValue={expense?.merchant || ""} />
+            <Input
+              name="merchant"
+              placeholder={transactionType === "income" ? "收入来源，例如：Uber Eats" : "商家，可选"}
+              defaultValue={expense?.merchant || ""}
+            />
             <Select
               name="paymentMethod"
               defaultValue={expense?.paymentMethod || ""}
@@ -3561,7 +3621,7 @@ function ExpenseModal({
           <label className="flex cursor-pointer flex-col gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
             <span className="inline-flex items-center gap-2">
               <Upload size={18} />
-              {uploading ? "上传中..." : receiptName ? `已关联：${receiptName}` : "上传小票/账单照片，可选"}
+              {uploading ? "上传中..." : receiptName ? `已关联：${receiptName}` : "上传凭证/小票照片，可选"}
             </span>
             {receiptFileId && (
               <span className="inline-flex items-center gap-1 text-slate-500">
@@ -4751,16 +4811,21 @@ function summarizeExpenses(expenses: Expense[]) {
   const today = localDateKey(new Date());
   const weekStart = startOfWeek(new Date());
   const monthKey = today.slice(0, 7);
+  const emptyPeriod = () => ({ income: {}, expense: {}, balance: {} } as {
+    income: Record<string, number>;
+    expense: Record<string, number>;
+    balance: Record<string, number>;
+  });
   return expenses.reduce(
-    (totals, expense) => {
-      const date = parseTaskDate(expense.date);
+    (totals, entry) => {
+      const date = parseTaskDate(entry.date);
       if (!date) return totals;
-      if (localDateKey(date) === today) addExpenseTotal(totals.today, expense);
-      if (date >= weekStart) addExpenseTotal(totals.week, expense);
-      if (expense.date.slice(0, 7) === monthKey) addExpenseTotal(totals.month, expense);
+      if (localDateKey(date) === today) addExpenseTotal(totals.today, entry);
+      if (date >= weekStart) addExpenseTotal(totals.week, entry);
+      if (entry.date.slice(0, 7) === monthKey) addExpenseTotal(totals.month, entry);
       return totals;
     },
-    { today: {}, week: {}, month: {} } as Record<"today" | "week" | "month", Record<string, number>>
+    { today: emptyPeriod(), week: emptyPeriod(), month: emptyPeriod() }
   );
 }
 
@@ -4784,8 +4849,14 @@ function buildTodayOverview(
   };
 }
 
-function addExpenseTotal(bucket: Record<string, number>, expense: Expense) {
-  bucket[expense.currency] = (bucket[expense.currency] || 0) + expense.amount;
+function addExpenseTotal(
+  period: { income: Record<string, number>; expense: Record<string, number>; balance: Record<string, number> },
+  entry: Expense
+) {
+  const type = entry.type === "income" ? "income" : "expense";
+  period[type][entry.currency] = (period[type][entry.currency] || 0) + entry.amount;
+  const signedAmount = type === "income" ? entry.amount : -entry.amount;
+  period.balance[entry.currency] = (period.balance[entry.currency] || 0) + signedAmount;
 }
 
 function startOfWeek(date: Date) {
@@ -4805,7 +4876,7 @@ function formatMoney(amount: number, currency: string) {
 }
 
 function formatExpenseTotals(totals: Record<string, number>) {
-  const entries = Object.entries(totals).filter(([, amount]) => amount > 0);
+  const entries = Object.entries(totals).filter(([, amount]) => amount !== 0);
   if (entries.length === 0) return formatMoney(0, "AUD");
   return entries.map(([currency, amount]) => formatMoney(amount, currency)).join(" / ");
 }
