@@ -49,7 +49,7 @@ import type {
   TodoListItem
 } from "@/lib/types";
 
-type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "courses" | "schedule" | "journal" | "archive" | "settings";
+type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "courses" | "schedule" | "guide" | "journal" | "archive" | "settings";
 type ModalMode = "task" | "deadline" | "plan" | "todoList" | "counter" | "expense" | null;
 type ReminderRule =
   | { type: "none" }
@@ -129,6 +129,7 @@ function viewFromPath(pathname: string): View {
   if (pathname === "/archive") return "tasks";
   if (pathname === "/progress" || pathname === "/progresses" || pathname === "/goals") return "tasks";
   if (pathname === "/schedule") return "schedule";
+  if (pathname === "/guide") return "guide";
   return navItems.find((item) => item.href === pathname)?.view || "dashboard";
 }
 
@@ -909,6 +910,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
                 />
               )}
               {activeView === "journal" && <JournalPage journal={journal} onSave={mutate} />}
+              {activeView === "guide" && <UserGuidePage />}
               {activeView === "settings" && (
                 <SettingsPage
                   background={background}
@@ -3564,6 +3566,141 @@ function ExpenseStatCard({
   );
 }
 
+function UserGuidePage() {
+  const chapters = [
+    {
+      title: "To Do List 与今日日程",
+      content: (
+        <>
+          <p>To Do List 是按日期保存的每日清单，不会自动变成 Task。在首页或“计划”页面新建清单，勾选圆形按钮即可完成事项。</p>
+          <p>标题中写入明确时间，系统会自动加入 Today’s Schedule，例如：</p>
+          <div className="space-y-1 font-mono text-xs text-slate-600">
+            <div>13:00-15:00 写作业</div>
+            <div>上午10点到下午2点 收拾行李</div>
+            <div>晚上7点到8点半 健身</div>
+          </div>
+          <p>单个时间点会生成 30 分钟的安排。编辑标题会重新识别，移除时间后对应日程也会消失。</p>
+        </>
+      )
+    },
+    {
+      title: "任务、Deadline 与进度",
+      content: (
+        <>
+          <p>Task 用于持续推进的事情；Deadline 用于有明确截止时刻的事项。它们都在“任务”页面统一管理。</p>
+          <p>新建或编辑任务时可以开启进度追踪，设置当前值、目标值和单位。开启固定后，进度条会显示在页面底部。</p>
+          <p>任务完成后可在“已完成”中恢复；删除前会出现确认提示。</p>
+        </>
+      )
+    },
+    {
+      title: "课程与课表",
+      content: (
+        <>
+          <p>课程页支持导入 Calendar Feed 或 ICS 文件。先预览内容，确认课程、时间和地点无误后再导入。</p>
+          <p>课表中的日期、星期和时间统一按悉尼时间显示，并自动处理夏令时。日、周视图使用时间轴，学期视图按课程归纳所有上课安排。</p>
+        </>
+      )
+    },
+    {
+      title: "收支记录",
+      content: (
+        <>
+          <p>在“收支”中选择收入或支出，填写金额、币种、分类和日期。收入可以记录工资、兼职或外卖收入。</p>
+          <p>页面会分别汇总今日、本周和本月的收入、支出与结余，也可以上传凭证或小票。</p>
+        </>
+      )
+    },
+    {
+      title: "重要文件",
+      content: (
+        <>
+          <p>文件页用于保存签证、学校、住宿、保险等资料。上传后可设置分类、标签、备注和到期日。</p>
+          <p>文件本体保存在电脑的本地 uploads 目录。具体路径可在“设置 → 本地存储”查看。</p>
+        </>
+      )
+    },
+    {
+      title: "提醒与通知",
+      content: (
+        <>
+          <p>任务提醒支持每天、截止前 24 小时、每周和每隔几天。第一次启用时，请允许浏览器或桌面 App 发送通知。</p>
+          <p>本地提醒需要电脑上的应用或浏览器正在运行。关闭应用后，网页无法在后台主动发送通知。</p>
+        </>
+      )
+    },
+    {
+      title: "手机访问",
+      content: (
+        <>
+          <p>保持电脑端服务运行，让手机和电脑连接同一个 Wi-Fi，或让电脑连接手机热点。</p>
+          <p>在“设置 → 手机访问”找到实时网址，然后在手机浏览器中打开。地址通常类似 http://192.168.1.23:3011。</p>
+          <p>暂时连不上电脑时，支持离线的新增内容会先保存在手机，恢复连接后可以手动同步。</p>
+        </>
+      )
+    },
+    {
+      title: "数据安全与备份",
+      content: (
+        <>
+          <p>任务、清单和记录存放在本地 SQLite 数据库，上传文件存放在本地 uploads 目录，不会进入 Git。</p>
+          <p>不要手动删除应用数据目录。更新代码不会覆盖这些数据；需要备份时，可在设置页导出 JSON 备份。</p>
+        </>
+      )
+    }
+  ];
+
+  return (
+    <>
+      <PageHeader
+        title="使用文档"
+        subtitle="Leo的生活学习助手新手指南"
+        actions={
+          <Link href="/settings" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <ChevronLeft size={16} />
+            返回设置
+          </Link>
+        }
+      />
+
+      <section className="mb-4 border-y border-slate-200 bg-white py-5">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">第一次使用</h2>
+          <p className="mt-1 text-sm text-slate-500">按这四步开始，不需要先配置复杂选项。</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {[
+            ["1", "新建今日清单", "在首页点击 To Do List，记录今天要做的事。"],
+            ["2", "添加任务", "长期事项使用 Task，有截止时间的使用 Deadline。"],
+            ["3", "查看 Schedule", "带时间的 To Do 和课程会自动进入今日日程。"],
+            ["4", "确认数据位置", "到设置页查看数据库、上传目录并导出备份。"]
+          ].map(([step, title, description]) => (
+            <div key={step} className="border-l-2 border-slate-900 pl-3">
+              <div className="text-xs font-semibold text-slate-400">步骤 {step}</div>
+              <div className="mt-1 font-semibold">{title}</div>
+              <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {chapters.map((chapter, index) => (
+          <details key={chapter.title} className="group rounded-lg border border-slate-200 bg-white p-4 shadow-sm" open={index === 0}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold">
+              {chapter.title}
+              <ChevronDown size={18} className="shrink-0 text-slate-400 transition group-open:rotate-180" />
+            </summary>
+            <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-600">
+              {chapter.content}
+            </div>
+          </details>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function SettingsPage({
   background,
   setBackground,
@@ -3626,6 +3763,21 @@ function SettingsPage({
     <>
       <PageHeader title="设置" subtitle="本地路径、背景、备份和未来功能占位。" />
       <div className="grid gap-4 lg:grid-cols-2">
+        <section className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center lg:col-span-2">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white">
+              <BookOpen size={20} />
+            </div>
+            <div>
+              <h2 className="font-semibold">使用文档</h2>
+              <p className="mt-1 text-sm text-slate-500">第一次使用？从快速上手开始了解 To Do、日程、任务、课程和数据安全。</p>
+            </div>
+          </div>
+          <Link href="/guide" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">
+            查看使用文档
+            <ChevronRight size={16} />
+          </Link>
+        </section>
         <section className="rounded-lg bg-white p-4 shadow-soft">
           <SectionTitle title="本地存储" />
           <InfoRow label="数据库路径" value={storageInfo.databasePath} />
