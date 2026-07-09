@@ -65,6 +65,12 @@ export type TodoListItem = {
   content: string;
   completed: boolean;
   order: number;
+  hasScheduleTime: boolean;
+  scheduledStartAt?: string | null;
+  scheduledEndAt?: string | null;
+  scheduledTimezone?: string | null;
+  parsedTimeText?: string | null;
+  scheduleParseConfidence?: number | null;
   createdAt: string;
   updatedAt: string;
 };

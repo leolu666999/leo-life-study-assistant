@@ -9,6 +9,7 @@ A local-first life and study dashboard for managing daily to-dos, tasks, deadlin
 - 本地优先：数据库和上传文件默认保存在 macOS 用户数据目录，不进入 App 包。
 - 数据不进 Git：`.gitignore` 会排除数据库、备份和上传文件，更新代码不会覆盖个人数据。
 - 每日 To Do List：按日期管理每日清单，支持勾选、编辑和从计划页查看。
+- 今日日程：自动识别 To Do List 标题中的中英文时间段，与课程一起显示在每日时间轴。
 - Task / Deadline：长期任务和明确截止事项分开管理，Deadline 支持倒计时显示。
 - 进度追踪：任务可以开启进度条，例如阅读页数、训练次数、百分比目标。
 - 收支：记录收入与支出、分类、支付方式和凭证/账单图片。
@@ -18,6 +19,7 @@ A local-first life and study dashboard for managing daily to-dos, tasks, deadlin
 - Local-first: the database and uploads live in the macOS user data directory, outside the app bundle.
 - Git-safe data: database files, backups, and uploads are ignored by Git, so code updates do not overwrite personal data.
 - Daily To Do List: date-based checklists with editing and completion tracking.
+- Daily schedule: recognizes time ranges in To Do titles and combines them with courses on a day timeline.
 - Task / Deadline: regular tasks and deadline-based items are managed separately; deadlines can show countdowns.
 - Progress tracking: optional progress bars for reading pages, training sessions, percentage goals, and custom units.
 - Expenses: log spending with categories, payment methods, notes, and receipt images.

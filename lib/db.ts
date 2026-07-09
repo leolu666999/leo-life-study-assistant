@@ -21,6 +21,7 @@ import type {
   TodoListItem
 } from "./types";
 import { dataDir, dbPath, migrateLegacyUserDataIfNeeded, uploadsDir } from "./app-config";
+import { parseScheduleTime } from "./schedule-time";
 
 type DatabaseLike = {
   exec: (sql: string) => void;
@@ -173,6 +174,12 @@ function migrate(db: DatabaseLike) {
       content TEXT NOT NULL,
       completed INTEGER NOT NULL DEFAULT 0,
       sortOrder INTEGER NOT NULL DEFAULT 0,
+      hasScheduleTime INTEGER NOT NULL DEFAULT 0,
+      scheduledStartAt TEXT,
+      scheduledEndAt TEXT,
+      scheduledTimezone TEXT,
+      parsedTimeText TEXT,
+      scheduleParseConfidence REAL,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL
     );
@@ -353,6 +360,12 @@ function migrate(db: DatabaseLike) {
   ensureColumn(db, "todo_lists", "sourcePlanId", "TEXT");
   ensureColumn(db, "important_files", "expiryDate", "TEXT");
   ensureColumn(db, "expenses", "type", "TEXT NOT NULL DEFAULT 'expense'");
+  ensureColumn(db, "todo_list_items", "hasScheduleTime", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "todo_list_items", "scheduledStartAt", "TEXT");
+  ensureColumn(db, "todo_list_items", "scheduledEndAt", "TEXT");
+  ensureColumn(db, "todo_list_items", "scheduledTimezone", "TEXT");
+  ensureColumn(db, "todo_list_items", "parsedTimeText", "TEXT");
+  ensureColumn(db, "todo_list_items", "scheduleParseConfidence", "REAL");
   db.exec(`
     UPDATE tasks
     SET progressEnabled = 1,
@@ -367,11 +380,67 @@ function migrate(db: DatabaseLike) {
   `);
   migrateProgressItemsToTasks(db);
   migrateDailyPlansToTodoLists(db);
+  backfillTodoScheduleFields(db);
 }
 
 function ensureColumn(db: DatabaseLike, table: string, column: string, definition: string) {
   const existing = db.prepare(`PRAGMA table_info(${table})`).all().some((row) => row.name === column);
   if (!existing) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+}
+
+function scheduleFields(content: string, date: string) {
+  const parsed = parseScheduleTime(content);
+  if (!parsed) {
+    return {
+      hasScheduleTime: 0,
+      scheduledStartAt: null,
+      scheduledEndAt: null,
+      scheduledTimezone: null,
+      parsedTimeText: null,
+      scheduleParseConfidence: null
+    };
+  }
+  return {
+    hasScheduleTime: 1,
+    scheduledStartAt: `${date}T${parsed.startTime}:00`,
+    scheduledEndAt: `${date}T${parsed.endTime}:00`,
+    scheduledTimezone: "Australia/Sydney",
+    parsedTimeText: parsed.parsedTimeText,
+    scheduleParseConfidence: parsed.confidence
+  };
+}
+
+function backfillTodoScheduleFields(db: DatabaseLike) {
+  const migrated = db.prepare("SELECT value FROM settings WHERE key = ?").get("todo_schedule_fields_backfilled");
+  if (migrated?.value === "1") return;
+  const rows = db.prepare(`
+    SELECT i.id, i.content, l.date
+    FROM todo_list_items i
+    JOIN todo_lists l ON l.id = i.todoListId
+  `).all();
+  const update = db.prepare(`
+    UPDATE todo_list_items SET
+      hasScheduleTime = ?, scheduledStartAt = ?, scheduledEndAt = ?, scheduledTimezone = ?,
+      parsedTimeText = ?, scheduleParseConfidence = ?
+    WHERE id = ?
+  `);
+  for (const row of rows) {
+    const fields = scheduleFields(String(row.content), String(row.date));
+    update.run(
+      fields.hasScheduleTime,
+      fields.scheduledStartAt,
+      fields.scheduledEndAt,
+      fields.scheduledTimezone,
+      fields.parsedTimeText,
+      fields.scheduleParseConfidence,
+      row.id
+    );
+  }
+  db.prepare("INSERT OR REPLACE INTO settings (key, value, updatedAt) VALUES (?, ?, ?)").run(
+    "todo_schedule_fields_backfilled",
+    "1",
+    now()
+  );
 }
 
 function migrateDailyPlansToTodoLists(db: DatabaseLike) {
@@ -575,6 +644,14 @@ function rowToTodoListItem(row: Record<string, unknown>): TodoListItem {
     content: String(row.content),
     completed: Number(row.completed) === 1,
     order: Number(row.sortOrder ?? 0),
+    hasScheduleTime: Number(row.hasScheduleTime ?? 0) === 1,
+    scheduledStartAt: row.scheduledStartAt ? String(row.scheduledStartAt) : null,
+    scheduledEndAt: row.scheduledEndAt ? String(row.scheduledEndAt) : null,
+    scheduledTimezone: row.scheduledTimezone ? String(row.scheduledTimezone) : null,
+    parsedTimeText: row.parsedTimeText ? String(row.parsedTimeText) : null,
+    scheduleParseConfidence: row.scheduleParseConfidence === null || row.scheduleParseConfidence === undefined
+      ? null
+      : Number(row.scheduleParseConfidence),
     createdAt: String(row.createdAt),
     updatedAt: String(row.updatedAt)
   };
@@ -1070,6 +1147,8 @@ function syncTodoListItems(
   db: DatabaseLike
 ) {
   const timestamp = now();
+  const todoList = db.prepare("SELECT date FROM todo_lists WHERE id = ?").get(todoListId);
+  const date = String(todoList?.date ?? todayIso());
   db.prepare("DELETE FROM todo_list_items WHERE todoListId = ?").run(todoListId);
   drafts
     .map((draft) => ({
@@ -1079,9 +1158,27 @@ function syncTodoListItems(
     }))
     .filter((draft) => draft.content)
     .forEach((draft, index) => {
+      const fields = scheduleFields(draft.content, date);
       db.prepare(
-        "INSERT INTO todo_list_items (id, todoListId, content, completed, sortOrder, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)"
-      ).run(draft.id, todoListId, draft.content, draft.completed ? 1 : 0, index, timestamp, timestamp);
+        `INSERT INTO todo_list_items
+         (id, todoListId, content, completed, sortOrder, hasScheduleTime, scheduledStartAt, scheduledEndAt,
+          scheduledTimezone, parsedTimeText, scheduleParseConfidence, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        draft.id,
+        todoListId,
+        draft.content,
+        draft.completed ? 1 : 0,
+        index,
+        fields.hasScheduleTime,
+        fields.scheduledStartAt,
+        fields.scheduledEndAt,
+        fields.scheduledTimezone,
+        fields.parsedTimeText,
+        fields.scheduleParseConfidence,
+        timestamp,
+        timestamp
+      );
     });
 }
 

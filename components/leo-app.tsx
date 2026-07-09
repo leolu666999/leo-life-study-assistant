@@ -9,6 +9,8 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CirclePlus,
   CreditCard,
   Download,
@@ -47,7 +49,7 @@ import type {
   TodoListItem
 } from "@/lib/types";
 
-type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "courses" | "journal" | "archive" | "settings";
+type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "courses" | "schedule" | "journal" | "archive" | "settings";
 type ModalMode = "task" | "deadline" | "plan" | "todoList" | "counter" | "expense" | null;
 type ReminderRule =
   | { type: "none" }
@@ -98,6 +100,19 @@ type SyncState = {
   message: string;
 };
 type SaveRequest = (url: string, options?: RequestInit) => Promise<Response | void>;
+type ScheduleEvent = {
+  id: string;
+  sourceType: "course" | "todo";
+  originalId: string;
+  title: string;
+  subtitle: string;
+  startAt: string;
+  endAt: string;
+  startMinutes: number;
+  endMinutes: number;
+  location?: string;
+  completed: boolean;
+};
 
 const navItems: Array<{ view: View; href: string; label: string; icon: React.ReactNode }> = [
   { view: "dashboard", href: "/", label: "首页", icon: <Home size={18} /> },
@@ -113,6 +128,7 @@ const navItems: Array<{ view: View; href: string; label: string; icon: React.Rea
 function viewFromPath(pathname: string): View {
   if (pathname === "/archive") return "tasks";
   if (pathname === "/progress" || pathname === "/progresses" || pathname === "/goals") return "tasks";
+  if (pathname === "/schedule") return "schedule";
   return navItems.find((item) => item.href === pathname)?.view || "dashboard";
 }
 
@@ -302,6 +318,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const [progress, setProgress] = useState<ProgressItem[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [courseOccurrences, setCourseOccurrences] = useState<CourseOccurrence[]>([]);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [importantFiles, setImportantFiles] = useState<ImportantFile[]>([]);
@@ -429,13 +446,14 @@ export function LeoApp({ initialView }: { initialView: View }) {
 
   async function loadAll(showLoading = true) {
     if (showLoading) setLoading(true);
-    const [taskData, archiveData, planData, todoListData, progressData, courseData, journalData, expenseData, importantFileData] = await Promise.all([
+    const [taskData, archiveData, planData, todoListData, progressData, courseData, timetableData, journalData, expenseData, importantFileData] = await Promise.all([
       fetchJsonOr<Task[]>("/api/tasks", []),
       fetchJsonOr<Task[]>("/api/archive", []),
       fetchJsonOr<Plan[]>("/api/plans", []),
       fetchJsonOr<TodoList[]>("/api/todo-lists", []),
       fetchJsonOr<ProgressItem[]>("/api/progress", []),
       fetchJsonOr<Course[]>("/api/courses", []),
+      fetchJsonOr<{ occurrences: CourseOccurrence[] }>("/api/timetable?includeCancelled=1", { occurrences: [] }),
       fetchJsonOr<JournalEntry[]>("/api/journal", []),
       fetchJsonOr<Expense[]>("/api/expenses", []),
       fetchJsonOr<ImportantFile[]>("/api/important-files", [])
@@ -446,6 +464,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
     setTodoLists(todoListData);
     setProgress(progressData);
     setCourses(courseData);
+    setCourseOccurrences(timetableData.occurrences);
     setJournal(journalData);
     setExpenses(expenseData);
     setImportantFiles(importantFileData);
@@ -755,14 +774,10 @@ export function LeoApp({ initialView }: { initialView: View }) {
       void sendBrowserTaskNotification(alert);
     }
   }, [reminderAlerts]);
-  const todayCourses = useMemo(() => {
-    const day = new Date().getDay();
-    return courses.flatMap((course) =>
-      course.sessions
-        .filter((session) => session.dayOfWeek === day)
-        .map((session) => ({ ...session, course }))
-    );
-  }, [courses]);
+  const todaySchedule = useMemo(
+    () => buildScheduleEvents(localDateKey(new Date()), courseOccurrences, todoLists),
+    [courseOccurrences, todoLists]
+  );
   const expenseTotals = useMemo(() => summarizeExpenses(expenses), [expenses]);
 
   return (
@@ -829,7 +844,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
                   tasks={tasks}
                   archiveTasks={archiveTasks}
                   todoLists={todoLists}
-                  todayCourses={todayCourses}
+                  todaySchedule={todaySchedule}
                   plans={plans}
                   onOpenModal={setModal}
                   onComplete={completeTaskSmooth}
@@ -886,6 +901,13 @@ export function LeoApp({ initialView }: { initialView: View }) {
                 />
               )}
               {activeView === "courses" && <CoursesPage courses={courses} />}
+              {activeView === "schedule" && (
+                <SchedulePage
+                  courseOccurrences={courseOccurrences}
+                  todoLists={todoLists}
+                  onToggleTodoItem={toggleTodoItem}
+                />
+              )}
               {activeView === "journal" && <JournalPage journal={journal} onSave={mutate} />}
               {activeView === "settings" && (
                 <SettingsPage
@@ -1043,7 +1065,7 @@ function Dashboard({
   tasks,
   archiveTasks,
   todoLists,
-  todayCourses,
+  todaySchedule,
   plans,
   onOpenModal,
   onComplete,
@@ -1056,7 +1078,7 @@ function Dashboard({
   tasks: Task[];
   archiveTasks: Task[];
   todoLists: TodoList[];
-  todayCourses: Array<{ id: string; startTime: string; endTime: string; type: string; location: string; course: Course }>;
+  todaySchedule: ScheduleEvent[];
   plans: Plan[];
   onOpenModal: (mode: ModalMode) => void;
   onComplete: (id: string) => void;
@@ -1076,7 +1098,7 @@ function Dashboard({
   const [overviewOpen, setOverviewOpen] = useState(false);
   const taskFilterAreaRef = useRef<HTMLDivElement>(null);
   const todoPreviewItems = buildTodayTodoPreviewItems(todoLists);
-  const todayOverview = buildTodayOverview(todoPreviewItems, tasks, todayCourses);
+  const todayOverview = buildTodayOverview(todoPreviewItems, tasks, todaySchedule);
   const reminders = buildPlanReminders(plans, currentTime);
   const dashboardTasks = mergeDashboardTasks(tasks, archiveTasks.filter((task) => task.status === "completed"));
   const filteredDashboardTasks = dashboardTasks.filter((task) => {
@@ -1157,16 +1179,33 @@ function Dashboard({
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <TodoListPreviewCard items={todoPreviewItems} onToggle={onToggleTodoItem} />
         <section className="relative h-[300px] overflow-hidden rounded-lg bg-white p-4 shadow-soft">
-          <SectionTitle title="Today’s Courses" />
-          <div className="space-y-3">
-            {todayCourses.length === 0 && <EmptyLine text="今天没有课程安排。" />}
-            {todayCourses.map((session) => (
-              <div key={session.id} className="rounded-lg border border-slate-200 p-3">
-                <div className="font-medium">{session.course.code} · {session.type}</div>
-                <div className="text-sm text-slate-600">{session.startTime}-{session.endTime} · {session.location}</div>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">Today’s Schedule</h2>
+            <Link href="/schedule" className="text-sm font-medium text-slate-500 transition hover:text-slate-950">
+              View all
+            </Link>
+          </div>
+          <Link href="/schedule" className="block space-y-2">
+            {todaySchedule.length === 0 && <EmptyLine text="今天还没有课程或带时间的安排。" />}
+            {todaySchedule.map((event) => (
+              <div
+                key={`${event.sourceType}-${event.id}`}
+                className={`rounded-lg border px-3 py-2 ${
+                  event.sourceType === "course"
+                    ? "border-sky-100 bg-sky-50/70"
+                    : event.completed
+                      ? "border-slate-100 bg-slate-50 opacity-60"
+                      : "border-emerald-100 bg-emerald-50/60"
+                }`}
+              >
+                <div className={`font-medium ${event.completed ? "line-through" : ""}`}>{event.title}</div>
+                <div className="mt-0.5 text-sm text-slate-600">
+                  {formatScheduleMinutes(event.startMinutes)} - {formatScheduleMinutes(event.endMinutes)}
+                  {event.location ? ` · ${event.location}` : ""}
+                </div>
               </div>
             ))}
-          </div>
+          </Link>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-white/0 to-white" />
         </section>
       </div>
@@ -2577,6 +2616,179 @@ function TimetableCourseSummaryCard({
         </div>
       )}
     </article>
+  );
+}
+
+function SchedulePage({
+  courseOccurrences,
+  todoLists,
+  onToggleTodoItem
+}: {
+  courseOccurrences: CourseOccurrence[];
+  todoLists: TodoList[];
+  onToggleTodoItem: (id: string, completed: boolean) => void;
+}) {
+  const [date, setDate] = useState(localDateKey(new Date()));
+  const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
+  const events = useMemo(() => buildScheduleEvents(date, courseOccurrences, todoLists), [date, courseOccurrences, todoLists]);
+  const laidOut = layoutScheduleEvents(events);
+  const startHour = events.length ? Math.max(0, Math.min(8, Math.floor(Math.min(...events.map((event) => event.startMinutes)) / 60))) : 8;
+  const endHour = events.length
+    ? Math.min(24, Math.max(18, Math.ceil(Math.max(...events.map((event) => event.endMinutes)) / 60)))
+    : 18;
+  const hourHeight = 72;
+  const bodyHeight = (endHour - startHour) * hourHeight;
+  const hours = Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index);
+
+  function moveDate(days: number) {
+    const next = new Date(`${date}T12:00:00`);
+    next.setDate(next.getDate() + days);
+    setDate(localDateKey(next));
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="Schedule"
+        subtitle="课程和带时间的 To Do 按一天的时间轴统一显示。"
+        actions={
+          <div className="flex items-center gap-1">
+            <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => moveDate(-1)} title="前一天">
+              <ChevronLeft size={18} />
+            </button>
+            <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={() => setDate(localDateKey(new Date()))}>
+              今天
+            </button>
+            <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => moveDate(1)} title="后一天">
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        }
+      />
+
+      <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <Input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="md:max-w-[220px]" />
+          <div className="text-sm text-slate-500">
+            {events.filter((event) => event.sourceType === "course").length} 节课程 · {events.filter((event) => event.sourceType === "todo").length} 项 To Do
+          </div>
+        </div>
+      </section>
+
+      {events.length === 0 ? (
+        <section className="rounded-lg bg-white p-6 shadow-soft">
+          <EmptyBlock text="今天还没有课程或带时间的安排。" />
+        </section>
+      ) : (
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-soft">
+          <div className="grid grid-cols-[60px_1fr] md:grid-cols-[76px_1fr]">
+            <div className="relative border-r border-slate-200 bg-slate-50" style={{ height: bodyHeight }}>
+              {hours.slice(0, -1).map((hour, index) => (
+                <div
+                  key={hour}
+                  className="absolute inset-x-0 -translate-y-2 px-2 text-right text-[11px] font-medium text-slate-500"
+                  style={{ top: index * hourHeight }}
+                >
+                  {formatCalendarHour(hour)}
+                </div>
+              ))}
+            </div>
+            <div className="relative min-w-0" style={{ height: bodyHeight }}>
+              {hours.slice(0, -1).map((hour, index) => (
+                <div key={hour} className="absolute inset-x-0 border-t border-slate-100" style={{ top: index * hourHeight }} />
+              ))}
+              {laidOut.map(({ event, lane, laneCount }) => {
+                const top = ((event.startMinutes - startHour * 60) / 60) * hourHeight;
+                const height = Math.max(40, ((event.endMinutes - event.startMinutes) / 60) * hourHeight - 4);
+                const gap = 6;
+                return (
+                  <button
+                    key={`${event.sourceType}-${event.id}`}
+                    className={`absolute overflow-hidden rounded-md border px-2 py-1.5 text-left shadow-sm transition hover:brightness-[0.98] ${
+                      event.sourceType === "course"
+                        ? "border-sky-200 bg-sky-50 text-slate-900"
+                        : event.completed
+                          ? "border-slate-200 bg-slate-100 text-slate-500 opacity-70"
+                          : "border-emerald-200 bg-emerald-50 text-slate-900"
+                    }`}
+                    style={{
+                      top,
+                      height,
+                      left: `calc(${(100 / laneCount) * lane}% + ${gap / 2}px)`,
+                      width: `calc(${100 / laneCount}% - ${gap}px)`
+                    }}
+                    onClick={() => setSelectedEvent(event)}
+                  >
+                    <div className={`truncate text-xs font-semibold md:text-sm ${event.completed ? "line-through" : ""}`}>{event.title}</div>
+                    <div className="mt-0.5 truncate text-[11px] text-slate-600">
+                      {formatScheduleMinutes(event.startMinutes)} - {formatScheduleMinutes(event.endMinutes)}
+                    </div>
+                    {height >= 64 && <div className="mt-0.5 truncate text-[11px] text-slate-500">{event.location || event.subtitle}</div>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {selectedEvent && (
+        <ScheduleEventDialog
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onToggleTodoItem={(id, completed) => {
+            onToggleTodoItem(id, completed);
+            setSelectedEvent((current) => current ? { ...current, completed } : current);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function ScheduleEventDialog({
+  event,
+  onClose,
+  onToggleTodoItem
+}: {
+  event: ScheduleEvent;
+  onClose: () => void;
+  onToggleTodoItem: (id: string, completed: boolean) => void;
+}) {
+  useEscapeClose(onClose);
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      onPointerDown={(pointerEvent) => {
+        if (pointerEvent.target === pointerEvent.currentTarget) onClose();
+      }}
+    >
+      <section className="app-modal-panel w-full max-w-lg rounded-lg bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Badge>{event.sourceType === "course" ? "课程" : "To Do"}</Badge>
+            <h2 className={`mt-3 text-xl font-semibold ${event.completed ? "line-through text-slate-500" : ""}`}>{event.title}</h2>
+          </div>
+          <button className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50" onClick={onClose} title="关闭">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="mt-4 space-y-2 text-sm text-slate-600">
+          <div>{formatScheduleMinutes(event.startMinutes)} - {formatScheduleMinutes(event.endMinutes)}</div>
+          <div>{event.subtitle}</div>
+          {event.location && <div>{event.location}</div>}
+        </div>
+        {event.sourceType === "todo" && (
+          <button
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white"
+            onClick={() => onToggleTodoItem(event.originalId, !event.completed)}
+          >
+            <Check size={16} />
+            {event.completed ? "恢复未完成" : "标记完成"}
+          </button>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -4872,7 +5084,7 @@ function summarizeExpenses(expenses: Expense[]) {
 function buildTodayOverview(
   todoItems: TodoListItem[],
   tasks: Task[],
-  todayCourses: Array<{ id: string; startTime: string; endTime: string; type: string; location: string; course: Course }>
+  todaySchedule: ScheduleEvent[]
 ): TodayOverviewSummary {
   const todayKey = localDateKey(new Date());
   const deadlineCount = tasks.filter((task) => {
@@ -4885,7 +5097,7 @@ function buildTodayOverview(
     todoTotal: todoItems.length,
     todoCompleted: todoItems.filter((item) => item.completed).length,
     deadlineCount,
-    courseCount: todayCourses.length
+    courseCount: todaySchedule.filter((event) => event.sourceType === "course").length
   };
 }
 
@@ -4927,6 +5139,93 @@ function isImageMime(mime?: string | null) {
 
 function statusLabel(status: string) {
   return status === "not_started" ? "未开始" : status === "in_progress" ? "进行中" : status === "completed" ? "已完成" : "已归档";
+}
+
+function scheduleWallMinutes(value?: string | null) {
+  const match = value?.match(/T(\d{2}):(\d{2})/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
+}
+
+function cleanTodoScheduleTitle(item: TodoListItem) {
+  if (!item.parsedTimeText) return item.content;
+  return item.content
+    .replace(item.parsedTimeText, " ")
+    .replace(/^[\s,，。:：;；\-–—]+|[\s,，。:：;；\-–—]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim() || item.content;
+}
+
+function buildScheduleEvents(date: string, courseOccurrences: CourseOccurrence[], todoLists: TodoList[]) {
+  const courseEvents: ScheduleEvent[] = courseOccurrences
+    .filter((occurrence) => occurrence.status !== "cancelled" && timetableDateKey(occurrence.startAt) === date)
+    .map((occurrence) => {
+      const startMinutes = timetableMinutesSinceMidnight(occurrence.startAt);
+      let endMinutes = timetableMinutesSinceMidnight(occurrence.endAt);
+      if (endMinutes <= startMinutes) endMinutes += 24 * 60;
+      const course = occurrence.course;
+      return {
+        id: occurrence.id,
+        originalId: occurrence.id,
+        sourceType: "course",
+        title: `${course?.courseCode || "COURSE"} · ${course?.activityType || "课程"}`,
+        subtitle: course?.courseName || course?.activityName || "课程",
+        startAt: occurrence.startAt,
+        endAt: occurrence.endAt,
+        startMinutes,
+        endMinutes,
+        location: occurrence.location || course?.defaultLocation || "",
+        completed: occurrence.status === "completed"
+      };
+    });
+
+  const todoEvents: ScheduleEvent[] = todoLists
+    .filter((list) => list.date === date)
+    .flatMap((list) =>
+      list.items
+        .filter((item) => item.hasScheduleTime && item.scheduledStartAt && item.scheduledEndAt)
+        .map((item) => {
+          const startMinutes = scheduleWallMinutes(item.scheduledStartAt);
+          let endMinutes = scheduleWallMinutes(item.scheduledEndAt);
+          if (endMinutes <= startMinutes) endMinutes += 24 * 60;
+          return {
+            id: item.id,
+            originalId: item.id,
+            sourceType: "todo" as const,
+            title: cleanTodoScheduleTitle(item),
+            subtitle: list.title,
+            startAt: item.scheduledStartAt!,
+            endAt: item.scheduledEndAt!,
+            startMinutes,
+            endMinutes,
+            completed: item.completed
+          };
+        })
+    );
+
+  return [...courseEvents, ...todoEvents].sort((a, b) => a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes);
+}
+
+function layoutScheduleEvents(events: ScheduleEvent[]) {
+  const active: Array<{ lane: number; endMinutes: number }> = [];
+  return events.map((event) => {
+    for (let index = active.length - 1; index >= 0; index -= 1) {
+      if (active[index].endMinutes <= event.startMinutes) active.splice(index, 1);
+    }
+    const usedLanes = new Set(active.map((item) => item.lane));
+    let lane = 0;
+    while (usedLanes.has(lane)) lane += 1;
+    active.push({ lane, endMinutes: event.endMinutes });
+    const laneCount = Math.max(
+      1,
+      events.filter((item) => item.startMinutes < event.endMinutes && item.endMinutes > event.startMinutes).length
+    );
+    return { event, lane: Math.min(lane, laneCount - 1), laneCount };
+  });
+}
+
+function formatScheduleMinutes(minutes: number) {
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
 }
 
 function getTimetableDays(view: "day" | "week", anchorDate: string) {
