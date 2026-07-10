@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type {
+  AppSettings,
   Assignment,
   ClassSession,
   CourseOccurrence,
@@ -21,6 +22,7 @@ import type {
   TodoListItem
 } from "./types";
 import { dataDir, dbPath, migrateLegacyUserDataIfNeeded, uploadsDir } from "./app-config";
+import { isSupportedCurrencyCode } from "./currencies";
 import { parseScheduleTime } from "./schedule-time";
 
 type DatabaseLike = {
@@ -386,6 +388,37 @@ function migrate(db: DatabaseLike) {
 function ensureColumn(db: DatabaseLike, table: string, column: string, definition: string) {
   const existing = db.prepare(`PRAGMA table_info(${table})`).all().some((row) => row.name === column);
   if (!existing) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+}
+
+function writeSetting(db: DatabaseLike, key: string, value: string) {
+  db.prepare("INSERT OR REPLACE INTO settings (key, value, updatedAt) VALUES (?, ?, ?)").run(key, value, now());
+}
+
+export function getAppSettings(db = getDb()): AppSettings {
+  const rows = db.prepare("SELECT key, value FROM settings WHERE key IN (?, ?, ?)")
+    .all("lastUsedCurrency", "homeTitle", "showHomeTitle");
+  const values = new Map(rows.map((row) => [String(row.key), String(row.value)]));
+  const lastUsedCurrency = values.get("lastUsedCurrency");
+  return {
+    lastUsedCurrency: isSupportedCurrencyCode(lastUsedCurrency) ? lastUsedCurrency : null,
+    homeTitle: values.get("homeTitle")?.trim() || "Leo的生活学习助手",
+    showHomeTitle: values.get("showHomeTitle") !== "0"
+  };
+}
+
+export function updateAppSettings(input: Partial<AppSettings>) {
+  const db = getDb();
+  if (input.lastUsedCurrency !== undefined) {
+    if (input.lastUsedCurrency === null) writeSetting(db, "lastUsedCurrency", "");
+    else if (isSupportedCurrencyCode(input.lastUsedCurrency)) writeSetting(db, "lastUsedCurrency", input.lastUsedCurrency);
+  }
+  if (input.homeTitle !== undefined) {
+    writeSetting(db, "homeTitle", input.homeTitle.trim() || "Leo的生活学习助手");
+  }
+  if (input.showHomeTitle !== undefined) {
+    writeSetting(db, "showHomeTitle", input.showHomeTitle ? "1" : "0");
+  }
+  return getAppSettings(db);
 }
 
 function scheduleFields(content: string, date: string) {
@@ -1677,6 +1710,7 @@ export function createExpense(input: ExpenseInput) {
   const timestamp = now();
   const id = randomUUID();
   const amount = Number(input.amount ?? 0);
+  const currency = isSupportedCurrencyCode(input.currency) ? input.currency : "AUD";
   db.prepare(
     `INSERT INTO expenses
      (id, type, title, amount, currency, category, date, merchant, paymentMethod, notes, receiptFileId, createdAt, updatedAt)
@@ -1686,7 +1720,7 @@ export function createExpense(input: ExpenseInput) {
     input.type === "income" ? "income" : "expense",
     input.title ?? (input.type === "income" ? "未命名收入" : "未命名支出"),
     Number.isFinite(amount) ? amount : 0,
-    input.currency ?? "AUD",
+    currency,
     input.category ?? "其他",
     input.date ?? todayIso(),
     input.merchant ?? null,
@@ -1698,6 +1732,7 @@ export function createExpense(input: ExpenseInput) {
   );
 
   if (input.receiptFileId) linkUploadedFile(input.receiptFileId, "expense", id, db);
+  writeSetting(db, "lastUsedCurrency", currency);
   return getExpense(id, db)!;
 }
 
@@ -1728,6 +1763,7 @@ export function updateExpense(id: string, input: ExpenseInput) {
   );
 
   if (next.receiptFileId) linkUploadedFile(next.receiptFileId, "expense", id, db);
+  if (isSupportedCurrencyCode(next.currency)) writeSetting(db, "lastUsedCurrency", next.currency);
   return getExpense(id, db);
 }
 

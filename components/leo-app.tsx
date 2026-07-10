@@ -33,6 +33,7 @@ import {
   X
 } from "lucide-react";
 import type {
+  AppSettings,
   Course,
   CourseOccurrence,
   Expense,
@@ -48,6 +49,7 @@ import type {
   TodoList,
   TodoListItem
 } from "@/lib/types";
+import { currencies } from "@/lib/currencies";
 
 type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "courses" | "schedule" | "guide" | "journal" | "archive" | "settings";
 type ModalMode = "task" | "deadline" | "plan" | "todoList" | "counter" | "expense" | null;
@@ -112,6 +114,12 @@ type ScheduleEvent = {
   endMinutes: number;
   location?: string;
   completed: boolean;
+};
+
+const defaultAppSettings: AppSettings = {
+  lastUsedCurrency: null,
+  homeTitle: "Leo的生活学习助手",
+  showHomeTitle: true
 };
 
 const navItems: Array<{ view: View; href: string; label: string; icon: React.ReactNode }> = [
@@ -323,6 +331,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [importantFiles, setImportantFiles] = useState<ImportantFile[]>([]);
+  const [appSettings, setAppSettings] = useState<AppSettings>(defaultAppSettings);
   const [modal, setModal] = useState<ModalMode>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -447,7 +456,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
 
   async function loadAll(showLoading = true) {
     if (showLoading) setLoading(true);
-    const [taskData, archiveData, planData, todoListData, progressData, courseData, timetableData, journalData, expenseData, importantFileData] = await Promise.all([
+    const [taskData, archiveData, planData, todoListData, progressData, courseData, timetableData, journalData, expenseData, importantFileData, settingsData] = await Promise.all([
       fetchJsonOr<Task[]>("/api/tasks", []),
       fetchJsonOr<Task[]>("/api/archive", []),
       fetchJsonOr<Plan[]>("/api/plans", []),
@@ -457,7 +466,8 @@ export function LeoApp({ initialView }: { initialView: View }) {
       fetchJsonOr<{ occurrences: CourseOccurrence[] }>("/api/timetable?includeCancelled=1", { occurrences: [] }),
       fetchJsonOr<JournalEntry[]>("/api/journal", []),
       fetchJsonOr<Expense[]>("/api/expenses", []),
-      fetchJsonOr<ImportantFile[]>("/api/important-files", [])
+      fetchJsonOr<ImportantFile[]>("/api/important-files", []),
+      fetchJsonOr<AppSettings>("/api/settings", defaultAppSettings)
     ]);
     setTasks(taskData);
     setArchiveTasks(archiveData);
@@ -469,6 +479,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
     setJournal(journalData);
     setExpenses(expenseData);
     setImportantFiles(importantFileData);
+    setAppSettings(settingsData);
     if (showLoading) setLoading(false);
   }
 
@@ -846,6 +857,8 @@ export function LeoApp({ initialView }: { initialView: View }) {
                   archiveTasks={archiveTasks}
                   todoLists={todoLists}
                   todaySchedule={todaySchedule}
+                  homeTitle={appSettings.homeTitle}
+                  showHomeTitle={appSettings.showHomeTitle}
                   plans={plans}
                   onOpenModal={setModal}
                   onComplete={completeTaskSmooth}
@@ -913,6 +926,16 @@ export function LeoApp({ initialView }: { initialView: View }) {
               {activeView === "guide" && <UserGuidePage />}
               {activeView === "settings" && (
                 <SettingsPage
+                  appSettings={appSettings}
+                  onSaveSettings={async (patch) => {
+                    const response = await fetch("/api/settings", {
+                      method: "PATCH",
+                      headers: { "content-type": "application/json" },
+                      body: JSON.stringify(patch)
+                    });
+                    if (!response.ok) throw new Error("保存首页设置失败");
+                    setAppSettings(await response.json());
+                  }}
                   background={background}
                   setBackground={chooseBackground}
                   onUploaded={() => loadAll(false)}
@@ -961,6 +984,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
           mode={modal}
           task={editingTask}
           expense={editingExpense}
+          lastUsedCurrency={appSettings.lastUsedCurrency}
           tasks={tasks}
           onClose={() => {
             setModal(null);
@@ -1040,23 +1064,27 @@ function PageHeader({
   title,
   subtitle,
   actions,
-  onTitleDoubleClick
+  onTitleDoubleClick,
+  showTitle = true
 }: {
   title: string;
   subtitle: string;
   actions?: React.ReactNode;
   onTitleDoubleClick?: () => void;
+  showTitle?: boolean;
 }) {
   return (
     <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-end">
       <div>
-        <h1
-          className={`text-2xl font-semibold tracking-normal md:text-3xl ${onTitleDoubleClick ? "cursor-default select-none" : ""}`}
-          onDoubleClick={onTitleDoubleClick}
-        >
-          {title}
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+        {showTitle && (
+          <h1
+            className={`text-2xl font-semibold tracking-normal md:text-3xl ${onTitleDoubleClick ? "cursor-default select-none" : ""}`}
+            onDoubleClick={onTitleDoubleClick}
+          >
+            {title}
+          </h1>
+        )}
+        <p className={`${showTitle ? "mt-1" : ""} text-sm text-slate-500`}>{subtitle}</p>
       </div>
       {actions && <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">{actions}</div>}
     </div>
@@ -1068,6 +1096,8 @@ function Dashboard({
   archiveTasks,
   todoLists,
   todaySchedule,
+  homeTitle,
+  showHomeTitle,
   plans,
   onOpenModal,
   onComplete,
@@ -1081,6 +1111,8 @@ function Dashboard({
   archiveTasks: Task[];
   todoLists: TodoList[];
   todaySchedule: ScheduleEvent[];
+  homeTitle: string;
+  showHomeTitle: boolean;
   plans: Plan[];
   onOpenModal: (mode: ModalMode) => void;
   onComplete: (id: string) => void;
@@ -1153,7 +1185,8 @@ function Dashboard({
   return (
     <>
       <PageHeader
-        title="Leo的生活学习助手"
+        title={homeTitle}
+        showTitle={showHomeTitle}
         subtitle={today.toLocaleDateString("zh-CN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         onTitleDoubleClick={() => setOverviewOpen(true)}
         actions={
@@ -3702,6 +3735,8 @@ function UserGuidePage() {
 }
 
 function SettingsPage({
+  appSettings,
+  onSaveSettings,
   background,
   setBackground,
   onUploaded,
@@ -3709,6 +3744,8 @@ function SettingsPage({
   onManualSync,
   onCheckSync
 }: {
+  appSettings: AppSettings;
+  onSaveSettings: (patch: Pick<AppSettings, "homeTitle" | "showHomeTitle">) => Promise<void>;
   background: string;
   setBackground: (value: string) => void;
   onUploaded: () => void;
@@ -3718,6 +3755,10 @@ function SettingsPage({
 }) {
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
+  const [homeTitleDraft, setHomeTitleDraft] = useState(appSettings.homeTitle);
+  const [showHomeTitleDraft, setShowHomeTitleDraft] = useState(appSettings.showHomeTitle);
+  const [savingHomeSettings, setSavingHomeSettings] = useState(false);
+  const [homeSettingsMessage, setHomeSettingsMessage] = useState("");
   const [currentUrl, setCurrentUrl] = useState("http://电脑局域网IP:3011");
   const [phoneUrl, setPhoneUrl] = useState("");
   const [storageInfo, setStorageInfo] = useState({
@@ -3759,6 +3800,24 @@ function SettingsPage({
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    setHomeTitleDraft(appSettings.homeTitle);
+    setShowHomeTitleDraft(appSettings.showHomeTitle);
+  }, [appSettings.homeTitle, appSettings.showHomeTitle]);
+
+  async function saveHomeSettings() {
+    setSavingHomeSettings(true);
+    setHomeSettingsMessage("");
+    try {
+      await onSaveSettings({ homeTitle: homeTitleDraft, showHomeTitle: showHomeTitleDraft });
+      setHomeSettingsMessage("已保存，首页立即生效。");
+    } catch {
+      setHomeSettingsMessage("保存失败，请确认电脑端服务正在运行。");
+    } finally {
+      setSavingHomeSettings(false);
+    }
+  }
+
   return (
     <>
       <PageHeader title="设置" subtitle="本地路径、背景、备份和未来功能占位。" />
@@ -3777,6 +3836,43 @@ function SettingsPage({
             查看使用文档
             <ChevronRight size={16} />
           </Link>
+        </section>
+        <section className="rounded-lg bg-white p-4 shadow-soft lg:col-span-2">
+          <SectionTitle title="首页个性化" />
+          <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              <span>首页标题</span>
+              <Input
+                value={homeTitleDraft}
+                onChange={(event) => setHomeTitleDraft(event.target.value)}
+                placeholder="Leo的生活学习助手"
+                maxLength={80}
+              />
+            </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showHomeTitleDraft}
+              className="flex min-h-[42px] items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700"
+              onClick={() => setShowHomeTitleDraft((value) => !value)}
+            >
+              <span>显示首页标题</span>
+              <span className={`relative h-6 w-11 rounded-full transition ${showHomeTitleDraft ? "bg-slate-900" : "bg-slate-300"}`}>
+                <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${showHomeTitleDraft ? "left-6" : "left-1"}`} />
+              </span>
+            </button>
+          </div>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              onClick={() => void saveHomeSettings()}
+              disabled={savingHomeSettings}
+            >
+              {savingHomeSettings ? "保存中..." : "保存首页设置"}
+            </button>
+            {homeSettingsMessage && <div className="text-sm text-slate-500">{homeSettingsMessage}</div>}
+          </div>
         </section>
         <section className="rounded-lg bg-white p-4 shadow-soft">
           <SectionTitle title="本地存储" />
@@ -3900,11 +3996,13 @@ function SettingsPage({
 
 function ExpenseModal({
   expense,
+  lastUsedCurrency,
   onClose,
   onCreated,
   onSaveRequest
 }: {
   expense: Expense | null;
+  lastUsedCurrency: AppSettings["lastUsedCurrency"];
   onClose: () => void;
   onCreated: () => Promise<void>;
   onSaveRequest: SaveRequest;
@@ -3992,7 +4090,19 @@ function ExpenseModal({
           />
           <div className="grid gap-3 md:grid-cols-3">
             <Input name="amount" type="number" min="0" step="0.01" placeholder="金额" defaultValue={expense?.amount ?? ""} required />
-            <Select name="currency" defaultValue={expense?.currency || "AUD"} options={[["AUD", "AUD"], ["CNY", "CNY"], ["USD", "USD"]]} />
+            <Select
+              name="currency"
+              defaultValue={expense?.currency || lastUsedCurrency || ""}
+              required
+              aria-label="货币"
+              options={[
+                ["", "选择货币"],
+                ...currencies.map((currency) => [
+                  currency.code,
+                  `${currency.code} — ${currency.name} / ${currency.localizedName}`
+                ] as [string, string])
+              ]}
+            />
             <Select
               value={category}
               onChange={(event) => setCategory(event.target.value)}
@@ -4080,6 +4190,7 @@ function QuickModal({
   mode,
   task,
   expense,
+  lastUsedCurrency,
   tasks,
   onClose,
   onCreated,
@@ -4088,6 +4199,7 @@ function QuickModal({
   mode: ModalMode;
   task: Task | null;
   expense: Expense | null;
+  lastUsedCurrency: AppSettings["lastUsedCurrency"];
   tasks: Task[];
   onClose: () => void;
   onCreated: () => Promise<void>;
@@ -4096,7 +4208,7 @@ function QuickModal({
   useEscapeClose(onClose);
 
   if (mode === "expense") {
-    return <ExpenseModal expense={expense} onClose={onClose} onCreated={onCreated} onSaveRequest={onSaveRequest} />;
+    return <ExpenseModal expense={expense} lastUsedCurrency={lastUsedCurrency} onClose={onClose} onCreated={onCreated} onSaveRequest={onSaveRequest} />;
   }
 
   const isDeadlineForm = mode === "deadline" || task?.type === "deadline";
