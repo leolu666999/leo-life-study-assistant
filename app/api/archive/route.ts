@@ -1,7 +1,7 @@
-import { listTasks } from "@/lib/db";
+import { getTaskService } from "@/lib/services/task-service";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  return Response.json(listTasks({ includeArchived: true }));
+  return Response.json(getTaskService().listAllTasks());
 }

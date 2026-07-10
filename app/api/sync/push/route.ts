@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { createExpense, createJournal, createTask, createTodoList } from "@/lib/db";
 import { broadcastDataChange } from "@/lib/realtime";
+import type { ExpenseInput } from "@/lib/repositories/finance-repository";
+import type { TaskInput } from "@/lib/repositories/task-repository";
+import type { TodoListInput } from "@/lib/repositories/todo-repository";
+import { getFinanceService } from "@/lib/services/finance-service";
+import { getJournalService } from "@/lib/services/journal-service";
+import { getTaskService } from "@/lib/services/task-service";
+import { getTodoService } from "@/lib/services/todo-service";
 import type { TaskType } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -49,27 +55,27 @@ function createFromSyncItem(item: SyncQueueItem) {
   const payload = item.payload ?? {};
 
   if (item.entityType === "todoList") {
-    return createTodoList(payload as Parameters<typeof createTodoList>[0]);
+    return getTodoService().createTodoList(payload as TodoListInput);
   }
 
   if (item.entityType === "task" || item.entityType === "deadline" || item.entityType === "checklist") {
     const taskType = resolveTaskType(item.entityType, payload.type);
-    return createTask({
-      ...(payload as Parameters<typeof createTask>[0]),
+    return getTaskService().createTask({
+      ...(payload as TaskInput),
       type: taskType
     });
   }
 
   if (item.entityType === "expense") {
-    return createExpense({
-      ...(payload as Parameters<typeof createExpense>[0]),
+    return getFinanceService().createExpense({
+      ...(payload as ExpenseInput),
       receiptFileId: typeof payload.receiptFileId === "string" ? payload.receiptFileId : null
     });
   }
 
   if (item.entityType === "journal") {
-    return createJournal({
-      ...(payload as Parameters<typeof createJournal>[0]),
+    return getJournalService().createJournal({
+      ...payload,
       source: payload.source === "daily_plan" ? "daily_plan" : "manual"
     });
   }

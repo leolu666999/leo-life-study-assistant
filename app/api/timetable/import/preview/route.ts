@@ -1,4 +1,4 @@
-import { parseIcsToTimetablePreview } from "@/lib/ics-timetable";
+import { getTimetableService } from "@/lib/services/timetable-service";
 
 export const runtime = "nodejs";
 
@@ -22,24 +22,7 @@ async function bodyFromRequest(request: Request) {
 
 export async function POST(request: Request) {
   const body = await bodyFromRequest(request);
-  let icsText = String(body.icsText ?? "");
-  const feedUrl = typeof body.feedUrl === "string" && body.feedUrl.trim() ? body.feedUrl.trim() : null;
-  if (!icsText && feedUrl) {
-    const response = await fetch(feedUrl, { cache: "no-store" });
-    if (!response.ok) {
-      return Response.json({ error: "读取 Calendar Feed 失败，请确认链接有效或需要登录权限。" }, { status: 400 });
-    }
-    icsText = await response.text();
-  }
-  if (!icsText.trim()) return Response.json({ error: "缺少 ICS 内容或 Calendar Feed URL。" }, { status: 400 });
-
-  const preview = parseIcsToTimetablePreview(icsText, {
-    sourceType: feedUrl ? "calendar_feed" : "ics_file",
-    name: body.name || (feedUrl ? "Calendar Feed" : "ICS 文件"),
-    feedUrl,
-    semester: body.semester || "Semester",
-    academicYear: Number(body.academicYear || new Date().getFullYear()),
-    timezone: body.timezone || "Australia/Sydney"
-  });
-  return Response.json(preview);
+  const result = await getTimetableService().previewTimetable(body);
+  if (result.error) return Response.json({ error: result.error }, { status: 400 });
+  return Response.json(result.preview);
 }

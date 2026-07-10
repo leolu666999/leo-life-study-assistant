@@ -10,6 +10,7 @@
     "icon:generate": "node scripts/generate-app-icon.cjs",
     "migration:preflight": "node scripts/migration-preflight.cjs",
     "start": "next start -H 0.0.0.0 -p 3011",
+    "test": "vitest run",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "desktop:dev": "electron .",
@@ -62,6 +63,7 @@
     "electron-builder": "^26.15.3",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
   }
 }

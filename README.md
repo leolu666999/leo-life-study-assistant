@@ -120,6 +120,7 @@ You can also double-click `启动-Windows.bat`.
 npm run dev      # Start the local development server on port 3011
 npm run build    # Build the app
 npm run start    # Start the production server on port 3011
+npm test         # Run isolated API contract tests
 npm run desktop:dev   # Start Electron in development mode
 npm run desktop:pack  # Build macOS .app
 npm run desktop:dist  # Build macOS .dmg
@@ -154,13 +155,15 @@ Every user-facing feature change must update both the in-app guide under Setting
 ## 架构 / Architecture
 
 - 前端：Next.js App Router + React + Tailwind CSS，页面入口复用 `components/leo-app.tsx`。
-- 后端：同一个 Next.js 项目内的 `/api/*` 路由，运行在本地 Node.js。
+- 后端：同一个 Next.js 项目内的 `/api/*` 路由，运行在本地 Node.js。核心业务采用 Route Handler → Service → Repository Interface → SQLite Repository 分层。
 - 数据库：`node:sqlite`，默认路径 `~/Library/Application Support/Leo的生活学习助手/data/leo_life_study.db`。
 - 上传文件：`~/Library/Application Support/Leo的生活学习助手/uploads/`。
 - 浏览器入口：`http://localhost:3011`。
 - 桌面入口：Electron 无地址栏窗口，加载同一个本地 Next 前端。
 - 实时同步：浏览器和桌面端订阅 `GET /api/events` 的 Server-Sent Events；任意写入 API 成功后广播 `data-change`，其他窗口静默重新请求数据库真实状态。
 - 日志：`~/Library/Logs/Leo的生活学习助手/desktop.log`。
+
+Repository backend 默认且当前只支持 `sqlite`。如果 `DATA_BACKEND` 设置为未实现的值，应用会明确报错，不会静默回退到本地 SQLite。Phase 1 进度和剩余基础设施路由见 `REPOSITORY_MIGRATION_PROGRESS.md`，已知迁移数据例外见 `MIGRATION_KNOWN_ISSUES.md`。
 
 端口可以通过环境变量调整：
 

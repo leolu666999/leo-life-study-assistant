@@ -1,9 +1,9 @@
-import { listCourses } from "@/lib/db";
+import { getTimetableService } from "@/lib/services/timetable-service";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  return Response.json(listCourses());
+  return Response.json(getTimetableService().listCourses());
 }
 
 export async function POST(request: Request) {
