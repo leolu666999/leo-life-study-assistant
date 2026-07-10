@@ -123,7 +123,24 @@ npm run start    # Start the production server on port 3011
 npm run desktop:dev   # Start Electron in development mode
 npm run desktop:pack  # Build macOS .app
 npm run desktop:dist  # Build macOS .dmg
+npm run migration:preflight  # Run the read-only SQLite/uploads migration preflight
 ```
+
+### 迁移预检 / Migration Preflight
+
+在准备数据库迁移前，可以生成只读的 SQLite 与 uploads 基线报告：
+
+```bash
+npm run migration:preflight
+```
+
+正式迁移准备建议扫描停止写入后生成的 SQLite 快照：
+
+```bash
+npm run migration:preflight -- --db "/absolute/path/to/snapshot.db"
+```
+
+工具不会调用会自动迁移数据的 `getDb()`，不会修改 SQLite 或 uploads，也不会连接 Supabase。报告写入被 Git 忽略的 `migration-reports/`，只包含表名、计数、ID、匿名摘要和文件 SHA-256，不包含日记正文、财务备注、原始文件名或 Feed URL。
 
 ## 文档维护 / Documentation Maintenance
 
@@ -177,7 +194,7 @@ npm run dev
 
 ## 备份与恢复 / Backup and Restore
 
-- App 内“设置”页可以导出 JSON 备份。
+- App 内“设置”页可以导出部分 JSON 数据，但当前导出不包含 To Do、新版课表和文件本体，不能单独用于完整恢复。
 - SQLite 数据库文件在 `~/Library/Application Support/Leo的生活学习助手/data/leo_life_study.db`。
 - 上传文件在 `~/Library/Application Support/Leo的生活学习助手/uploads/`。
 - 恢复时先关闭浏览器/桌面 App 和本地后端，再替换数据库与上传目录。

@@ -8,6 +8,7 @@
     "build": "next build",
     "postbuild": "node scripts/prepare-standalone.cjs",
     "icon:generate": "node scripts/generate-app-icon.cjs",
+    "migration:preflight": "node scripts/migration-preflight.cjs",
     "start": "next start -H 0.0.0.0 -p 3011",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
