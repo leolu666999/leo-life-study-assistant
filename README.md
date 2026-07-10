@@ -12,7 +12,8 @@ A local-first life and study dashboard for managing daily to-dos, tasks, deadlin
 - 今日日程：自动识别 To Do List 标题中的中英文时间段，与课程一起显示在每日时间轴。
 - Task / Deadline：长期任务和明确截止事项分开管理，Deadline 支持倒计时显示。
 - 进度追踪：任务可以开启进度条，例如阅读页数、训练次数、百分比目标。
-- 收支：支持主流国际货币，按币种分别统计收入、支出和结余。
+- 收支：支持 21 种主流国际货币，按币种分别统计，并记住最近一次成功保存的货币。
+- 首页个性化：可自定义首页标题，支持中英文和 Emoji，也可完全隐藏标题。
 - 重要文件：保存护照、签证、学校、住宿、保险、交通等关键文件，可搜索、分类、添加标签和到期日。
 - 计划与日记：支持每日、每周、每月计划和简单复盘记录。
 
@@ -22,7 +23,8 @@ A local-first life and study dashboard for managing daily to-dos, tasks, deadlin
 - Daily schedule: recognizes time ranges in To Do titles and combines them with courses on a day timeline.
 - Task / Deadline: regular tasks and deadline-based items are managed separately; deadlines can show countdowns.
 - Progress tracking: optional progress bars for reading pages, training sessions, percentage goals, and custom units.
-- Expenses: log spending with categories, payment methods, notes, and receipt images.
+- Income and expenses: supports 21 major currencies, keeps totals separate by currency, and remembers the currency used by the latest successful entry.
+- Home personalization: customize the home title with text or Emoji, or hide it without leaving empty space.
 - Important files: store key documents such as passport, visa, school, accommodation, insurance, travel, and banking materials with search, categories, tags, and expiry dates.
 - Plans and journals: daily, weekly, and monthly planning plus lightweight reflections.
 
@@ -122,6 +124,15 @@ npm run desktop:dev   # Start Electron in development mode
 npm run desktop:pack  # Build macOS .app
 npm run desktop:dist  # Build macOS .dmg
 ```
+
+## 文档维护 / Documentation Maintenance
+
+每次新增或修改用户可见功能时，必须在同一批提交中同步更新：
+
+- 设置页中的“使用文档”；
+- GitHub `README.md`。
+
+Every user-facing feature change must update both the in-app guide under Settings and this README in the same change set.
 
 ## 架构 / Architecture
 
