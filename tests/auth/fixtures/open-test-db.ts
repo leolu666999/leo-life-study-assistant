@@ -3,5 +3,6 @@ import { dbPath, getDb, uploadsDir } from "../../../lib/db";
 
 const db = getDb();
 const taskCount = Number(db.prepare("SELECT COUNT(*) AS count FROM tasks").get()?.count ?? -1);
+const backgroundUpdatedAt = String(db.prepare("SELECT updatedAt FROM settings WHERE key = 'background'").get()?.updatedAt ?? "");
 const uploadNames = fs.readdirSync(uploadsDir).filter((name) => name !== ".gitkeep");
-process.stdout.write(JSON.stringify({ dbPath, taskCount, uploadNames }));
+process.stdout.write(JSON.stringify({ dbPath, taskCount, uploadNames, backgroundUpdatedAt }));

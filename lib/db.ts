@@ -603,7 +603,7 @@ function migrateProgressItemsToTasks(db: DatabaseLike) {
 
 function seed(db: DatabaseLike) {
   const createdAt = now();
-  db.prepare("INSERT OR REPLACE INTO settings (key, value, updatedAt) VALUES (?, ?, ?)").run(
+  db.prepare("INSERT OR IGNORE INTO settings (key, value, updatedAt) VALUES (?, ?, ?)").run(
     "background",
     "default",
     createdAt

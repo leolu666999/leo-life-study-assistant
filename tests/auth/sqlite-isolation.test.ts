@@ -26,11 +26,16 @@ describe("isolated Auth SQLite startup", () => {
   it("creates and opens only the dedicated temporary database", () => {
     const result = spawnSync(process.execPath, [runner, fixture], { cwd: process.cwd(), env: baseEnvironment, encoding: "utf8" });
     expect(result.status, result.stderr).toBe(0);
-    const output = JSON.parse(result.stdout) as { dbPath: string; taskCount: number; uploadNames: string[] };
+    const output = JSON.parse(result.stdout) as { dbPath: string; taskCount: number; uploadNames: string[]; backgroundUpdatedAt: string };
     expect(output.dbPath).toBe(baseEnvironment.LEO_DB_PATH);
     expect(output.taskCount).toBe(0);
     expect(output.uploadNames).toEqual([]);
     expect(fs.existsSync(baseEnvironment.LEO_DB_PATH)).toBe(true);
+
+    const secondStart = spawnSync(process.execPath, [runner, fixture], { cwd: process.cwd(), env: baseEnvironment, encoding: "utf8" });
+    expect(secondStart.status, secondStart.stderr).toBe(0);
+    const secondOutput = JSON.parse(secondStart.stdout) as { backgroundUpdatedAt: string };
+    expect(secondOutput.backgroundUpdatedAt).toBe(output.backgroundUpdatedAt);
   });
 
   it("fails before opening the real Application Support database", () => {
