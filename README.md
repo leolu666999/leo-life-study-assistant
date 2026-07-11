@@ -165,6 +165,8 @@ Every user-facing feature change must update both the in-app guide under Setting
 
 Repository backend 默认且当前只支持 `sqlite`。如果 `DATA_BACKEND` 设置为未实现的值，应用会明确报错，不会静默回退到本地 SQLite。Phase 1 进度和剩余基础设施路由见 `REPOSITORY_MIGRATION_PROGRESS.md`，已知迁移数据例外见 `MIGRATION_KNOWN_ISSUES.md`。
 
+Phase 2 已增加尚未连接生产环境的 PostgreSQL schema、RLS 与 private Storage policy。21 张业务表都有 owner `user_id`，普通账号按 `auth.uid()` 隔离；独立管理员账号只由 server-only `ADMIN_USER_ID` 判断。详情见 `SUPABASE_RLS_MATRIX.md`、`ADMIN_ARCHITECTURE.md` 和 `SUPABASE_PHASE2_PROGRESS.md`。当前运行 backend 仍然是 SQLite，没有迁移真实数据。
+
 端口可以通过环境变量调整：
 
 ```bash
