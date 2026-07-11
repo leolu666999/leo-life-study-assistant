@@ -72,55 +72,36 @@ async function getTask(id: string, context?: RepositoryContext) {
   return row ? mapTask(row, (subtasks ?? []).map(mapSubtask), (entries ?? []).map(mapEntry)) : null;
 }
 
-async function syncTags(taskId: string, tags: string[], context?: RepositoryContext) {
-  const { client, userId } = requireSupabaseContext(context);
-  const { error: deleteError } = await client.from("task_tags").delete().eq("user_id", userId).eq("taskId", taskId);
-  if (deleteError) throw deleteError;
-  for (const name of tags) {
-    let { data: tag, error } = await client.from("tags").select("id").eq("user_id", userId).eq("name", name).maybeSingle();
-    if (error) throw error;
-    if (!tag) {
-      const inserted = await client.from("tags").insert({ id: randomUUID(), user_id: userId, name }).select("id").single();
-      if (inserted.error) throw inserted.error;
-      tag = inserted.data;
-    }
-    const linked = await client.from("task_tags").insert({ user_id: userId, taskId, tagId: tag.id });
-    if (linked.error) throw linked.error;
-  }
-}
-
-async function syncSubtasks(taskId: string, drafts: SubtaskDraftInput[], context?: RepositoryContext) {
-  const { client, userId } = requireSupabaseContext(context);
-  const existing = await client.from("subtasks").select("id,createdAt").eq("user_id", userId).eq("taskId", taskId);
-  if (existing.error) throw existing.error;
-  const createdAtById = new Map((existing.data ?? []).map((row) => [String(row.id), String(row.createdAt)]));
-  const deleted = await client.from("subtasks").delete().eq("user_id", userId).eq("taskId", taskId);
-  if (deleted.error) throw deleted.error;
+function subtaskPayload(drafts: SubtaskDraftInput[], current: Subtask[] = []) {
+  const createdAtById = new Map(current.map((row) => [row.id, row.createdAt]));
   const now = new Date().toISOString();
-  const rows = drafts.map((draft) => typeof draft === "string"
+  return drafts.map((draft) => typeof draft === "string"
     ? { id: randomUUID(), title: draft.trim(), completed: false }
     : { id: draft.id || randomUUID(), title: String(draft.title ?? "").trim(), completed: Boolean(draft.completed) })
     .filter((draft) => draft.title)
-    .map((draft) => ({ ...draft, user_id: userId, taskId, createdAt: createdAtById.get(draft.id) ?? now, updatedAt: now }));
-  if (rows.length > 0) {
-    const inserted = await client.from("subtasks").insert(rows);
-    if (inserted.error) throw inserted.error;
-  }
+    .map((draft) => ({ ...draft, createdAt: createdAtById.get(draft.id) ?? now }));
+}
+
+function taskPayload(task: TaskInput & Pick<Task, "title" | "type" | "status" | "priority">) {
+  return {
+    title: task.title, description: task.description ?? "", type: task.type, status: task.status, priority: task.priority,
+    startDate: task.startDate ?? null, dueDate: task.dueDate ?? null, completedAt: task.completedAt ?? null,
+    archivedAt: task.archivedAt ?? null, reminderRule: task.reminderRule ?? "none", progressCurrent: task.progressCurrent ?? null,
+    progressTarget: task.progressTarget ?? null, progressUnit: task.progressUnit ?? null,
+    progressEnabled: Boolean(task.progressEnabled), progressType: task.progressType ?? "none",
+    pinnedToBottom: Boolean(task.pinnedToBottom), parentPlanId: task.parentPlanId ?? null,
+    originalImageId: task.originalImageId ?? null, notes: task.notes ?? null
+  };
 }
 
 async function createTask(input: TaskInput, context?: RepositoryContext) {
-  const { client, userId } = requireSupabaseContext(context);
+  const { client } = requireSupabaseContext(context);
   const id = randomUUID();
   const type = (input.type === "shopping" ? "checklist" : input.type ?? "todo") as Task["type"];
   const tags = normalizeTags(type, input.tags ?? []);
-  if (input.pinnedToBottom) {
-    const unpin = await client.from("tasks").update({ pinnedToBottom: false }).eq("user_id", userId);
-    if (unpin.error) throw unpin.error;
-    await client.from("progress_items").update({ pinned: false }).eq("user_id", userId);
-  }
   const progressEnabled = Boolean(input.progressEnabled || input.progressTarget !== null && input.progressTarget !== undefined);
   const row = {
-    id, user_id: userId, title: input.title ?? "未命名任务", description: input.description ?? "", type,
+    title: input.title ?? "未命名任务", description: input.description ?? "", type,
     status: input.status ?? "not_started", priority: input.priority ?? "medium", tags_json: tags,
     startDate: input.startDate ?? null, dueDate: input.dueDate ?? null, completedAt: input.completedAt ?? null,
     archivedAt: input.archivedAt ?? null, reminderRule: input.reminderRule ?? "none", progressCurrent: input.progressCurrent ?? null,
@@ -128,38 +109,27 @@ async function createTask(input: TaskInput, context?: RepositoryContext) {
     progressType: input.progressType ?? (progressEnabled ? "custom" : "none"), pinnedToBottom: Boolean(input.pinnedToBottom),
     parentPlanId: input.parentPlanId ?? null, originalImageId: input.originalImageId ?? null, notes: input.notes ?? null
   };
-  const inserted = await client.from("tasks").insert(row);
-  if (inserted.error) throw inserted.error;
-  await syncTags(id, tags, context);
-  if (input.subtasks?.length) await syncSubtasks(id, input.subtasks, context);
+  const { error } = await client.rpc("save_task_with_relations", {
+    p_task_id: id, p_create: true, p_task: taskPayload(row), p_tags: tags,
+    p_subtasks: subtaskPayload(input.subtasks ?? []), p_replace_subtasks: true
+  });
+  if (error) throw error;
   return (await getTask(id, context))!;
 }
 
 async function updateTask(id: string, input: TaskInput, context?: RepositoryContext) {
-  const { client, userId } = requireSupabaseContext(context);
+  const { client } = requireSupabaseContext(context);
   const current = await getTask(id, context);
   if (!current) return null;
   const type = (input.type === "shopping" ? "checklist" : input.type ?? current.type) as Task["type"];
   const tags = normalizeTags(type, input.tags ?? current.tags);
   const next = { ...current, ...input, type, tags };
   if (input.progressCurrent !== undefined && Number(input.progressCurrent ?? 0) > 0 && current.status === "not_started") next.status = "in_progress";
-  if (next.pinnedToBottom) {
-    const unpin = await client.from("tasks").update({ pinnedToBottom: false }).eq("user_id", userId).neq("id", id);
-    if (unpin.error) throw unpin.error;
-    await client.from("progress_items").update({ pinned: false }).eq("user_id", userId);
-  }
-  const updated = await client.from("tasks").update({
-    title: next.title, description: next.description ?? "", type: next.type, status: next.status, priority: next.priority,
-    tags_json: tags, startDate: next.startDate ?? null, dueDate: next.dueDate ?? null, completedAt: next.completedAt ?? null,
-    archivedAt: next.archivedAt ?? null, reminderRule: next.reminderRule ?? "none", progressCurrent: next.progressCurrent ?? null,
-    progressTarget: next.progressTarget ?? null, progressUnit: next.progressUnit ?? null, progressEnabled: Boolean(next.progressEnabled),
-    progressType: next.progressType ?? "none", pinnedToBottom: Boolean(next.pinnedToBottom), parentPlanId: next.parentPlanId ?? null,
-    originalImageId: next.originalImageId ?? null, notes: next.notes ?? null
-  }).eq("user_id", userId).eq("id", id).select("id");
-  if (updated.error) throw updated.error;
-  if (!updated.data?.length) return null;
-  await syncTags(id, tags, context);
-  if (input.subtasks) await syncSubtasks(id, input.subtasks, context);
+  const { error } = await client.rpc("save_task_with_relations", {
+    p_task_id: id, p_create: false, p_task: taskPayload(next), p_tags: tags,
+    p_subtasks: subtaskPayload(input.subtasks ?? [], current.subtasks), p_replace_subtasks: Boolean(input.subtasks)
+  });
+  if (error) throw error;
   return getTask(id, context);
 }
 
@@ -224,19 +194,18 @@ export const supabaseTaskRepository: TaskRepository = {
     return (data ?? []).map(mapEntry);
   },
   async addProgressEntry(taskId, input: ProgressEntryInput, context) {
-    const { client, userId } = requireSupabaseContext(context);
+    const { client } = requireSupabaseContext(context);
     const task = await getTask(taskId, context);
     if (!task) return null;
     const amountDelta = input.amountDelta === null || input.amountDelta === undefined ? null : Number(input.amountDelta);
     const currentValueAfter = input.currentValueAfter === null || input.currentValueAfter === undefined ? null : Number(input.currentValueAfter);
     const durationMinutes = input.durationMinutes === null || input.durationMinutes === undefined ? null : Number(input.durationMinutes);
     const nextCurrent = currentValueAfter ?? (task.progressCurrent ?? 0) + (amountDelta ?? 0);
-    const inserted = await client.from("task_progress_entries").insert({
-      id: randomUUID(), user_id: userId, taskId, amountDelta, currentValueAfter, durationMinutes, note: input.note ?? null
-    });
-    if (inserted.error) throw inserted.error;
-    return updateTask(taskId, { progressEnabled: true, progressCurrent: nextCurrent, progressTarget: task.progressTarget ?? 1,
-      progressUnit: task.progressUnit ?? "", status: task.status === "not_started" ? "in_progress" : task.status }, context);
+    const entryId = randomUUID();
+    const { error } = await client.rpc("add_task_progress_entry_atomic", { p_task_id: taskId, p_entry_id: entryId,
+      p_entry: { amountDelta, currentValueAfter, durationMinutes, note: input.note ?? null }, p_next_current: nextCurrent });
+    if (error) throw error;
+    return getTask(taskId, context);
   },
   async updateSubtaskCompletion(id, completed, context) {
     const { client, userId } = requireSupabaseContext(context);
@@ -278,16 +247,9 @@ export const supabaseTaskRepository: TaskRepository = {
     };
   },
   async pinProgressTask(id, context) {
-    const { client, userId } = requireSupabaseContext(context);
-    await client.from("tasks").update({ pinnedToBottom: false }).eq("user_id", userId);
-    await client.from("progress_items").update({ pinned: false }).eq("user_id", userId);
-    if (await getTask(id, context)) {
-      const result = await client.from("tasks").update({ pinnedToBottom: true, progressEnabled: true }).eq("user_id", userId).eq("id", id);
-      if (result.error) throw result.error;
-    } else {
-      const result = await client.from("progress_items").update({ pinned: true }).eq("user_id", userId).eq("id", id);
-      if (result.error) throw result.error;
-    }
+    const { client } = requireSupabaseContext(context);
+    const { error } = await client.rpc("pin_progress_item_atomic", { p_item_id: id });
+    if (error) throw error;
     return listProgress(context);
   }
 };

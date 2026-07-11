@@ -13,6 +13,7 @@
     "test:supabase:remote": "node --env-file=.env.supabase-test.local ./node_modules/vitest/vitest.mjs run tests/supabase/remote-security.test.ts --config vitest.remote.config.ts --maxWorkers=1",
     "test:auth:remote": "node --env-file=.env.supabase-test.local ./node_modules/vitest/vitest.mjs run tests/auth/remote-auth.test.ts --config vitest.remote.config.ts --maxWorkers=1",
     "test:repositories:remote": "node --env-file=.env.supabase-test.local ./node_modules/vitest/vitest.mjs run tests/supabase/remote-repositories.test.ts --config vitest.remote.config.ts --maxWorkers=1",
+    "test:transactions:remote": "node --env-file=.env.supabase-test.local ./node_modules/vitest/vitest.mjs run tests/supabase/remote-transaction-failures.test.ts --config vitest.remote.config.ts --maxWorkers=1",
     "start": "next start -H 0.0.0.0 -p 3011",
     "test": "vitest run tests/api-contract/core-api-contract.test.ts tests/supabase/rls-security.test.ts tests/auth/data-mode-security.test.ts tests/auth/auth-boundary.test.ts tests/auth/sqlite-isolation.test.ts tests/timezone.test.ts",
     "lint": "tsc --noEmit",

@@ -60,26 +60,17 @@ async function getTodoList(id: string, context?: RepositoryContext) {
   } satisfies TodoList;
 }
 
-async function syncItems(todoListId: string, date: string, drafts: NonNullable<TodoListInput["itemDrafts"]>, context?: RepositoryContext) {
-  const { client, userId } = requireSupabaseContext(context);
-  const existing = await client.from("todo_list_items").select("id,createdAt").eq("user_id", userId).eq("todoListId", todoListId);
-  if (existing.error) throw existing.error;
-  const createdAtById = new Map((existing.data ?? []).map((row) => [String(row.id), String(row.createdAt)]));
+function itemPayload(date: string, drafts: NonNullable<TodoListInput["itemDrafts"]>, current: TodoListItem[] = []) {
+  const createdAtById = new Map(current.map((row) => [row.id, row.createdAt]));
   const ownIds = new Set(createdAtById.keys());
-  const deleted = await client.from("todo_list_items").delete().eq("user_id", userId).eq("todoListId", todoListId);
-  if (deleted.error) throw deleted.error;
   const timestamp = new Date().toISOString();
-  const rows = drafts.map((draft, sortOrder) => {
+  return drafts.map((draft, sortOrder) => {
     const content = String(draft.content ?? draft.title ?? "").trim();
     const requestedId = draft.id ? String(draft.id) : "";
     const id = requestedId && ownIds.has(requestedId) ? requestedId : randomUUID();
-    return { id, user_id: userId, todoListId, content, completed: Boolean(draft.completed), sortOrder,
-      ...scheduleFields(content, date), createdAt: createdAtById.get(id) ?? timestamp, updatedAt: timestamp };
+    return { id, content, completed: Boolean(draft.completed), sortOrder,
+      ...scheduleFields(content, date), createdAt: createdAtById.get(id) ?? timestamp };
   }).filter((row) => row.content);
-  if (rows.length > 0) {
-    const inserted = await client.from("todo_list_items").insert(rows);
-    if (inserted.error) throw inserted.error;
-  }
 }
 
 export const supabaseTodoRepository: TodoRepository = {
@@ -91,25 +82,24 @@ export const supabaseTodoRepository: TodoRepository = {
   },
   getTodoList,
   async createTodoList(input, context) {
-    const { client, userId } = requireSupabaseContext(context);
+    const { client } = requireSupabaseContext(context);
     const id = randomUUID();
     const date = input.date ?? today();
-    const inserted = await client.from("todo_lists").insert({ id, user_id: userId, title: input.title ?? titleForDate(date), date,
-      notes: input.notes ?? null, sourcePlanId: input.sourcePlanId ?? null });
-    if (inserted.error) throw inserted.error;
-    await syncItems(id, date, input.itemDrafts ?? [], context);
+    const { error } = await client.rpc("save_todo_list_with_items", { p_list_id: id, p_create: true,
+      p_list: { title: input.title ?? titleForDate(date), date, notes: input.notes ?? null, sourcePlanId: input.sourcePlanId ?? null },
+      p_items: itemPayload(date, input.itemDrafts ?? []), p_replace_items: true });
+    if (error) throw error;
     return (await getTodoList(id, context))!;
   },
   async updateTodoList(id, input, context) {
-    const { client, userId } = requireSupabaseContext(context);
+    const { client } = requireSupabaseContext(context);
     const current = await getTodoList(id, context);
     if (!current) return null;
     const next = { ...current, ...input };
-    const { data, error } = await client.from("todo_lists").update({ title: next.title, date: next.date, notes: next.notes ?? null })
-      .eq("user_id", userId).eq("id", id).select("id");
+    const { error } = await client.rpc("save_todo_list_with_items", { p_list_id: id, p_create: false,
+      p_list: { title: next.title, date: next.date, notes: next.notes ?? null },
+      p_items: itemPayload(next.date, input.itemDrafts ?? [], current.items), p_replace_items: Boolean(input.itemDrafts) });
     if (error) throw error;
-    if (!data?.length) return null;
-    if (input.itemDrafts) await syncItems(id, next.date, input.itemDrafts, context);
     return getTodoList(id, context);
   },
   async updateTodoItemCompletion(id, completed, context) {

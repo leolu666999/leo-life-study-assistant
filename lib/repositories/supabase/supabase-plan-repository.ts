@@ -27,41 +27,10 @@ async function getPlan(id: string, context?: RepositoryContext) {
   } satisfies Plan;
 }
 
-async function syncPlanItems(planId: string, input: PlanInput, plan: Pick<Plan, "title" | "type" | "startDate" | "endDate">, context?: RepositoryContext) {
-  const { client, userId } = requireSupabaseContext(context);
-  const existingTaskIds = input.taskIds ?? [];
-  for (const taskId of existingTaskIds) {
-    if (!await supabaseTaskRepository.getTask(taskId, context)) throw new Error("Plan task does not belong to the current user");
-  }
+function planItemDrafts(input: PlanInput) {
   const drafts = input.itemDrafts ?? (input.itemTitles ?? []).map((title) => ({ title, completed: false }));
-  const newTaskIds: string[] = [];
-  for (const draft of drafts.map((item) => ({ title: String(item.title ?? "").trim(), completed: Boolean(item.completed) })).filter((item) => item.title)) {
-    const completedAt = draft.completed ? new Date().toISOString() : null;
-    const task = await supabaseTaskRepository.createTask({ title: draft.title, type: "plan_item",
-      status: draft.completed ? "completed" : "not_started", priority: "medium",
-      tags: [plan.type === "daily" ? "To Do List" : plan.title], startDate: plan.startDate,
-      dueDate: plan.type === "daily" ? plan.endDate : null, completedAt, archivedAt: completedAt, parentPlanId: planId }, context);
-    newTaskIds.push(task.id);
-  }
-  const deleted = await client.from("plan_items").delete().eq("user_id", userId).eq("planId", planId);
-  if (deleted.error) throw deleted.error;
-  const taskIds = [...existingTaskIds, ...newTaskIds];
-  if (taskIds.length > 0) {
-    const inserted = await client.from("plan_items").insert(taskIds.map((taskId, sortOrder) => ({ user_id: userId, planId, taskId, sortOrder })));
-    if (inserted.error) throw inserted.error;
-  }
-}
-
-async function syncReflection(plan: Plan, context?: RepositoryContext) {
-  if (plan.type !== "daily") return;
-  const { client, userId } = requireSupabaseContext(context);
-  const deleted = await client.from("journal_entries").delete().eq("user_id", userId).eq("source", "daily_plan").eq("linkedPlanId", plan.id);
-  if (deleted.error) throw deleted.error;
-  const content = String(plan.reflectionNote ?? "").trim();
-  if (!content) return;
-  const inserted = await client.from("journal_entries").insert({ id: randomUUID(), user_id: userId, date: plan.startDate,
-    source: "daily_plan", content, linkedPlanId: plan.id });
-  if (inserted.error) throw inserted.error;
+  return drafts.map((item) => ({ id: randomUUID(), title: String(item.title ?? "").trim(), completed: Boolean(item.completed) }))
+    .filter((item) => item.title);
 }
 
 export const supabasePlanRepository: PlanRepository = {
@@ -72,39 +41,34 @@ export const supabasePlanRepository: PlanRepository = {
     return (await Promise.all((data ?? []).map((row) => getPlan(String(row.id), context)))).filter(Boolean) as Plan[];
   },
   async createPlan(input, context) {
-    const { client, userId } = requireSupabaseContext(context);
+    const { client } = requireSupabaseContext(context);
     const id = randomUUID();
     const startDate = input.startDate ?? today();
     const endDate = input.endDate ?? startDate;
-    const inserted = await client.from("plans").insert({ id, user_id: userId, title: input.title ?? "新计划", type: input.type ?? "daily",
-      startDate, endDate, reflectionNote: input.reflectionNote ?? null });
-    if (inserted.error) throw inserted.error;
-    const plan = { id, title: input.title ?? "新计划", type: input.type ?? "daily", startDate, endDate } as const;
-    await syncPlanItems(id, input, plan, context);
-    const result = (await getPlan(id, context))!;
-    await syncReflection(result, context);
-    return result;
+    const { error } = await client.rpc("save_plan_with_relations", { p_plan_id: id, p_create: true,
+      p_plan: { title: input.title ?? "新计划", type: input.type ?? "daily", startDate, endDate,
+        reflectionNote: input.reflectionNote ?? null }, p_task_ids: input.taskIds ?? [],
+      p_item_drafts: planItemDrafts(input), p_replace_items: true });
+    if (error) throw error;
+    return (await getPlan(id, context))!;
   },
   async updatePlan(id, input, context) {
-    const { client, userId } = requireSupabaseContext(context);
+    const { client } = requireSupabaseContext(context);
     const current = await getPlan(id, context);
     if (!current) return null;
     const next = { ...current, ...input };
-    const { data, error } = await client.from("plans").update({ title: next.title, type: next.type, startDate: next.startDate,
-      endDate: next.endDate, reflectionNote: next.reflectionNote ?? null }).eq("user_id", userId).eq("id", id).select("id");
+    const replaceItems = Boolean(input.taskIds || input.itemTitles || input.itemDrafts);
+    const { error } = await client.rpc("save_plan_with_relations", { p_plan_id: id, p_create: false,
+      p_plan: { title: next.title, type: next.type, startDate: next.startDate, endDate: next.endDate,
+        reflectionNote: next.reflectionNote ?? null }, p_task_ids: replaceItems ? input.taskIds ?? [] : current.items.map((item) => item.id),
+      p_item_drafts: replaceItems ? planItemDrafts(input) : [], p_replace_items: replaceItems });
     if (error) throw error;
-    if (!data?.length) return null;
-    if (input.taskIds || input.itemTitles || input.itemDrafts) await syncPlanItems(id, input, next, context);
-    const result = (await getPlan(id, context))!;
-    await syncReflection(result, context);
-    return result;
+    return getPlan(id, context);
   },
   async deletePlan(id, context) {
-    const { client, userId } = requireSupabaseContext(context);
-    const journalDelete = await client.from("journal_entries").delete().eq("user_id", userId).eq("linkedPlanId", id);
-    if (journalDelete.error) throw journalDelete.error;
-    const { data, error } = await client.from("plans").delete().eq("user_id", userId).eq("id", id).select("id");
+    const { client } = requireSupabaseContext(context);
+    const { data, error } = await client.rpc("delete_plan_with_journal", { p_plan_id: id });
     if (error) throw error;
-    return data?.length ?? 0;
+    return data ? 1 : 0;
   }
 };
