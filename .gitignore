@@ -20,6 +20,7 @@ uploads/*
 02-MVP开发清单.md
 
 .env*
+!.env.example
 .DS_Store
 npm-debug.log*
 tsconfig.tsbuildinfo

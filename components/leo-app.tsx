@@ -102,6 +102,11 @@ type SyncState = {
   message: string;
 };
 type SaveRequest = (url: string, options?: RequestInit) => Promise<Response | void>;
+type AuthStatus = {
+  authRequired: boolean;
+  user: { id: string; email: string | null } | null;
+  isAdmin: boolean;
+};
 type ScheduleEvent = {
   id: string;
   sourceType: "course" | "todo";
@@ -332,6 +337,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [importantFiles, setImportantFiles] = useState<ImportantFile[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultAppSettings);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>({ authRequired: false, user: null, isAdmin: false });
   const [modal, setModal] = useState<ModalMode>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -378,6 +384,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
       lastSyncAt: localStorage.getItem("leo-last-sync-at") || undefined
     }));
     void loadAll();
+    void loadAuthStatus();
     void checkHealth(false);
     void refreshOfflineCounts();
   }, []);
@@ -481,6 +488,15 @@ export function LeoApp({ initialView }: { initialView: View }) {
     setImportantFiles(importantFileData);
     setAppSettings(settingsData);
     if (showLoading) setLoading(false);
+  }
+
+  async function loadAuthStatus() {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      if (response.ok) setAuthStatus(await response.json());
+    } catch {
+      setAuthStatus({ authRequired: false, user: null, isAdmin: false });
+    }
   }
 
   function navigateItem(item: (typeof navItems)[number]) {
@@ -927,6 +943,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
               {activeView === "settings" && (
                 <SettingsPage
                   appSettings={appSettings}
+                  authStatus={authStatus}
                   onSaveSettings={async (patch) => {
                     const response = await fetch("/api/settings", {
                       method: "PATCH",
@@ -3602,6 +3619,16 @@ function ExpenseStatCard({
 function UserGuidePage() {
   const chapters = [
     {
+      title: "运行模式与账号",
+      content: (
+        <>
+          <p>MyAssist 当前默认使用本地模式：不要求登录，继续读取电脑上现有的 SQLite 数据和 uploads 文件，网页、手机局域网、PWA 与桌面 App 的使用方式不变。</p>
+          <p>开发人员可以开启隔离 Auth 测试模式来验证注册、登录和账号权限。该模式只允许使用系统临时目录中的空测试数据库，检测到真实本地数据库时会直接拒绝运行。</p>
+          <p>云端账号数据隔离将在后续 Supabase Repository 完成后启用。当前不要把本地数据自动绑定到任何个人账号或管理员账号。</p>
+        </>
+      )
+    },
+    {
       title: "To Do List 与今日日程",
       content: (
         <>
@@ -3687,6 +3714,7 @@ function UserGuidePage() {
       content: (
         <>
           <p>任务、清单和记录存放在本地 SQLite 数据库，上传文件存放在本地 uploads 目录，不会进入 Git。</p>
+          <p>开启 Auth 测试不会迁移或读取真实数据；如果测试配置指向真实 Application Support、仓库 data/uploads 或系统临时目录之外，MyAssist 会拒绝业务访问。</p>
           <p>不要手动删除应用数据目录。更新代码不会覆盖这些数据；需要备份时，可在设置页导出 JSON 备份。</p>
         </>
       )
@@ -3746,6 +3774,7 @@ function UserGuidePage() {
 
 function SettingsPage({
   appSettings,
+  authStatus,
   onSaveSettings,
   background,
   setBackground,
@@ -3755,6 +3784,7 @@ function SettingsPage({
   onCheckSync
 }: {
   appSettings: AppSettings;
+  authStatus: AuthStatus;
   onSaveSettings: (patch: Pick<AppSettings, "homeTitle" | "showHomeTitle">) => Promise<void>;
   background: string;
   setBackground: (value: string) => void;
@@ -3847,6 +3877,20 @@ function SettingsPage({
             <ChevronRight size={16} />
           </Link>
         </section>
+        {authStatus.authRequired && authStatus.user && (
+          <section className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center lg:col-span-2">
+            <div>
+              <h2 className="font-semibold">当前账号</h2>
+              <p className="mt-1 text-sm text-slate-500">{authStatus.user.email || "已登录账号"}</p>
+              <p className="mt-1 text-xs text-slate-400">{authStatus.isAdmin ? "独立管理员账号" : "普通个人账号"}</p>
+            </div>
+            <form action="/auth/signout" method="post">
+              <button type="submit" className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                退出登录
+              </button>
+            </form>
+          </section>
+        )}
         <section className="rounded-lg bg-white p-4 shadow-soft lg:col-span-2">
           <SectionTitle title="首页个性化" />
           <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">

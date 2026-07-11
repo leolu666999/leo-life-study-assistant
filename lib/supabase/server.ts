@@ -1,5 +1,7 @@
 import "server-only";
+import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import { assertAdmin } from "@/lib/auth/admin";
 
 function requiredEnv(name: string) {
@@ -34,13 +36,44 @@ export function createSupabaseAdminClient(): SupabaseClient {
   );
 }
 
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies();
+  return createServerClient(
+    requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    requiredEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet) => {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+          } catch {
+            // Server Components cannot write cookies; middleware refreshes them.
+          }
+        }
+      }
+    }
+  );
+}
+
+export async function currentSessionUser(): Promise<User | null> {
+  const { data, error } = await (await createSupabaseServerClient()).auth.getUser();
+  return error ? null : data.user;
+}
+
 export async function authenticatedRequestUser(request: Request): Promise<User | null> {
   const authorization = request.headers.get("authorization");
-  if (!authorization?.startsWith("Bearer ")) return null;
-  const token = authorization.slice("Bearer ".length).trim();
-  if (!token) return null;
-  const { data, error } = await createSupabaseAuthClient().auth.getUser(token);
-  return error ? null : data.user;
+  if (authorization?.startsWith("Bearer ")) {
+    const token = authorization.slice("Bearer ".length).trim();
+    if (!token) return null;
+    const { data, error } = await createSupabaseAuthClient().auth.getUser(token);
+    return error ? null : data.user;
+  }
+  try {
+    return await currentSessionUser();
+  } catch {
+    return null;
+  }
 }
 
 export async function assertAdminRequest(request: Request) {

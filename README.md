@@ -127,6 +127,7 @@ npm run desktop:dev   # Start Electron in development mode
 npm run desktop:pack  # Build macOS .app
 npm run desktop:dist  # Build macOS .dmg
 npm run migration:preflight  # Run the read-only SQLite/uploads migration preflight
+npm run test:auth:remote     # Run isolated real Supabase Auth tests
 ```
 
 ### 迁移预检 / Migration Preflight
@@ -170,6 +171,12 @@ Repository backend 默认且当前只支持 `sqlite`。如果 `DATA_BACKEND` 设
 Phase 2 已增加尚未连接生产环境的 PostgreSQL schema、RLS 与 private Storage policy。21 张业务表都有 owner `user_id`，普通账号按 `auth.uid()` 隔离；独立管理员账号只由 server-only `ADMIN_USER_ID` 判断。详情见 `SUPABASE_RLS_MATRIX.md`、`ADMIN_ARCHITECTURE.md` 和 `SUPABASE_PHASE2_PROGRESS.md`。当前 MyAssist 运行 backend 仍然是 SQLite，没有迁移真实数据。
 
 Phase 2.5 已在 Sydney 隔离 Supabase 测试项目应用两份 migration，并用 User A、User B、Admin Account 完成 36 项真实 Auth/PostgreSQL/RLS/Storage 安全测试。详情见 `SUPABASE_REMOTE_VALIDATION.md`、`SUPABASE_SECURITY_TEST_RESULTS.md` 和 `SUPABASE_PHASE2_5_PROGRESS.md`。这不会切换当前 SQLite backend。
+
+Phase 3 使用双模式过渡：默认 `DATA_BACKEND=sqlite`、`AUTH_REQUIRED=false`，现有本地应用不要求登录，也不会改变当前 SQLite 或 uploads。隔离 Auth 测试模式使用 Supabase Auth + 系统临时目录中的专用空 SQLite；必须同时设置 `TEST_DATABASE=true`、`AUTH_TEST_DATA_ROOT` 和全部 `LEO_*` 测试路径。任一路径指向真实 Application Support、仓库真实数据或临时根目录之外时，应用会 fail closed。详情见 `AUTH_ARCHITECTURE.md`、`SUPABASE_PHASE3_AUTH.md` 和 `AUTH_SECURITY_TEST_RESULTS.md`。
+
+Phase 3 已提供邮箱注册、登录、SSR Cookie Session、退出、忘记密码、重置密码、Auth callback、页面/API 保护和独立 Admin 身份检查。正式云端业务数据隔离仍等待 Phase 4 Supabase Repository；不要在 SQLite 模式下把现有本地数据猜测绑定给任何账号。
+
+安全的环境变量示例见 `.env.example`。`NEXT_PUBLIC_SUPABASE_URL` 与 publishable key 可以进入浏览器；`SUPABASE_SECRET_KEY`、`ADMIN_USER_ID`、数据库密码和 access token 只能留在本机服务端或 CLI，绝不能加 `NEXT_PUBLIC_`，也不能提交到 GitHub。
 
 端口可以通过环境变量调整：
 

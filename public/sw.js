@@ -1,4 +1,4 @@
-const CACHE_NAME = "myassist-v3";
+const CACHE_NAME = "myassist-v4";
 const SHELL_URLS = [
   "/offline.html",
   "/manifest.webmanifest",
@@ -28,6 +28,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
+  if (url.pathname.startsWith("/auth/") || ["/login", "/register", "/forgot-password", "/reset-password"].includes(url.pathname)) return;
   if (url.pathname.startsWith("/_next/") || url.pathname.startsWith("/__nextjs")) return;
 
   if (request.mode === "navigate") {
