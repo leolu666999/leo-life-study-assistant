@@ -340,10 +340,13 @@ describe("independent administrator security", () => {
     expect(await rowCount(database, `select count(*) from public.tasks`)).toBe(1);
   });
 
-  it("defines only protected /api/admin contracts without exposing live unauthenticated routes", () => {
+  it("defines Admin API contracts and only exposes the Phase 2.5 protected read routes", () => {
     expect(adminApiRoutes).toHaveLength(9);
     expect(adminApiRoutes.every((route) => route.startsWith("/api/admin/"))).toBe(true);
-    expect(fs.existsSync(path.join(process.cwd(), "app/api/admin"))).toBe(false);
+    const routes = fs.readdirSync(path.join(process.cwd(), "app/api/admin"));
+    expect(routes.sort()).toEqual(["system", "users"]);
+    expect(fs.readFileSync(path.join(process.cwd(), "app/api/admin/system/stats/route.ts"), "utf8")).toContain("assertAdminRequest");
+    expect(fs.readFileSync(path.join(process.cwd(), "app/api/admin/users/[userId]/tasks/route.ts"), "utf8")).toContain("assertAdminRequest");
   });
 
   it("allows only the controlled high-privilege flow to write admin audit logs", async () => {

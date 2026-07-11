@@ -45,6 +45,9 @@ export async function createPhase2Database() {
       name text not null,
       owner_id uuid
     );
+    alter table storage.objects enable row level security;
+    grant select, insert, update, delete on storage.objects to authenticated;
+    grant all on storage.objects to service_role;
     grant usage on schema public, storage to anon, authenticated, service_role;
   `);
   for (const migration of [

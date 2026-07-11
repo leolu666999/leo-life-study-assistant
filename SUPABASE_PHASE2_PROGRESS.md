@@ -41,12 +41,12 @@ SQLite 的 `todo_lists.sourcePlanId` 有一条已知 orphan。本阶段没有修
 
 ## 尚未完成
 
-- 未创建或连接远程 Supabase 项目。
-- 本机没有 Supabase CLI/Docker；migration 已在 PGlite PostgreSQL 执行，仍需在 Supabase Local 或隔离 Supabase branch 复验。
+- Phase 2.5 已在隔离远程项目完成 migration 与三账号安全复验，见 `SUPABASE_PHASE2_5_PROGRESS.md`。
+- Supabase CLI 已固定；本机仍没有 Docker，但不影响已完成的远程验证。
 - 未实现 Supabase SSR browser/server client。
 - 未实现注册、登录、退出、忘记密码和 Session refresh。
-- 未创建 live `/api/admin/*` 路由或 Admin Dashboard。
-- 未创建 service-role client。
+- 只实现两个受保护的只读 Admin API，未实现完整 Admin Dashboard。
+- 高权限 client 只用于 server-only 隔离测试路由。
 - 未迁移 SQLite 数据或文件。
 - 未切换 `DATA_BACKEND`。
 
@@ -54,8 +54,8 @@ SQLite 的 `todo_lists.sourcePlanId` 有一条已知 orphan。本阶段没有修
 
 可以进入下一阶段的 Auth 基础设施实现，但只能使用测试账号和隔离环境。进入 production 或迁移真实数据前仍必须：
 
-1. 在 Supabase Local/隔离 branch 重新执行 migrations 和三账号测试。
-2. 实现 `@supabase/ssr` cookie session 和 server `getUser()`。
-3. 验证 Admin API 401/403/成功路径。
-4. 扫描浏览器 bundle，确认没有 `ADMIN_USER_ID` 或 service role key。
+1. 实现 `@supabase/ssr` cookie session 和 server `getUser()`。
+2. 实现完整 Auth 界面和受保护页面。
+3. 扩展剩余 Admin API 与审计流程。
+4. 继续扫描浏览器 bundle 与日志脱敏。
 5. 修复完整备份/恢复缺口。

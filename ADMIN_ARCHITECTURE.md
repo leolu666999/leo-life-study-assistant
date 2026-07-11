@@ -61,21 +61,24 @@ Admin browser
 
 管理员账号不会获得一条“管理员 RLS policy”。这样可避免管理员在普通页面或普通 API 中意外混入其他用户数据。
 
-## 5. 预留 Admin API
+## 5. Admin API
 
-本阶段只在 `lib/admin/admin-api-contract.ts` 定义契约，不创建尚未接 Auth 的公开路由：
+Phase 2.5 已实现两个受保护的只读路由：
+
+- `GET /api/admin/users/[userId]/tasks`
+- `GET /api/admin/system/stats`
+
+以下契约仍留待 Phase 3：
 
 - `GET /api/admin/users`
 - `GET /api/admin/users/[userId]`
-- `GET /api/admin/users/[userId]/tasks`
 - `GET /api/admin/users/[userId]/todo`
 - `GET /api/admin/users/[userId]/expenses`
 - `GET /api/admin/users/[userId]/journal`
 - `GET /api/admin/users/[userId]/timetable`
 - `GET /api/admin/users/[userId]/files`
-- `GET /api/admin/system/stats`
 
-Auth 阶段实现这些路由时，每个文件必须先调用统一 `requireAuthenticatedUser()`，再调用 `assertAdmin()`，最后才允许构造高权限 client。
+已实现路由先验证 Supabase access token，再调用 `assertAdminRequest()`，最后才构造高权限 client。Phase 3 必须把同样的顺序应用到剩余路由。
 
 不允许以下实现：
 
@@ -87,7 +90,7 @@ Auth 阶段实现这些路由时，每个文件必须先调用统一 `requireAut
 
 ## 6. Service Role 生命周期
 
-未来高权限 client 只能在 server-only 模块按请求创建或安全复用，密钥来自 `SUPABASE_SERVICE_ROLE_KEY` 服务端环境变量。
+高权限 client 只能在 server-only 模块按请求创建或安全复用。隔离测试项目使用新式 `SUPABASE_SECRET_KEY`，不使用旧版 service-role key。
 
 必须保证：
 

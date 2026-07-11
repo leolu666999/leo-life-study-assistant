@@ -39,4 +39,4 @@ export type AdminAuditInput = {
   result: "started" | "succeeded" | "failed";
 };
 
-// Phase 2 intentionally defines contracts only. Live /api/admin routes are added with Auth in the next phase.
+// Phase 2.5 implements stats and per-user task reads. Remaining contracts stay reserved for Phase 3.

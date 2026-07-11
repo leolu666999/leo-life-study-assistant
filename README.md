@@ -169,6 +169,8 @@ Repository backend 默认且当前只支持 `sqlite`。如果 `DATA_BACKEND` 设
 
 Phase 2 已增加尚未连接生产环境的 PostgreSQL schema、RLS 与 private Storage policy。21 张业务表都有 owner `user_id`，普通账号按 `auth.uid()` 隔离；独立管理员账号只由 server-only `ADMIN_USER_ID` 判断。详情见 `SUPABASE_RLS_MATRIX.md`、`ADMIN_ARCHITECTURE.md` 和 `SUPABASE_PHASE2_PROGRESS.md`。当前 MyAssist 运行 backend 仍然是 SQLite，没有迁移真实数据。
 
+Phase 2.5 已在 Sydney 隔离 Supabase 测试项目应用两份 migration，并用 User A、User B、Admin Account 完成 36 项真实 Auth/PostgreSQL/RLS/Storage 安全测试。详情见 `SUPABASE_REMOTE_VALIDATION.md`、`SUPABASE_SECURITY_TEST_RESULTS.md` 和 `SUPABASE_PHASE2_5_PROGRESS.md`。这不会切换当前 SQLite backend。
+
 端口可以通过环境变量调整：
 
 ```bash

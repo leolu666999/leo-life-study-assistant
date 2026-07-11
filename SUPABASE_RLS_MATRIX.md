@@ -16,7 +16,7 @@ DELETE USING      ((select auth.uid()) = user_id)
 
 普通业务客户端永远使用 authenticated client。唯一管理员账号在普通 API 中也使用 authenticated client，因此仍只能访问管理员账号自己的普通业务数据。
 
-“Admin controlled server API”表示：请求先验证登录，再由 `assertAdmin()` 比较当前用户 UUID 与 server-only `ADMIN_USER_ID`，通过后服务器才使用高权限 client。它不是一条管理员 RLS policy，也不会让管理员浏览器绕过 RLS。
+“Admin controlled server API”表示：请求先验证登录，再由 `assertAdminRequest()` 比较当前用户 UUID 与 server-only `ADMIN_USER_ID`，通过后服务器才使用高权限 client。它不是一条管理员 RLS policy，也不会让管理员浏览器绕过 RLS。
 
 ## 2. 21 张业务表
 
@@ -59,7 +59,7 @@ DELETE USING      ((select auth.uid()) = user_id)
 
 ## 4. Admin Audit Logs
 
-`admin_audit_logs` 启用并强制 RLS，但没有 anon/authenticated policy，且显式撤销普通客户端权限。只有 server-side service role 可写入或读取。
+`admin_audit_logs` 启用并强制 RLS，但没有 anon/authenticated policy，且显式撤销普通客户端权限。只有 server-side 高权限 secret client 可写入或读取。
 
 每条高风险操作至少记录：管理员 UUID、目标用户 UUID、action、entity type、entity ID、metadata、result 和时间。管理员不能通过普通 authenticated client 篡改审计日志。
 
