@@ -41,6 +41,10 @@ describe("Auth runtime boundary", () => {
   it("rejects paths outside the dedicated Auth root", () => {
     expect(authRuntimeSafetyError({ ...safeEnvironment, LEO_UPLOADS_DIR: "/tmp/other/uploads" })).toMatch(/AUTH_TEST_DATA_ROOT/);
   });
+
+  it("rejects cloud mode when Auth is disabled", () => {
+    expect(authRuntimeSafetyError({ DATA_BACKEND: "supabase", AUTH_REQUIRED: "false" })).toMatch(/requires AUTH_REQUIRED/);
+  });
 });
 
 describe("Auth redirect safety", () => {

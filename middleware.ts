@@ -11,13 +11,13 @@ function authConfiguration() {
 }
 
 export async function middleware(request: NextRequest) {
-  if (process.env.AUTH_REQUIRED !== "true") return NextResponse.next();
-
   const safetyError = authRuntimeSafetyError(process.env);
   if (safetyError) {
     console.error(`MyAssist refused unsafe Auth test mode: ${safetyError}`);
     return new NextResponse(`MyAssist Auth test mode refused to run: ${safetyError}`, { status: 503 });
   }
+
+  if (process.env.AUTH_REQUIRED !== "true") return NextResponse.next();
 
   const configuration = authConfiguration();
   if (!configuration) {

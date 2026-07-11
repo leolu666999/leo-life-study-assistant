@@ -3,6 +3,9 @@ import { exportBackup } from "@/lib/db";
 export const runtime = "nodejs";
 
 export async function GET() {
+  if (process.env.DATA_BACKEND === "supabase") {
+    return Response.json({ error: "Local SQLite backup export is unavailable in Supabase mode." }, { status: 409 });
+  }
   const backup = exportBackup();
   return new Response(JSON.stringify(backup, null, 2), {
     headers: {

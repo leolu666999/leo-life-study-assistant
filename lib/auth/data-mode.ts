@@ -36,8 +36,16 @@ function isInside(candidate: string, parent: string) {
 }
 
 export function validateAuthDataMode(input: AuthDataModeInput): AppDataMode {
+  if (input.dataBackend === "supabase") {
+    if (!input.authRequired) {
+      throw new UnsafeAuthDataModeError("DATA_BACKEND=supabase requires AUTH_REQUIRED=true");
+    }
+    return "cloud";
+  }
+  if (input.dataBackend !== "sqlite") {
+    throw new UnsafeAuthDataModeError(`unsupported DATA_BACKEND: ${input.dataBackend}`);
+  }
   if (!input.authRequired) return "local";
-  if (input.dataBackend !== "sqlite") return "cloud";
 
   if (!input.testDatabase) {
     throw new UnsafeAuthDataModeError("AUTH_REQUIRED=true with SQLite requires TEST_DATABASE=true");

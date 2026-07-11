@@ -56,4 +56,20 @@ describe("isolated Auth SQLite startup", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toMatch(/Unsafe Auth data mode/);
   });
+
+  it("cloud mode refuses getDb before opening any local SQLite path", () => {
+    const realRoot = path.join(os.homedir(), "Library", "Application Support", "Leo的生活学习助手");
+    const result = spawnSync(process.execPath, [runner, fixture], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        DATA_BACKEND: "supabase",
+        AUTH_REQUIRED: "true",
+        LEO_DB_PATH: path.join(realRoot, "data", "leo_life_study.db")
+      },
+      encoding: "utf8"
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/Local SQLite access is forbidden/);
+  });
 });

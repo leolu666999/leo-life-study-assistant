@@ -103,7 +103,7 @@ async function createExpense(body: Record<string, unknown>) {
 
 beforeAll(async () => {
   routes = await loadRoutes();
-  await routes.settings.GET();
+  await routes.settings.GET(request("http://local.test/api/settings", "GET"));
 });
 
 beforeEach(() => {
@@ -119,7 +119,7 @@ afterAll(() => {
 
 describe("Settings API contract", () => {
   it("GET returns the persisted settings shape with local defaults", async () => {
-    const response = await routes.settings.GET();
+    const response = await routes.settings.GET(request("http://local.test/api/settings", "GET"));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       lastUsedCurrency: null,
@@ -140,7 +140,7 @@ describe("Settings API contract", () => {
       homeTitle: "测试助手",
       showHomeTitle: false
     });
-    expect(await (await routes.settings.GET()).json()).toEqual({
+    expect(await (await routes.settings.GET(request("http://local.test/api/settings", "GET"))).json()).toEqual({
       lastUsedCurrency: null,
       homeTitle: "测试助手",
       showHomeTitle: false
@@ -150,7 +150,7 @@ describe("Settings API contract", () => {
 
 describe("Tasks API contract", () => {
   it("GET returns an empty array for an empty database", async () => {
-    const response = await routes.tasks.GET();
+    const response = await routes.tasks.GET(request("http://local.test/api/tasks", "GET"));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual([]);
   });
@@ -226,7 +226,7 @@ describe("Tasks API contract", () => {
   it("GET archive returns the current includeArchived task collection", async () => {
     const created = await createTask({ title: "归档任务" });
     await routes.archiveAction.POST(request("http://local.test", "POST"), context(String(created.body.id)));
-    const response = await routes.archive.GET();
+    const response = await routes.archive.GET(request("http://local.test/api/archive", "GET"));
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual(expect.arrayContaining([expect.objectContaining({ id: created.body.id, status: "archived" })]));
@@ -262,7 +262,7 @@ describe("Tasks API contract", () => {
     expect(createdResponse.status).toBe(201);
     const created = await json(createdResponse);
     const id = String(created.id);
-    expect(await (await routes.progress.GET()).json()).toEqual([expect.objectContaining({ id, currentValue: 1, targetValue: 5 })]);
+    expect(await (await routes.progress.GET(request("http://local.test/api/progress", "GET"))).json()).toEqual([expect.objectContaining({ id, currentValue: 1, targetValue: 5 })]);
     const updated = await routes.progressItem.PATCH(request("http://local.test", "PATCH", { currentValue: 3 }), context(id));
     expect(await updated.json()).toMatchObject({ id, currentValue: 3 });
     const pinned = await routes.progressPin.POST(request("http://local.test", "POST"), context(id));
@@ -280,13 +280,13 @@ describe("Tasks API contract", () => {
     const response = await routes.task.DELETE(request("http://local.test", "DELETE"), context(String(created.body.id)));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
-    expect(await (await routes.tasks.GET()).json()).toEqual([]);
+    expect(await (await routes.tasks.GET(request("http://local.test/api/tasks", "GET"))).json()).toEqual([]);
   });
 });
 
 describe("To Do List API contract", () => {
   it("GET returns an empty array for an empty database", async () => {
-    expect(await (await routes.todoLists.GET()).json()).toEqual([]);
+    expect(await (await routes.todoLists.GET(request("http://local.test/api/todo-lists", "GET"))).json()).toEqual([]);
   });
 
   it("POST keeps current defaults and returns the list shape", async () => {
@@ -304,7 +304,7 @@ describe("To Do List API contract", () => {
       scheduledStartAt: "2026-07-11T13:00:00",
       scheduledEndAt: "2026-07-11T15:00:00"
     });
-    expect(await (await routes.tasks.GET()).json()).toEqual([]);
+    expect(await (await routes.tasks.GET(request("http://local.test/api/tasks", "GET"))).json()).toEqual([]);
   });
 
   it("PATCH returns 404 for an unknown list", async () => {
@@ -332,7 +332,7 @@ describe("To Do List API contract", () => {
 
 describe("Expenses API contract", () => {
   it("GET returns an empty array for an empty database", async () => {
-    expect(await (await routes.expenses.GET()).json()).toEqual([]);
+    expect(await (await routes.expenses.GET(request("http://local.test/api/expenses", "GET"))).json()).toEqual([]);
   });
 
   it("POST requires a supported currency and keeps the current 400 shape", async () => {
@@ -347,7 +347,7 @@ describe("Expenses API contract", () => {
     const { response, body } = await createExpense({ title: "外卖收入", type: "income", amount: 10, currency: "AUD", category: "外卖收入", date: "2026-07-11" });
     expect(response.status).toBe(201);
     expect(body).toMatchObject({ title: "外卖收入", type: "income", amount: 10, currency: "AUD", receiptFileId: null });
-    expect(await (await routes.settings.GET()).json()).toMatchObject({ lastUsedCurrency: "AUD" });
+    expect(await (await routes.settings.GET(request("http://local.test/api/settings", "GET"))).json()).toMatchObject({ lastUsedCurrency: "AUD" });
   });
 
   it("PATCH validates currency before checking the expense ID", async () => {
@@ -363,7 +363,7 @@ describe("Expenses API contract", () => {
     const response = await routes.expense.PATCH(request("http://local.test", "PATCH", { currency: "USD", amount: 6 }), context(String(created.body.id)));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ id: created.body.id, amount: 6, currency: "USD" });
-    expect(await (await routes.settings.GET()).json()).toMatchObject({ lastUsedCurrency: "USD" });
+    expect(await (await routes.settings.GET(request("http://local.test/api/settings", "GET"))).json()).toMatchObject({ lastUsedCurrency: "USD" });
   });
 
   it("DELETE returns the current success shape and removes the record", async () => {
@@ -371,13 +371,13 @@ describe("Expenses API contract", () => {
     const response = await routes.expense.DELETE(request("http://local.test", "DELETE"), context(String(created.body.id)));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
-    expect(await (await routes.expenses.GET()).json()).toEqual([]);
+    expect(await (await routes.expenses.GET(request("http://local.test/api/expenses", "GET"))).json()).toEqual([]);
   });
 });
 
 describe("Plan and Journal API contract", () => {
   it("Plan GET/POST/PATCH/DELETE preserves the current shapes", async () => {
-    expect(await (await routes.plans.GET()).json()).toEqual([]);
+    expect(await (await routes.plans.GET(request("http://local.test/api/plans", "GET"))).json()).toEqual([]);
     const createdResponse = await routes.plans.POST(request("http://local.test/api/plans", "POST", {
       title: "周计划",
       type: "weekly",
@@ -401,7 +401,7 @@ describe("Plan and Journal API contract", () => {
   });
 
   it("Journal GET/POST preserves linkedPlanId and response shape", async () => {
-    expect(await (await routes.journal.GET()).json()).toEqual([]);
+    expect(await (await routes.journal.GET(request("http://local.test/api/journal", "GET"))).json()).toEqual([]);
     const response = await routes.journal.POST(request("http://local.test/api/journal", "POST", {
       date: "2026-07-11",
       source: "manual",
@@ -535,10 +535,26 @@ describe("Repository backend selector", () => {
     process.env.DATA_BACKEND = "supabase";
     try {
       const { getSettingsService } = await import("@/lib/services/settings-service");
-      expect(() => getSettingsService()).toThrow("Unsupported DATA_BACKEND: supabase");
+      expect(() => getSettingsService()).toThrow("DATA_BACKEND=supabase requires AUTH_REQUIRED=true");
     } finally {
       if (previous === undefined) delete process.env.DATA_BACKEND;
       else process.env.DATA_BACKEND = previous;
+    }
+  });
+
+  it("refuses SQLite-only repositories in authenticated cloud mode", async () => {
+    const previousBackend = process.env.DATA_BACKEND;
+    const previousAuth = process.env.AUTH_REQUIRED;
+    process.env.DATA_BACKEND = "supabase";
+    process.env.AUTH_REQUIRED = "true";
+    try {
+      const { getFileService } = await import("@/lib/services/file-service");
+      expect(() => getFileService()).toThrow("local SQLite fallback is forbidden");
+    } finally {
+      if (previousBackend === undefined) delete process.env.DATA_BACKEND;
+      else process.env.DATA_BACKEND = previousBackend;
+      if (previousAuth === undefined) delete process.env.AUTH_REQUIRED;
+      else process.env.AUTH_REQUIRED = previousAuth;
     }
   });
 });
@@ -555,6 +571,6 @@ describe("Offline sync API contract", () => {
       syncedAt: expect.any(String),
       results: [{ localId: "local-1", serverId: expect.any(String), status: "synced" }]
     });
-    expect(await (await routes.tasks.GET()).json()).toEqual([expect.objectContaining({ title: "离线任务" })]);
+    expect(await (await routes.tasks.GET(request("http://local.test/api/tasks", "GET"))).json()).toEqual([expect.objectContaining({ title: "离线任务" })]);
   });
 });

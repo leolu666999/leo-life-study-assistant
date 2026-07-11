@@ -21,7 +21,7 @@ import type {
   TodoList,
   TodoListItem
 } from "./types";
-import { dataDir, dbPath, migrateLegacyUserDataIfNeeded, uploadsDir } from "./app-config";
+import { dataBackend, dataDir, dbPath, migrateLegacyUserDataIfNeeded, uploadsDir } from "./app-config";
 import { isSupportedCurrencyCode } from "./currencies";
 import { parseScheduleTime } from "./schedule-time";
 
@@ -80,6 +80,7 @@ function localDateKey(date: Date) {
 }
 
 export function getDb() {
+  if (dataBackend !== "sqlite") throw new Error("Local SQLite access is forbidden when DATA_BACKEND is not sqlite");
   migrateLegacyUserDataIfNeeded();
 
   if (!globalThis.leoDb) {

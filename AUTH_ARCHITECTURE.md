@@ -2,13 +2,13 @@
 
 ## Phase 3 boundary
 
-Phase 3 adds real Supabase Auth without pretending that the existing single-user SQLite database is multi-user. Authentication and business-data ownership remain separate concerns until the Supabase repositories are implemented in Phase 4.
+Phase 3 adds real Supabase Auth without pretending that the existing single-user SQLite database is multi-user. Phase 4 now supplies owner-scoped cloud repositories for the approved core modules while local data remains separate.
 
 | Mode | Required settings | Business data | Auth | Status |
 | --- | --- | --- | --- | --- |
 | Local | `DATA_BACKEND=sqlite`, `AUTH_REQUIRED=false` | Existing SQLite and local uploads | Not required | Default |
 | Auth test | `DATA_BACKEND=sqlite`, `AUTH_REQUIRED=true`, `TEST_DATABASE=true` | Dedicated empty SQLite and uploads under `AUTH_TEST_DATA_ROOT` | Required | Phase 3 testing only |
-| Cloud | `DATA_BACKEND=supabase`, `AUTH_REQUIRED=true` | PostgreSQL and private Storage with `user_id` | Required | Reserved for Phase 4 |
+| Cloud | `DATA_BACKEND=supabase`, `AUTH_REQUIRED=true` | PostgreSQL with `user_id`; Storage deferred | Required | Core Phase 4 modules |
 
 ## Fail-closed data guard
 
@@ -36,6 +36,6 @@ Personal Account and Admin Account are separate Supabase Auth users. The only tr
 
 The Admin Account remains an ordinary RLS user in normal application APIs. Cross-user access is possible only through `/api/admin/*`, after `assertAdmin()` succeeds, using a server-only high-privilege client. Neither `ADMIN_USER_ID` nor `SUPABASE_SECRET_KEY` is imported into client components.
 
-## Phase 4 handoff
+## Phase 4 status
 
-Phase 4 must implement Supabase repositories, pass the verified session user into repository context, write `user_id` from the server identity, and reconcile ownership of existing local records explicitly. Global Auth must not be enabled against real user data until that work and its migration verification are complete.
+Phase 4 core repositories now pass the verified Session user into Repository Context and use authenticated RLS clients for Settings, Tasks, To Do, Plans, Journal, and Expenses. Timetable and Storage remain deferred. Existing local-record ownership still requires an explicit future reconciliation; global Cloud mode must not be applied to real local data before that migration is designed and verified.

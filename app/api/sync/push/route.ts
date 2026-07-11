@@ -20,12 +20,15 @@ type SyncQueueItem = {
 };
 
 export async function POST(request: Request) {
+  if (process.env.DATA_BACKEND === "supabase") {
+    return NextResponse.json({ error: "Cloud offline replay is disabled until idempotent sync operations are implemented." }, { status: 409 });
+  }
   const body = await request.json().catch(() => ({}));
   const items = Array.isArray(body.items) ? (body.items as SyncQueueItem[]) : [];
 
-  const results = items.map((item) => {
+  const results = await Promise.all(items.map(async (item) => {
     try {
-      const created = createFromSyncItem(item);
+      const created = await createFromSyncItem(item);
       return {
         localId: item.localId,
         serverId: created?.id ?? null,
@@ -39,7 +42,7 @@ export async function POST(request: Request) {
         errorMessage: error instanceof Error ? error.message : "同步失败"
       };
     }
-  });
+  }));
   if (results.some((item) => item.status === "synced")) {
     broadcastDataChange("sync", "push");
   }
@@ -51,16 +54,16 @@ export async function POST(request: Request) {
   });
 }
 
-function createFromSyncItem(item: SyncQueueItem) {
+async function createFromSyncItem(item: SyncQueueItem) {
   const payload = item.payload ?? {};
 
   if (item.entityType === "todoList") {
-    return getTodoService().createTodoList(payload as TodoListInput);
+    return await getTodoService().createTodoList(payload as TodoListInput);
   }
 
   if (item.entityType === "task" || item.entityType === "deadline" || item.entityType === "checklist") {
     const taskType = resolveTaskType(item.entityType, payload.type);
-    return getTaskService().createTask({
+    return await getTaskService().createTask({
       ...(payload as TaskInput),
       type: taskType
     });

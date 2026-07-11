@@ -174,7 +174,11 @@ Phase 2.5 已在 Sydney 隔离 Supabase 测试项目应用两份 migration，并
 
 Phase 3 使用双模式过渡：默认 `DATA_BACKEND=sqlite`、`AUTH_REQUIRED=false`，现有本地应用不要求登录，也不会改变当前 SQLite 或 uploads。隔离 Auth 测试模式使用 Supabase Auth + 系统临时目录中的专用空 SQLite；必须同时设置 `TEST_DATABASE=true`、`AUTH_TEST_DATA_ROOT` 和全部 `LEO_*` 测试路径。任一路径指向真实 Application Support、仓库真实数据或临时根目录之外时，应用会 fail closed。详情见 `AUTH_ARCHITECTURE.md`、`SUPABASE_PHASE3_AUTH.md` 和 `AUTH_SECURITY_TEST_RESULTS.md`。
 
-Phase 3 已提供邮箱注册、登录、SSR Cookie Session、退出、忘记密码、重置密码、Auth callback、页面/API 保护和独立 Admin 身份检查。正式云端业务数据隔离仍等待 Phase 4 Supabase Repository；不要在 SQLite 模式下把现有本地数据猜测绑定给任何账号。
+Phase 3 已提供邮箱注册、登录、SSR Cookie Session、退出、忘记密码、重置密码、Auth callback、页面/API 保护和独立 Admin 身份检查。Phase 4 在此基础上增加核心 Supabase Repository；SQLite 模式下仍不会把现有本地数据猜测绑定给任何账号。
+
+Phase 4 核心 Repository 已实现：Settings、Tasks/Progress/Subtasks、To Do、Plans、Journal 和 Expenses 可在 `DATA_BACKEND=supabase`、`AUTH_REQUIRED=true` 时通过当前 Session `user.id` 访问 Supabase，并由 RLS 与 owner-aware 外键隔离。课程、课表、文件、重要文件和真实 Storage 暂未切换；Cloud mode 会明确拒绝 SQLite-only Repository，离线 replay 也会返回 `409`，不会静默回退或重复写入。现有 282 行 SQLite 与 4 个本地文件没有迁移。
+
+Phase 4 详情和 API 状态见 `SUPABASE_PHASE4_REPOSITORIES.md`、`SUPABASE_REPOSITORY_PROGRESS.md` 与 `CLOUD_DATA_ISOLATION_TEST_RESULTS.md`。
 
 安全的环境变量示例见 `.env.example`。`NEXT_PUBLIC_SUPABASE_URL` 与 publishable key 可以进入浏览器；`SUPABASE_SECRET_KEY`、`ADMIN_USER_ID`、数据库密码和 access token 只能留在本机服务端或 CLI，绝不能加 `NEXT_PUBLIC_`，也不能提交到 GitHub。
 

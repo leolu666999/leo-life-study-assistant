@@ -84,4 +84,8 @@ describe("Auth test data-mode guard", () => {
   it("reserves non-SQLite Auth for the future cloud mode", () => {
     expect(validateAuthDataMode({ ...validInput(), dataBackend: "supabase" })).toBe("cloud");
   });
+
+  it("fails closed when cloud mode is configured without Auth", () => {
+    expect(() => validateAuthDataMode({ ...validInput(), dataBackend: "supabase", authRequired: false })).toThrow(/requires AUTH_REQUIRED/);
+  });
 });

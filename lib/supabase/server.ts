@@ -28,6 +28,17 @@ export function createSupabaseAuthClient(): SupabaseClient {
   );
 }
 
+function createSupabaseBearerClient(token: string): SupabaseClient {
+  return createClient(
+    requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    requiredEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+    {
+      ...clientOptions(),
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    }
+  );
+}
+
 export function createSupabaseAdminClient(): SupabaseClient {
   return createClient(
     requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
@@ -71,6 +82,24 @@ export async function authenticatedRequestUser(request: Request): Promise<User |
   }
   try {
     return await currentSessionUser();
+  } catch {
+    return null;
+  }
+}
+
+export async function authenticatedRequestContext(request: Request): Promise<{ client: SupabaseClient; user: User } | null> {
+  const authorization = request.headers.get("authorization");
+  if (authorization?.startsWith("Bearer ")) {
+    const token = authorization.slice("Bearer ".length).trim();
+    if (!token) return null;
+    const client = createSupabaseBearerClient(token);
+    const { data, error } = await client.auth.getUser(token);
+    return error || !data.user ? null : { client, user: data.user };
+  }
+  try {
+    const client = await createSupabaseServerClient();
+    const { data, error } = await client.auth.getUser();
+    return error || !data.user ? null : { client, user: data.user };
   } catch {
     return null;
   }

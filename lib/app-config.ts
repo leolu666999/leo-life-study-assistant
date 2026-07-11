@@ -73,6 +73,7 @@ function copyUploadsIfNeeded() {
 }
 
 export function migrateLegacyUserDataIfNeeded() {
+  if (appDataMode === "cloud") return;
   ensureUserDataDirectories();
   if (appDataMode === "auth-test") return;
   if (!fs.existsSync(dbPath) && fs.existsSync(legacyDbPath)) {

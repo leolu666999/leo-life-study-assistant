@@ -1,5 +1,5 @@
 import type { Plan } from "@/lib/types";
-import type { RepositoryContext } from "./repository-context";
+import type { RepositoryContext, RepositoryResult } from "./repository-context";
 
 export type PlanInput = Partial<Plan> & {
   taskIds?: string[];
@@ -8,8 +8,8 @@ export type PlanInput = Partial<Plan> & {
 };
 
 export interface PlanRepository {
-  listPlans(context?: RepositoryContext): Plan[];
-  createPlan(input: PlanInput, context?: RepositoryContext): Plan;
-  updatePlan(id: string, input: PlanInput, context?: RepositoryContext): Plan | null;
-  deletePlan(id: string, context?: RepositoryContext): number;
+  listPlans(context?: RepositoryContext): RepositoryResult<Plan[]>;
+  createPlan(input: PlanInput, context?: RepositoryContext): RepositoryResult<Plan>;
+  updatePlan(id: string, input: PlanInput, context?: RepositoryContext): RepositoryResult<Plan | null>;
+  deletePlan(id: string, context?: RepositoryContext): RepositoryResult<number>;
 }

@@ -1,7 +1,11 @@
 type RuntimeEnvironment = Record<string, string | undefined>;
 
 export function authRuntimeSafetyError(env: RuntimeEnvironment) {
-  if (env.AUTH_REQUIRED !== "true" || (env.DATA_BACKEND || "sqlite") !== "sqlite") return null;
+  const backend = env.DATA_BACKEND || "sqlite";
+  if (backend === "supabase" && env.AUTH_REQUIRED !== "true") {
+    return "DATA_BACKEND=supabase requires AUTH_REQUIRED=true";
+  }
+  if (backend !== "sqlite" || env.AUTH_REQUIRED !== "true") return null;
   if (env.TEST_DATABASE !== "true") return "TEST_DATABASE must be true";
 
   const root = env.AUTH_TEST_DATA_ROOT?.replace(/\/+$/, "");
