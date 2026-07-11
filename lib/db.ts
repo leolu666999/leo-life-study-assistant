@@ -399,9 +399,10 @@ export function getAppSettings(db = getDb()): AppSettings {
     .all("lastUsedCurrency", "homeTitle", "showHomeTitle");
   const values = new Map(rows.map((row) => [String(row.key), String(row.value)]));
   const lastUsedCurrency = values.get("lastUsedCurrency");
+  const storedHomeTitle = values.get("homeTitle")?.trim();
   return {
     lastUsedCurrency: isSupportedCurrencyCode(lastUsedCurrency) ? lastUsedCurrency : null,
-    homeTitle: values.get("homeTitle")?.trim() || "Leo的生活学习助手",
+    homeTitle: !storedHomeTitle || storedHomeTitle === "Leo的生活学习助手" ? "MyAssist" : storedHomeTitle,
     showHomeTitle: values.get("showHomeTitle") !== "0"
   };
 }
@@ -413,7 +414,7 @@ export function updateAppSettings(input: Partial<AppSettings>) {
     else if (isSupportedCurrencyCode(input.lastUsedCurrency)) writeSetting(db, "lastUsedCurrency", input.lastUsedCurrency);
   }
   if (input.homeTitle !== undefined) {
-    writeSetting(db, "homeTitle", input.homeTitle.trim() || "Leo的生活学习助手");
+    writeSetting(db, "homeTitle", input.homeTitle.trim() || "MyAssist");
   }
   if (input.showHomeTitle !== undefined) {
     writeSetting(db, "showHomeTitle", input.showHomeTitle ? "1" : "0");
@@ -1915,7 +1916,7 @@ export function exportBackup() {
   const db = getDb();
   return {
     exportedAt: now(),
-    appName: "Leo的生活学习助手",
+    appName: "MyAssist",
     databasePath: dbPath,
     uploadsPath: uploadsDir,
     tasks: listTasks({ includeArchived: true }),

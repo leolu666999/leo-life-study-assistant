@@ -118,7 +118,7 @@ type ScheduleEvent = {
 
 const defaultAppSettings: AppSettings = {
   lastUsedCurrency: null,
-  homeTitle: "Leo的生活学习助手",
+  homeTitle: "MyAssist",
   showHomeTitle: true
 };
 
@@ -190,7 +190,7 @@ function registerServiceWorker() {
 
     if ("caches" in window) {
       caches.keys()
-        .then((keys) => Promise.all(keys.filter((key) => key.startsWith("leo-life-study-assistant")).map((key) => caches.delete(key))))
+        .then((keys) => Promise.all(keys.filter((key) => key.startsWith("leo-life-study-assistant") || key.startsWith("myassist")).map((key) => caches.delete(key))))
         .catch((error) => console.warn("Cache cleanup failed", error));
     }
     return;
@@ -803,7 +803,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
           <div className="relative mb-5 min-h-[56px]">
             {!collapsed && (
               <div className="min-w-0 pr-14 pt-3 transition-opacity duration-150">
-                <div className="text-lg font-semibold">Leo的生活学习助手</div>
+                <div className="text-lg font-semibold">MyAssist</div>
               </div>
             )}
             <div className={`absolute top-0 ${collapsed ? "left-1/2 -translate-x-1/2" : "right-0"} rounded-[22px] bg-white p-1 shadow-[0_8px_28px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/60 transition-all duration-200`}>
@@ -848,7 +848,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
 
         <main className="mx-auto w-full max-w-full overflow-x-hidden px-3 py-4 md:max-w-7xl md:px-6 md:py-6">
           {loading ? (
-            <div className="rounded-lg bg-white p-6 shadow-soft">正在加载 Leo 的本地数据...</div>
+            <div className="rounded-lg bg-white p-6 shadow-soft">正在加载 MyAssist 的本地数据...</div>
           ) : (
             <>
               {activeView === "dashboard" && (
@@ -3697,7 +3697,7 @@ function UserGuidePage() {
     <>
       <PageHeader
         title="使用文档"
-        subtitle="Leo的生活学习助手新手指南"
+        subtitle="MyAssist 新手指南"
         actions={
           <Link href="/settings" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             <ChevronLeft size={16} />
@@ -3855,7 +3855,7 @@ function SettingsPage({
               <Input
                 value={homeTitleDraft}
                 onChange={(event) => setHomeTitleDraft(event.target.value)}
-                placeholder="Leo的生活学习助手"
+                placeholder="MyAssist"
                 maxLength={80}
               />
             </label>

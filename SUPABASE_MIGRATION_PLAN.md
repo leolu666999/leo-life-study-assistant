@@ -81,7 +81,7 @@ Electron/local mode 若继续无账号运行，应通过部署模式明确分支
 
 推荐在 `auth.users` insert 后通过 `security definer` 数据库函数创建默认 settings：
 
-- `homeTitle = Leo的生活学习助手`
+- `homeTitle = MyAssist`
 - `showHomeTitle = 1`
 - `lastUsedCurrency = ''`
 - 其他真正需跨设备的偏好

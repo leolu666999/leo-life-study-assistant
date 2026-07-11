@@ -462,7 +462,7 @@ begin
   insert into public.settings (user_id, key, value)
   values
     (new.id, 'lastUsedCurrency', ''),
-    (new.id, 'homeTitle', 'Leo的生活学习助手'),
+    (new.id, 'homeTitle', 'MyAssist'),
     (new.id, 'showHomeTitle', '1'),
     (new.id, 'background', 'default')
   on conflict (user_id, key) do nothing;

@@ -123,7 +123,7 @@ describe("Settings API contract", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       lastUsedCurrency: null,
-      homeTitle: "Leo的生活学习助手",
+      homeTitle: "MyAssist",
       showHomeTitle: true
     });
   });
@@ -417,7 +417,7 @@ describe("Timetable API contract", () => {
   const icsText = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Leo Contract Test//EN",
+    "PRODID:-//MyAssist Contract Test//EN",
     "BEGIN:VEVENT",
     "UID:contract-course-1",
     "DTSTART:20260720T000000Z",

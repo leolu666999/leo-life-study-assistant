@@ -1,4 +1,4 @@
-# Leo 的生活学习助手 / Leo Life Study Assistant
+# MyAssist
 
 一个本地优先的生活、学习和出发准备管理工具。它把 To Do List、任务、Deadline、进度、收支、重要文件、计划和日记放在同一个轻量网页应用里，适合留学、搬家、备考、项目推进等需要大量本地资料管理的场景。
 
@@ -30,7 +30,7 @@ A local-first life and study dashboard for managing daily to-dos, tasks, deadlin
 
 ## 本地数据说明 / Local Data
 
-这个项目默认不会把你的个人资料提交到 GitHub，也不会把真实数据打进 macOS App：
+这个项目默认不会把你的个人资料提交到 GitHub，也不会把真实数据打进 macOS App。MyAssist 为了兼容现有安装，仍使用重命名前的本地数据目录：
 
 This project is configured so personal data is not committed to GitHub:
 
@@ -41,6 +41,8 @@ This project is configured so personal data is not committed to GitHub:
 ```
 
 旧版本仓库内的 `data/` 和 `uploads/` 会在首次启动时安全复制到上面的用户数据目录。复制只在目标数据库不存在时发生，不会删除旧数据，也不会用空库覆盖已有数据库。
+
+产品名改为 MyAssist 不会重命名、移动或重新创建这些个人数据。
 
 The repository only keeps placeholder folders. Existing legacy `data/` and `uploads/` are copied to the user data directory on first run when needed.
 
@@ -80,7 +82,7 @@ npm run desktop:pack
 输出位置：
 
 ```text
-dist/mac-arm64/Leo的生活学习助手.app
+dist/mac-arm64/MyAssist.app
 ```
 
 构建 `.dmg`：
@@ -92,7 +94,7 @@ npm run desktop:dist
 输出位置：
 
 ```text
-dist/Leo的生活学习助手-0.1.0.dmg
+dist/MyAssist-0.1.0.dmg
 ```
 
 桌面 App 会先检查 `http://127.0.0.1:3011/api/health`。如果已有健康后端，就复用它；如果没有后端，会自动启动打包在 App 内的同一套 Next.js 后端。App 只会关闭自己启动的后端，不会结束外部手动启动的服务。
@@ -165,7 +167,7 @@ Every user-facing feature change must update both the in-app guide under Setting
 
 Repository backend 默认且当前只支持 `sqlite`。如果 `DATA_BACKEND` 设置为未实现的值，应用会明确报错，不会静默回退到本地 SQLite。Phase 1 进度和剩余基础设施路由见 `REPOSITORY_MIGRATION_PROGRESS.md`，已知迁移数据例外见 `MIGRATION_KNOWN_ISSUES.md`。
 
-Phase 2 已增加尚未连接生产环境的 PostgreSQL schema、RLS 与 private Storage policy。21 张业务表都有 owner `user_id`，普通账号按 `auth.uid()` 隔离；独立管理员账号只由 server-only `ADMIN_USER_ID` 判断。详情见 `SUPABASE_RLS_MATRIX.md`、`ADMIN_ARCHITECTURE.md` 和 `SUPABASE_PHASE2_PROGRESS.md`。当前运行 backend 仍然是 SQLite，没有迁移真实数据。
+Phase 2 已增加尚未连接生产环境的 PostgreSQL schema、RLS 与 private Storage policy。21 张业务表都有 owner `user_id`，普通账号按 `auth.uid()` 隔离；独立管理员账号只由 server-only `ADMIN_USER_ID` 判断。详情见 `SUPABASE_RLS_MATRIX.md`、`ADMIN_ARCHITECTURE.md` 和 `SUPABASE_PHASE2_PROGRESS.md`。当前 MyAssist 运行 backend 仍然是 SQLite，没有迁移真实数据。
 
 端口可以通过环境变量调整：
 
@@ -205,7 +207,7 @@ npm run dev
 - 恢复时先关闭浏览器/桌面 App 和本地后端，再替换数据库与上传目录。
 - 构建或替换新版 `.app` 不会删除用户数据，因为数据不在 `.app` 包内部。
 
-彻底卸载但保留数据：删除 `dist/mac-arm64/Leo的生活学习助手.app` 或 Applications 中的 App，保留 `~/Library/Application Support/Leo的生活学习助手/`。
+彻底卸载但保留数据：删除 `dist/mac-arm64/MyAssist.app` 或 Applications 中的 App，保留 `~/Library/Application Support/Leo的生活学习助手/`。
 
 彻底删除 App 和用户数据：删除 App 后，再删除：
 
@@ -224,19 +226,21 @@ npm run dev
 
 ## 隐藏/快捷功能 / Hidden and Quick Features
 
-- 双击首页标题 `Leo的生活学习助手` 可以打开今日总览。
+- 双击首页标题 `MyAssist` 可以打开今日总览。
 - To Do List 卡片内部可以滚动查看较多条目，底部淡出效果表示列表还能继续。
 - 勾选首页 To Do List 项目时，完成项会移动到列表底部。
 - 开启进度追踪的任务可以出现在底部进度条中，点击右侧箭头切换显示的进度。
 - 筛选面板未输入条件时，点击空白处可以关闭。
 
-- Double-click the dashboard title `Leo的生活学习助手` to open today’s overview.
+- Double-click the dashboard title `MyAssist` to open today’s overview.
 - The To Do List card can scroll internally when it contains many items; the bottom fade indicates more content.
 - Completed homepage To Do List items move to the bottom of the list.
 - Tasks with progress tracking can appear in the bottom progress bar; use the arrow on the right to switch between tracked items.
 - If the filter panel has no active input, clicking outside closes it.
 
 ## GitHub 注意事项 / GitHub Notes
+
+项目仓库：[github.com/leolu666999/MyAssist](https://github.com/leolu666999/MyAssist)
 
 请不要手动提交以下内容：
 

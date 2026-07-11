@@ -1,4 +1,4 @@
-const CACHE_NAME = "leo-life-study-assistant-v2";
+const CACHE_NAME = "myassist-v3";
 const SHELL_URLS = [
   "/offline.html",
   "/manifest.webmanifest",

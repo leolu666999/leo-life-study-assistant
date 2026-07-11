@@ -2,16 +2,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-export const appName = "Leo的生活学习助手";
+export const appName = "MyAssist";
+export const legacyDataAppName = "Leo的生活学习助手";
 export const defaultPort = Number(process.env.LEO_PORT || process.env.PORT || 3011);
 
 export const appSupportDir =
   process.env.LEO_APP_DATA_DIR ||
-  path.join(os.homedir(), "Library", "Application Support", appName);
+  path.join(os.homedir(), "Library", "Application Support", legacyDataAppName);
 
 export const appLogDir =
   process.env.LEO_LOG_DIR ||
-  path.join(os.homedir(), "Library", "Logs", appName);
+  path.join(os.homedir(), "Library", "Logs", legacyDataAppName);
 
 export const dataDir = process.env.LEO_DATA_DIR || path.join(appSupportDir, "data");
 export const uploadsDir = process.env.LEO_UPLOADS_DIR || path.join(appSupportDir, "uploads");

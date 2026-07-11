@@ -6,12 +6,12 @@
 
 项目维护者本人同时有两种完全不同的身份：
 
-1. **Personal Account**：日常使用 Leo 助手，保存个人任务、课程、记账、日记和文件。
+1. **Personal Account**：日常使用 MyAssist，保存个人任务、课程、记账、日记和文件。
 2. **Admin Account**：系统运维，进入 Admin Dashboard、查看全站异常、跨用户排障和执行受审计的管理操作。
 
 两者必须是两个独立 Supabase Auth user UUID。邮箱、姓名、设备、IP 或“账号属于维护者”都不会自动关联权限或合并数据。
 
-Personal Account 与所有普通用户完全相同，只能访问 `auth.uid() = user_id` 的数据。Admin Account 如果打开普通 Leo 页面，也只看到 Admin Account 自己的数据空间。
+Personal Account 与所有普通用户完全相同，只能访问 `auth.uid() = user_id` 的数据。Admin Account 如果打开普通 MyAssist 页面，也只看到 Admin Account 自己的数据空间。
 
 ## 2. 唯一管理员来源
 

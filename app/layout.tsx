@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  applicationName: "Leo的生活学习助手",
-  title: "Leo的生活学习助手",
+  applicationName: "MyAssist",
+  title: "MyAssist",
   description: "生活、学习、计划、收支和进度管理面板",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Leo助手",
+    title: "MyAssist",
     statusBarStyle: "default"
   },
   formatDetection: {

@@ -1,5 +1,5 @@
 {
-  "name": "leo-life-study-assistant",
+  "name": "myassist",
   "version": "0.1.0",
   "private": true,
   "main": "electron/main.cjs",
@@ -20,7 +20,7 @@
   },
   "build": {
     "appId": "com.leo.life-study-assistant",
-    "productName": "Leo的生活学习助手",
+    "productName": "MyAssist",
     "asar": false,
     "directories": {
       "output": "dist"

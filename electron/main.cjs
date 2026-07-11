@@ -5,15 +5,16 @@ const net = require("node:net");
 const os = require("node:os");
 const path = require("node:path");
 
-const appName = "Leo的生活学习助手";
+const appName = "MyAssist";
+const legacyDataAppName = "Leo的生活学习助手";
 const port = Number(process.env.LEO_PORT || process.env.PORT || 3011);
 const host = process.env.LEO_HOST || "127.0.0.1";
 const baseUrl = `http://${host}:${port}`;
 const healthUrl = `${baseUrl}/api/health`;
 const bundledStandaloneServer = path.join(process.resourcesPath || "", "app", ".next", "standalone", "server.js");
 const isDev = !app.isPackaged && !fs.existsSync(bundledStandaloneServer);
-const appDataDir = process.env.LEO_APP_DATA_DIR || path.join(os.homedir(), "Library", "Application Support", appName);
-const logDir = process.env.LEO_LOG_DIR || path.join(os.homedir(), "Library", "Logs", appName);
+const appDataDir = process.env.LEO_APP_DATA_DIR || path.join(os.homedir(), "Library", "Application Support", legacyDataAppName);
+const logDir = process.env.LEO_LOG_DIR || path.join(os.homedir(), "Library", "Logs", legacyDataAppName);
 const logPath = path.join(logDir, "desktop.log");
 
 let mainWindow = null;
@@ -163,7 +164,7 @@ function loadingHtml() {
     <html>
       <body style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;color:#0f172a;display:grid;place-items:center;height:100vh">
         <div style="text-align:center">
-          <div style="font-size:20px;font-weight:700">Leo的生活学习助手</div>
+          <div style="font-size:20px;font-weight:700">MyAssist</div>
           <div style="margin-top:10px;color:#64748b">正在启动本地服务...</div>
         </div>
       </body>

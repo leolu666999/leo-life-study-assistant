@@ -14,7 +14,7 @@ if not exist node_modules\.bin\next.cmd (
   npm install
 )
 
-echo 正在启动 Leo的生活学习助手...
+echo 正在启动 MyAssist...
 echo 浏览器打开：http://localhost:3011
 npm run dev
 pause

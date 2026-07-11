@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { dbPath, getDb } from "@/lib/db";
-import { appLogDir, dataDir, defaultPort, uploadsDir } from "@/lib/app-config";
+import { appLogDir, appName, dataDir, defaultPort, uploadsDir } from "@/lib/app-config";
 
 export const runtime = "nodejs";
 
@@ -9,7 +9,7 @@ export async function GET() {
     getDb().prepare("SELECT 1 AS ok").get();
     return NextResponse.json({
       ok: true,
-      app: "Leo的生活学习助手",
+      app: appName,
       database: "ok",
       databasePath: dbPath,
       dataDir,
@@ -22,7 +22,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: false,
-        app: "Leo的生活学习助手",
+        app: appName,
         database: "error",
         error: error instanceof Error ? error.message : "Unknown health check error",
         time: new Date().toISOString()

@@ -4,7 +4,8 @@ const os = require("node:os");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 
-const APP_NAME = "Leo的生活学习助手";
+// Keep reading the established local data directory after the product rename.
+const LEGACY_DATA_APP_NAME = "Leo的生活学习助手";
 const EXPECTED_TABLES = [
   "assignments",
   "class_sessions",
@@ -63,7 +64,7 @@ The database is always opened read-only. The tool never imports lib/db.ts or cal
 }
 
 function resolveSources(options) {
-  const defaultRoot = process.env.LEO_APP_DATA_DIR || path.join(os.homedir(), "Library", "Application Support", APP_NAME);
+  const defaultRoot = process.env.LEO_APP_DATA_DIR || path.join(os.homedir(), "Library", "Application Support", LEGACY_DATA_APP_NAME);
   const dataDir = process.env.LEO_DATA_DIR || path.join(defaultRoot, "data");
   return {
     dbPath: path.resolve(options.db || process.env.LEO_DB_PATH || path.join(dataDir, "leo_life_study.db")),
