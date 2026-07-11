@@ -5,6 +5,8 @@ dist/
 .codex-backups/
 migration-reports/
 build/icon.iconset/
+supabase/.temp/
+supabase/.branches/
 
 # Local user data. Keep folders in the repo, but never commit real data.
 data/*
