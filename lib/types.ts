@@ -218,6 +218,7 @@ export type TimetableImportPreview = {
     type: TimetableSourceType;
     name: string;
     feedUrl?: string | null;
+    sourceKey?: string | null;
     semester: string;
     academicYear: number;
     timezone: string;

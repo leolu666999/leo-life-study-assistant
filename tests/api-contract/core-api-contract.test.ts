@@ -429,7 +429,7 @@ describe("Timetable API contract", () => {
   ].join("\r\n");
 
   it("GET courses and timetable return the current empty shapes", async () => {
-    expect(await (await routes.courses.GET()).json()).toEqual([]);
+    expect(await (await routes.courses.GET(request("http://local.test/api/courses", "GET"))).json()).toEqual([]);
     const timetable = await routes.timetable.GET(request("http://local.test/api/timetable?includeCancelled=1", "GET"));
     expect(await timetable.json()).toEqual({ sources: [], courses: [], occurrences: [] });
   });

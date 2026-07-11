@@ -1,4 +1,5 @@
 import { getTimetableService } from "@/lib/services/timetable-service";
+import { repositoryContextForRequest } from "@/lib/repositories/request-context";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,7 @@ async function bodyFromRequest(request: Request) {
 }
 
 export async function POST(request: Request) {
+  await repositoryContextForRequest(request);
   const body = await bodyFromRequest(request);
   const result = await getTimetableService().previewTimetable(body);
   if (result.error) return Response.json({ error: result.error }, { status: 400 });

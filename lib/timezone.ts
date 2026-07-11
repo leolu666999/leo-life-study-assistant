@@ -5,6 +5,15 @@ function partsInZone(date: Date, timeZone: string) {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
 
+export function isValidTimeZone(timeZone: string) {
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(0));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function zonedWallTimeToUtc(date: string, time: string, timeZone = "Australia/Sydney") {
   const [year, month, day] = date.split("-").map(Number);
   const [hour, minute, second = 0] = time.split(":").map(Number);
@@ -21,4 +30,12 @@ export function zonedWallTimeToUtc(date: string, time: string, timeZone = "Austr
 export function instantToWallTime(value: string, timeZone = "Australia/Sydney") {
   const parts = partsInZone(new Date(value), timeZone);
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+export function zonedWallTimeToUtcStrict(date: string, time: string, timeZone = "Australia/Sydney") {
+  if (!isValidTimeZone(timeZone)) throw new Error("无效的 IANA 时区。");
+  const result = zonedWallTimeToUtc(date, time, timeZone);
+  const expected = `${date}T${time.padEnd(8, ":00").slice(0, 8)}`;
+  if (instantToWallTime(result, timeZone) !== expected) throw new Error("该本地时间在所选时区中不存在或无法安全转换。");
+  return result;
 }

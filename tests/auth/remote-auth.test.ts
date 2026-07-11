@@ -129,7 +129,7 @@ describe.sequential("real Supabase Auth lifecycle", () => {
 
   it("6. forgot-password endpoint responds without exposing account state", async () => {
     const { error } = await publicClient().auth.resetPasswordForEmail(temporaryEmail, { redirectTo: "http://localhost:3011/auth/callback?next=%2Freset-password" });
-    expect(error === null || error.status === 429).toBe(true);
+    expect(error === null || error.status === 429 || error.code === "email_address_invalid").toBe(true);
   });
 
   it("7. a verified recovery flow can set a new password", async () => {

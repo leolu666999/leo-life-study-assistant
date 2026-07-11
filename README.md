@@ -129,6 +129,7 @@ npm run desktop:dist  # Build macOS .dmg
 npm run migration:preflight  # Run the read-only SQLite/uploads migration preflight
 npm run test:auth:remote     # Run isolated real Supabase Auth tests
 npm run test:transactions:remote  # Verify real PostgreSQL transaction rollback
+npm run test:timetable:remote     # Verify real Cloud timetable isolation/import
 ```
 
 ### 迁移预检 / Migration Preflight
@@ -182,6 +183,8 @@ Phase 4 核心 Repository 已实现：Settings、Tasks/Progress/Subtasks、To Do
 Phase 4 详情和 API 状态见 `SUPABASE_PHASE4_REPOSITORIES.md`、`SUPABASE_REPOSITORY_PROGRESS.md` 与 `CLOUD_DATA_ISOLATION_TEST_RESULTS.md`。
 
 Phase 4.5 已为 Task/Progress、Plan/Journal、To Do 与 Finance 的 11 条多表写入流程增加 7 个 PostgreSQL 事务函数。函数使用 `security invoker`，owner 只来自 `auth.uid()`，现有 RLS 与跨用户复合外键继续生效；任一子步骤失败时整笔业务写入回滚。13 项真实远程事务测试与原有测试合计 223/223 通过，partial state 与越权成功均为 0。默认 SQLite 模式、282 行真实数据和 4 个本地文件未改变。详情见 `SUPABASE_TRANSACTION_AUDIT.md`、`SUPABASE_TRANSACTION_RPCS.md` 与 `TRANSACTION_FAILURE_TEST_RESULTS.md`。
+
+Phase 5 已增加 Supabase Timetable Repository：Cloud mode 可按当前账号查询课程/课表，预览和确认 ICS/Calendar Feed，处理 RRULE、RDATE、EXDATE、RECURRENCE-ID 例外与取消，并编辑或软取消 occurrence。三表 confirm 由单个 `security invoker` PostgreSQL RPC 原子执行，重复来源使用 SHA-256 `sourceKey`，实例 identity 保持 `(user_id, sourceId, externalUid, occurrenceStart)`。Feed 获取增加协议、私网/DNS、跳转、超时、大小和内容类型保护。新增 43 项测试后完整矩阵为 266/266；真实本地 1 个 source、16 个 timetable courses、165 个 occurrences 与 4 个 uploads 未迁移。详情见 `SUPABASE_PHASE5_TIMETABLE.md`、`SUPABASE_TIMETABLE_AUDIT.md`、`TIMETABLE_TIMEZONE_POLICY.md` 与 `TIMETABLE_CLOUD_TEST_RESULTS.md`。
 
 安全的环境变量示例见 `.env.example`。`NEXT_PUBLIC_SUPABASE_URL` 与 publishable key 可以进入浏览器；`SUPABASE_SECRET_KEY`、`ADMIN_USER_ID`、数据库密码和 access token 只能留在本机服务端或 CLI，绝不能加 `NEXT_PUBLIC_`，也不能提交到 GitHub。
 

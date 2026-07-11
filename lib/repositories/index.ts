@@ -20,6 +20,7 @@ import { supabaseTodoRepository } from "./supabase/supabase-todo-repository";
 import { supabaseJournalRepository } from "./supabase/supabase-journal-repository";
 import { supabasePlanRepository } from "./supabase/supabase-plan-repository";
 import { supabaseFinanceRepository } from "./supabase/supabase-finance-repository";
+import { supabaseTimetableRepository } from "./supabase/supabase-timetable-repository";
 
 function activeBackend(): "sqlite" | "supabase" {
   const backend = process.env.DATA_BACKEND || "sqlite";
@@ -61,7 +62,7 @@ export function getJournalRepository(): JournalRepository {
 }
 
 export function getTimetableRepository(): TimetableRepository {
-  return sqliteOnly(sqliteTimetableRepository);
+  return activeBackend() === "supabase" ? supabaseTimetableRepository : sqliteTimetableRepository;
 }
 
 export function getFileRepository(): FileRepository {

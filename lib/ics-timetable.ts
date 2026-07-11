@@ -1,6 +1,7 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import ICAL from "ical.js";
 import type { CourseOccurrence, TimetableCourse, TimetableImportPreview, TimetableSourceType } from "./types";
+import { isValidTimeZone, zonedWallTimeToUtcStrict } from "./timezone";
 
 const activityTypes = ["Lecture", "Tutorial", "Workshop", "Practical", "Seminar", "Lab", "Studio", "Exam"];
 const colors = ["#0f172a", "#2563eb", "#059669", "#7c3aed", "#dc2626", "#ea580c", "#0891b2", "#4f46e5"];
@@ -14,10 +15,32 @@ type PreviewOptions = {
   timezone?: string;
 };
 
-function toIso(value: ICAL.Time | Date | null | undefined) {
+function timeParts(value: ICAL.Time) {
+  return {
+    date: `${String(value.year).padStart(4, "0")}-${String(value.month).padStart(2, "0")}-${String(value.day).padStart(2, "0")}`,
+    time: `${String(value.hour).padStart(2, "0")}:${String(value.minute).padStart(2, "0")}:${String(value.second).padStart(2, "0")}`
+  };
+}
+
+function propertyTimezone(event: ICAL.Event, propertyName: string) {
+  const property = event.component.getFirstProperty(propertyName);
+  const value = property?.getParameter("tzid");
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function toIso(value: ICAL.Time | Date | null | undefined, event?: ICAL.Event, propertyName = "dtstart", fallbackTimezone = "Australia/Sydney") {
   if (!value) return new Date().toISOString();
   if (value instanceof Date) return value.toISOString();
-  return value.toJSDate().toISOString();
+  if (value.zone?.tzid === "UTC") return value.toJSDate().toISOString();
+  const requestedTimezone = (event && propertyTimezone(event, propertyName)) || (value.zone?.tzid !== "floating" ? value.zone?.tzid : "") || fallbackTimezone;
+  if (requestedTimezone && isValidTimeZone(requestedTimezone)) {
+    const parts = timeParts(value);
+    return zonedWallTimeToUtcStrict(parts.date, value.isDate ? "00:00:00" : parts.time, requestedTimezone);
+  }
+  if (value.zone?.tzid && value.zone.tzid !== "floating" && ICAL.TimezoneService.has(value.zone.tzid)) {
+    return value.toJSDate().toISOString();
+  }
+  throw new Error("ICS 包含无法识别的时区。");
 }
 
 function addDuration(start: ICAL.Time, event: ICAL.Event) {
@@ -56,13 +79,12 @@ function campusFromLocation(location: string) {
   return "";
 }
 
-function eventUpdatedAt(event: ICAL.Event) {
+function eventUpdatedAt(event: ICAL.Event, fallbackTimezone: string) {
   const component = event.component;
-  return toIso(
-    component.getFirstPropertyValue("last-modified") as ICAL.Time | undefined ??
-    component.getFirstPropertyValue("dtstamp") as ICAL.Time | undefined ??
-    undefined
-  );
+  const modified = component.getFirstPropertyValue("last-modified") as ICAL.Time | undefined;
+  if (modified) return toIso(modified, event, "last-modified", fallbackTimezone);
+  const stamp = component.getFirstPropertyValue("dtstamp") as ICAL.Time | undefined;
+  return stamp ? toIso(stamp, event, "dtstamp", fallbackTimezone) : new Date().toISOString();
 }
 
 function eventStatus(event: ICAL.Event): CourseOccurrence["status"] {
@@ -70,8 +92,9 @@ function eventStatus(event: ICAL.Event): CourseOccurrence["status"] {
   return status === "CANCELLED" ? "cancelled" : "scheduled";
 }
 
-function expansionWindow(events: ICAL.Event[]) {
-  const starts = events.map((event) => event.startDate?.toJSDate().getTime()).filter((value): value is number => Number.isFinite(value));
+function expansionWindow(events: ICAL.Event[], fallbackTimezone: string) {
+  const starts = events.map((event) => event.startDate ? new Date(toIso(event.startDate, event, "dtstart", fallbackTimezone)).getTime() : NaN)
+    .filter((value): value is number => Number.isFinite(value));
   const first = starts.length ? new Date(Math.min(...starts)) : new Date();
   const start = new Date(first);
   start.setMonth(start.getMonth() - 1);
@@ -83,30 +106,72 @@ function expansionWindow(events: ICAL.Event[]) {
   };
 }
 
+type ExpandedEvent = { start: ICAL.Time; end: ICAL.Time; recurrenceId: ICAL.Time; item: ICAL.Event };
+
 function expandEvent(event: ICAL.Event, windowEnd: ICAL.Time) {
-  const occurrences: Array<{ start: ICAL.Time; end: ICAL.Time }> = [];
+  const occurrences: ExpandedEvent[] = [];
   if (event.isRecurring()) {
     const iterator = event.iterator();
     let next = iterator.next();
     let count = 0;
     while (next && next.compare(windowEnd) <= 0 && count < 500) {
       const details = event.getOccurrenceDetails(next);
-      occurrences.push({ start: details.startDate, end: details.endDate });
+      occurrences.push({ start: details.startDate, end: details.endDate, recurrenceId: details.recurrenceId, item: details.item });
       next = iterator.next();
       count += 1;
     }
+    if (event.startDate && !occurrences.some((item) => item.recurrenceId.compare(event.startDate) === 0)) {
+      const details = event.getOccurrenceDetails(event.startDate);
+      occurrences.push({ start: details.startDate, end: details.endDate, recurrenceId: details.recurrenceId, item: details.item });
+    }
     return occurrences;
   }
-  if (event.startDate) occurrences.push({ start: event.startDate, end: addDuration(event.startDate, event) });
+  if (event.startDate) occurrences.push({ start: event.startDate, end: addDuration(event.startDate, event),
+    recurrenceId: event.recurrenceId || event.startDate, item: event });
   return occurrences;
 }
 
+function eventGroups(components: ICAL.Component[]) {
+  const groups = new Map<string, ICAL.Component[]>();
+  for (const component of components) {
+    const event = new ICAL.Event(component);
+    const uid = event.uid || randomUUID();
+    groups.set(uid, [...(groups.get(uid) ?? []), component]);
+  }
+  const events: ICAL.Event[] = [];
+  for (const componentsForUid of groups.values()) {
+    const masters = componentsForUid.filter((component) => !component.hasProperty("recurrence-id"));
+    const exceptions = componentsForUid.filter((component) => component.hasProperty("recurrence-id"));
+    if (masters.length > 0) {
+      for (const master of masters) events.push(new ICAL.Event(master, { strictExceptions: true, exceptions }));
+    } else {
+      for (const exception of exceptions) events.push(new ICAL.Event(exception));
+    }
+  }
+  return events;
+}
+
+function sourceKey(icsText: string, options: PreviewOptions) {
+  let identity = icsText;
+  if (options.feedUrl) {
+    const url = new URL(options.feedUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("Calendar Feed 只支持 HTTP 或 HTTPS。");
+    if (url.username || url.password) throw new Error("Calendar Feed URL 不允许包含用户名或密码。");
+    url.hash = "";
+    identity = url.toString();
+  }
+  return createHash("sha256").update(identity).digest("hex");
+}
+
 export function parseIcsToTimetablePreview(icsText: string, options: PreviewOptions): TimetableImportPreview {
+  const fallbackTimezone = options.timezone || "Australia/Sydney";
+  if (!isValidTimeZone(fallbackTimezone)) throw new Error("无效的 IANA 时区。");
   const jcal = ICAL.parse(icsText);
   const calendar = new ICAL.Component(jcal);
   const vevents = calendar.getAllSubcomponents("vevent");
-  const events = vevents.map((component) => new ICAL.Event(component));
-  const window = expansionWindow(events);
+  for (const timezone of calendar.getAllSubcomponents("vtimezone")) ICAL.TimezoneService.register(timezone);
+  const events = eventGroups(vevents);
+  const window = expansionWindow(events, fallbackTimezone);
   const courseMap = new Map<string, TimetableCourse>();
   const occurrences: CourseOccurrence[] = [];
   const unrecognizedFields = new Set<string>();
@@ -143,26 +208,32 @@ export function parseIcsToTimetablePreview(icsText: string, options: PreviewOpti
     }
     const course = courseMap.get(courseKey)!;
     for (const occurrence of expandEvent(event, window.end)) {
-      const startAt = toIso(occurrence.start);
+      const item = occurrence.item;
+      const occurrenceDescription = item.description || description;
+      const occurrenceLocation = item.location || location;
+      const isException = item.isRecurrenceException();
+      const startAt = toIso(occurrence.start, item, "dtstart", fallbackTimezone);
+      const identityStart = toIso(occurrence.recurrenceId, isException ? item : event,
+        isException ? "recurrence-id" : "dtstart", fallbackTimezone);
       occurrences.push({
         id: randomUUID(),
         courseId: course.id,
         course,
         startAt,
-        endAt: toIso(occurrence.end),
-        location,
-        campus: campusFromLocation(location),
-        status: eventStatus(event),
-        isException: Boolean(event.recurrenceId),
-        originalStartAt: event.recurrenceId ? toIso(event.recurrenceId) : null,
-        sourceUpdatedAt: eventUpdatedAt(event),
+        endAt: toIso(occurrence.end, item, "dtend", fallbackTimezone),
+        location: occurrenceLocation,
+        campus: campusFromLocation(occurrenceLocation),
+        status: eventStatus(item),
+        isException,
+        originalStartAt: isException ? identityStart : null,
+        sourceUpdatedAt: eventUpdatedAt(item, fallbackTimezone),
         localModifiedAt: null,
         localModifiedFields: [],
-        notes: description,
+        notes: occurrenceDescription,
         sourceType: options.sourceType,
         sourceId: null,
         externalUid: uid,
-        occurrenceStart: startAt,
+        occurrenceStart: identityStart,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
@@ -179,6 +250,7 @@ export function parseIcsToTimetablePreview(icsText: string, options: PreviewOpti
       type: options.sourceType,
       name: options.name || (options.feedUrl ? "Calendar Feed" : "ICS 文件"),
       feedUrl: options.feedUrl ?? null,
+      sourceKey: sourceKey(icsText, options),
       semester: options.semester || "Semester",
       academicYear: options.academicYear || new Date().getFullYear(),
       timezone: options.timezone || "Australia/Sydney"

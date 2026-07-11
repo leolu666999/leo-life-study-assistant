@@ -1,9 +1,11 @@
 import { getTimetableService } from "@/lib/services/timetable-service";
+import { repositoryContextForRequest } from "@/lib/repositories/request-context";
 
 export const runtime = "nodejs";
 
-export async function GET() {
-  return Response.json(getTimetableService().listCourses());
+export async function GET(request: Request) {
+  const context = await repositoryContextForRequest(request);
+  return Response.json(await getTimetableService().listCourses(context));
 }
 
 export async function POST(request: Request) {
