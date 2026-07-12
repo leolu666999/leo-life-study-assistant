@@ -53,6 +53,10 @@ export const sqliteFileRepository: FileRepository = {
     return { data, metadata };
   },
 
+  async createSignedDownloadUrl() {
+    return null;
+  },
+
   listImportantFiles,
   createImportantFile,
   updateImportantFile,

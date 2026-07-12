@@ -21,6 +21,7 @@ import { supabaseJournalRepository } from "./supabase/supabase-journal-repositor
 import { supabasePlanRepository } from "./supabase/supabase-plan-repository";
 import { supabaseFinanceRepository } from "./supabase/supabase-finance-repository";
 import { supabaseTimetableRepository } from "./supabase/supabase-timetable-repository";
+import { supabaseFileRepository } from "./supabase/supabase-file-repository";
 
 function activeBackend(): "sqlite" | "supabase" {
   const backend = process.env.DATA_BACKEND || "sqlite";
@@ -66,5 +67,12 @@ export function getTimetableRepository(): TimetableRepository {
 }
 
 export function getFileRepository(): FileRepository {
-  return sqliteOnly(sqliteFileRepository);
+  const backend = activeBackend();
+  const fileBackend = process.env.FILE_BACKEND?.trim() || (backend === "sqlite" ? "local" : "");
+  if (backend === "sqlite") {
+    if (fileBackend !== "local") throw new Error("DATA_BACKEND=sqlite requires FILE_BACKEND=local");
+    return sqliteFileRepository;
+  }
+  if (fileBackend !== "supabase") throw new Error("DATA_BACKEND=supabase requires FILE_BACKEND=supabase; local uploads fallback is forbidden");
+  return supabaseFileRepository;
 }

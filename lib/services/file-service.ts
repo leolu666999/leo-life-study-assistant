@@ -13,6 +13,10 @@ export class FileService {
     return this.repository.readUpload(id, context);
   }
 
+  createSignedDownloadUrl(id: string, expiresIn: number, context?: RepositoryContext) {
+    return this.repository.createSignedDownloadUrl(id, expiresIn, context);
+  }
+
   listImportantFiles(context?: RepositoryContext) {
     return this.repository.listImportantFiles(context);
   }

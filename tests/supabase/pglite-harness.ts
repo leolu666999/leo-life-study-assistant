@@ -37,7 +37,9 @@ export async function createPhase2Database() {
     create table storage.buckets (
       id text primary key,
       name text not null,
-      public boolean not null default false
+      public boolean not null default false,
+      file_size_limit bigint,
+      allowed_mime_types text[]
     );
     create table storage.objects (
       id uuid primary key default gen_random_uuid(),
@@ -52,7 +54,9 @@ export async function createPhase2Database() {
   `);
   for (const migration of [
     "supabase/migrations/202607110001_phase2_schema_rls.sql",
-    "supabase/migrations/202607110002_private_storage_policies.sql"
+    "supabase/migrations/202607110002_private_storage_policies.sql",
+    "supabase/migrations/202607120004_phase6_storage_lifecycle.sql",
+    "supabase/migrations/202607120005_phase6_pending_delete_retry.sql"
   ]) {
     await database.exec(fs.readFileSync(path.join(process.cwd(), migration), "utf8"));
   }

@@ -503,7 +503,7 @@ describe("Files API contract", () => {
 
   it("Important file GET/POST/PATCH/DELETE preserves current behavior", async () => {
     const uploaded = await uploadTestFile();
-    expect(await (await routes.importantFiles.GET()).json()).toEqual([]);
+    expect(await (await routes.importantFiles.GET(request("http://local.test/api/important-files", "GET"))).json()).toEqual([]);
     const createdResponse = await routes.importantFiles.POST(request("http://local.test/api/important-files", "POST", {
       title: "测试文件",
       category: "学校",
@@ -542,19 +542,23 @@ describe("Repository backend selector", () => {
     }
   });
 
-  it("refuses SQLite-only repositories in authenticated cloud mode", async () => {
+  it("fails closed when the cloud file backend is not explicitly Supabase", async () => {
     const previousBackend = process.env.DATA_BACKEND;
     const previousAuth = process.env.AUTH_REQUIRED;
+    const previousFileBackend = process.env.FILE_BACKEND;
     process.env.DATA_BACKEND = "supabase";
     process.env.AUTH_REQUIRED = "true";
+    delete process.env.FILE_BACKEND;
     try {
       const { getFileService } = await import("@/lib/services/file-service");
-      expect(() => getFileService()).toThrow("local SQLite fallback is forbidden");
+      expect(() => getFileService()).toThrow("FILE_BACKEND=supabase");
     } finally {
       if (previousBackend === undefined) delete process.env.DATA_BACKEND;
       else process.env.DATA_BACKEND = previousBackend;
       if (previousAuth === undefined) delete process.env.AUTH_REQUIRED;
       else process.env.AUTH_REQUIRED = previousAuth;
+      if (previousFileBackend === undefined) delete process.env.FILE_BACKEND;
+      else process.env.FILE_BACKEND = previousFileBackend;
     }
   });
 });

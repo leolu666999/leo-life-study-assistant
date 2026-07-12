@@ -66,7 +66,7 @@ let tokenAdmin: string;
 
 async function cleanupFixtures() {
   const ownerIds = [userAId, userBId, adminId];
-  await adminClient.storage.from("receipts").remove([`${userAId}/${ids.uploadedA}/synthetic.txt`]);
+  await adminClient.storage.from("receipts").remove([`${userAId}/${ids.uploadedA}/synthetic.pdf`]);
   for (const table of [
     "task_tags", "subtasks", "task_progress_entries", "plan_items", "todo_list_items", "important_files",
     "expenses", "course_occurrences", "timetable_courses", "timetable_sources", "assignments", "class_sessions",
@@ -324,10 +324,11 @@ describe.sequential("real Admin and Personal account separation", () => {
 });
 
 describe.sequential("real private Storage policies", () => {
-  const objectPath = `${userAId}/${ids.uploadedA}/synthetic.txt`;
+  const objectPath = `${userAId}/${ids.uploadedA}/synthetic.pdf`;
+  const syntheticPdf = "%PDF-1.4\nsynthetic\n%%EOF";
 
   it("1. User A can upload a synthetic object under its own path", async () => {
-    const { error } = await userA.storage.from("receipts").upload(objectPath, "synthetic", { contentType: "text/plain", upsert: true });
+    const { error } = await userA.storage.from("receipts").upload(objectPath, syntheticPdf, { contentType: "application/pdf", upsert: true });
     expect(error).toBeNull();
   });
 
@@ -337,10 +338,10 @@ describe.sequential("real private Storage policies", () => {
   });
 
   it("3. User B cannot upload into User A path and the object is unchanged", async () => {
-    const { error } = await userB.storage.from("receipts").upload(`${userAId}/${crypto.randomUUID()}/blocked.txt`, "blocked");
+    const { error } = await userB.storage.from("receipts").upload(`${userAId}/${crypto.randomUUID()}/blocked.pdf`, syntheticPdf, { contentType: "application/pdf" });
     expect(error).not.toBeNull();
     const { data, error: downloadError } = await adminClient.storage.from("receipts").download(objectPath);
     expect(downloadError).toBeNull();
-    expect(await data?.text()).toBe("synthetic");
+    expect(await data?.text()).toBe(syntheticPdf);
   });
 });

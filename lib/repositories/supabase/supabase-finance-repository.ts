@@ -4,6 +4,7 @@ import type { Expense } from "@/lib/types";
 import type { ExpenseInput, FinanceRepository } from "../finance-repository";
 import type { RepositoryContext } from "../repository-context";
 import { requireSupabaseContext } from "../request-context";
+import { removePendingCloudObject, type CloudPendingDelete } from "./supabase-file-repository";
 
 type Row = Record<string, unknown>;
 type Receipt = { originalName: string; mimeType: string };
@@ -75,12 +76,20 @@ export const supabaseFinanceRepository: FinanceRepository = {
       paymentMethod: next.paymentMethod ?? null, notes: next.notes ?? null, receiptFileId: next.receiptFileId ?? null };
     const { error } = await client.rpc("save_expense_with_currency", { p_expense_id: id, p_create: false, p_expense: expense });
     if (error) throw error;
+    if (current.receiptFileId && current.receiptFileId !== expense.receiptFileId) {
+      const { data: cleanup, error: cleanupError } = await client.rpc("mark_unreferenced_file_for_delete", { p_file_id: current.receiptFileId });
+      if (cleanupError) throw cleanupError;
+      await removePendingCloudObject((cleanup ?? {}) as CloudPendingDelete, context);
+    }
     return getExpense(id, context);
   },
   async deleteExpense(id, context) {
-    const { client, userId } = requireSupabaseContext(context);
-    const { data, error } = await client.from("expenses").delete().eq("user_id", userId).eq("id", id).select("id");
+    const { client } = requireSupabaseContext(context);
+    const { data, error } = await client.rpc("detach_expense_for_delete", { p_expense_id: id });
     if (error) throw error;
-    return data?.length ?? 0;
+    const result = (data ?? {}) as Record<string, unknown>;
+    if (!result.deleted) return 0;
+    await removePendingCloudObject(result as CloudPendingDelete, context);
+    return 1;
   }
 };
