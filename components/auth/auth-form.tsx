@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { buildAuthCallbackUrl } from "@/lib/auth/callback-url";
 import { safeRedirectPath } from "@/lib/auth/redirect";
 
 type AuthFormMode = "login" | "register" | "forgot" | "reset";
@@ -42,7 +43,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
       if (mode === "register") {
         if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) throw new Error("用户名需为 3 至 24 位字母、数字或下划线。");
         if (password.length < 8) throw new Error("密码至少需要 8 个字符。");
-        const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/")}`;
+        const redirectTo = buildAuthCallbackUrl(window.location.origin, "/");
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -57,7 +58,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
       }
 
       if (mode === "forgot") {
-        const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
+        const redirectTo = buildAuthCallbackUrl(window.location.origin, "/reset-password");
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
         if (error) throw error;
         setMessage("如果这个邮箱可以重置密码，你会收到一封重置邮件。请检查收件箱。");

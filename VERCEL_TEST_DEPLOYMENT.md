@@ -6,8 +6,8 @@ Status: Preview deployment ready; production remains disabled.
 
 - Project: `lu-zhiyuan/myassist-test`
 - Environment: Vercel Preview
-- URL: `https://myassist-test-66wlksycg-lu-zhiyuan.vercel.app`
-- Deployment: `dpl_5jPZHiq3sfW5bwNk77cg6sWSbnYS`
+- URL: `https://myassist-test.vercel.app`
+- Deployment: `dpl_A5tTr6SeTFpNiLcdKwnzvUrC2Zy6`
 - Build status: Ready
 - Source upload: 351.5 KB after `.vercelignore`
 - Backend: isolated Supabase test project only

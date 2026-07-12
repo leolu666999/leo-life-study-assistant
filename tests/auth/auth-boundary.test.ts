@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { authRuntimeSafetyError } from "@/lib/auth/runtime-guard";
+import { buildAuthCallbackUrl } from "@/lib/auth/callback-url";
 import { safeRedirectPath } from "@/lib/auth/redirect";
 
 const safeEnvironment = {
@@ -64,6 +65,14 @@ describe("Auth runtime boundary", () => {
 });
 
 describe("Auth redirect safety", () => {
+  it("builds localhost 3011 auth callback URLs", () => {
+    expect(buildAuthCallbackUrl("http://localhost:3011", "/reset-password")).toBe("http://localhost:3011/auth/callback?next=%2Freset-password");
+  });
+
+  it("builds Vercel HTTPS auth callback URLs", () => {
+    expect(buildAuthCallbackUrl("https://myassist-test.vercel.app", "/")).toBe("https://myassist-test.vercel.app/auth/callback?next=%2F");
+  });
+
   it("keeps a local application path", () => {
     expect(safeRedirectPath("/tasks?status=all")).toBe("/tasks?status=all");
   });

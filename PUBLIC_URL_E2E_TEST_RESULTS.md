@@ -2,7 +2,7 @@
 
 Status: automated backend/build checks passed; anonymous browser access to MyAssist login verified; physical phone/PWA checks pending.
 
-Preview: `https://myassist-test-66wlksycg-lu-zhiyuan.vercel.app`
+Public test URL: `https://myassist-test.vercel.app`
 
 ## Phase 7 verified
 
