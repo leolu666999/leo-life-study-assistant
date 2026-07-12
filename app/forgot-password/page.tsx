@@ -4,7 +4,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 
 export default function ForgotPasswordPage() {
   return (
-    <AuthShell title="重置密码" subtitle="输入注册邮箱，我们会发送安全的密码重置链接。" footer={<Link href="/login" className="font-medium text-slate-950">返回登录</Link>}>
+    <AuthShell title="找回密码" subtitle="通过注册邮箱接收安全的密码重置链接。" footer={<div className="flex justify-center gap-4"><Link href="/contact-developer" className="font-medium text-slate-950">联系开发者</Link><Link href="/login" className="font-medium text-slate-950">返回登录</Link></div>}>
       <AuthForm mode="forgot" />
     </AuthShell>
   );

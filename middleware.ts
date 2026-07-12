@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { authRuntimeSafetyError } from "@/lib/auth/runtime-guard";
 
-const publicAuthPaths = new Set(["/login", "/register", "/forgot-password", "/reset-password"]);
+const publicAuthPaths = new Set(["/login", "/register", "/forgot-password", "/reset-password", "/contact-developer", "/api/developer-contact", "/api/auth/login"]);
 
 function authConfiguration() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

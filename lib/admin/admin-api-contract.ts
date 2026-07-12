@@ -7,6 +7,10 @@ export const adminApiRoutes = [
   "/api/admin/users/[userId]/journal",
   "/api/admin/users/[userId]/timetable",
   "/api/admin/users/[userId]/files",
+  "/api/admin/users/[userId]/data",
+  "/api/admin/users/[userId]/files/[fileId]/signed-url",
+  "/api/admin/messages",
+  "/api/admin/messages/[messageId]",
   "/api/admin/system/stats"
 ] as const;
 
@@ -39,4 +43,4 @@ export type AdminAuditInput = {
   result: "started" | "succeeded" | "failed";
 };
 
-// Phase 2.5 implements stats and per-user task reads. Remaining contracts stay reserved for Phase 3.
+// Cross-user access is implemented only by assertAdmin-protected server routes.

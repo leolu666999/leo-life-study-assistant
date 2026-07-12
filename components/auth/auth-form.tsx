@@ -8,6 +8,7 @@ import { safeRedirectPath } from "@/lib/auth/redirect";
 type AuthFormMode = "login" | "register" | "forgot" | "reset";
 
 export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPath?: string }) {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -27,19 +28,25 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
     try {
       const supabase = createSupabaseBrowserClient();
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-        if (error) throw error;
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ identifier: email.trim(), password })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "登录失败。");
         window.location.assign(safeRedirectPath(nextPath));
         return;
       }
 
       if (mode === "register") {
+        if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) throw new Error("用户名需为 3 至 24 位字母、数字或下划线。");
         if (password.length < 8) throw new Error("密码至少需要 8 个字符。");
         const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/")}`;
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: redirectTo }
+          options: { emailRedirectTo: redirectTo, data: { username } }
         });
         if (error) throw error;
         if (data.session) {
@@ -72,13 +79,21 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
 
   return (
     <form className="space-y-4" onSubmit={submit}>
+      {mode === "register" && (
+        <label className="grid gap-2 text-sm font-medium text-slate-700">
+          用户名
+          <input required minLength={3} maxLength={24} pattern="[A-Za-z0-9_]+" autoComplete="username" value={username}
+            onChange={(event) => setUsername(event.target.value)} placeholder="字母、数字或下划线"
+            className="h-11 rounded-lg border border-slate-200 px-3 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-100" />
+        </label>
+      )}
       {needsEmail && (
         <label className="grid gap-2 text-sm font-medium text-slate-700">
-          邮箱
+          {mode === "login" ? "用户名或邮箱" : "邮箱"}
           <input
             required
-            type="email"
-            autoComplete="email"
+            type={mode === "login" ? "text" : "email"}
+            autoComplete={mode === "login" ? "username" : "email"}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
@@ -113,7 +128,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
           />
         </label>
       )}
-      {mode === "login" && <div className="text-right"><Link href="/forgot-password" className="text-sm text-slate-600 hover:text-slate-950">忘记密码？</Link></div>}
+      {mode === "login" && <div className="text-right"><Link href="/forgot-password" className="text-sm text-slate-600 hover:text-slate-950">找回密码</Link></div>}
       {errorMessage && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>}
       {message && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p>}
       <button disabled={submitting} className="h-11 w-full rounded-lg bg-slate-900 px-4 text-sm font-medium text-white disabled:opacity-50">

@@ -31,6 +31,7 @@ let adminSession: Session;
 let cookies = new Map<string, StoredCookie>();
 let temporaryUserId: string | undefined;
 const temporaryEmail = `myassist-phase3-${Date.now()}@example.com`;
+const temporaryUsername = `phase3_${Date.now()}`.slice(0, 24);
 const temporaryPassword = `P3-${crypto.randomUUID()}!aA`;
 const updatedTemporaryPassword = `${temporaryPassword}Z9`;
 
@@ -99,7 +100,7 @@ describe.sequential("real Supabase Auth lifecycle", () => {
   });
 
   it("3. registration creates one isolated Auth user", async () => {
-    const { data, error } = await admin.auth.admin.generateLink({ type: "signup", email: temporaryEmail, password: temporaryPassword });
+    const { data, error } = await admin.auth.admin.generateLink({ type: "signup", email: temporaryEmail, password: temporaryPassword, options: { data: { username: temporaryUsername } } });
     expect(error).toBeNull();
     temporaryUserId = data.user?.id;
     expect(temporaryUserId).toBeTruthy();
@@ -112,7 +113,7 @@ describe.sequential("real Supabase Auth lifecycle", () => {
   });
 
   it("4. duplicate registration does not create a second Auth user", async () => {
-    const { error } = await admin.auth.admin.generateLink({ type: "signup", email: temporaryEmail, password: temporaryPassword });
+    const { error } = await admin.auth.admin.generateLink({ type: "signup", email: temporaryEmail, password: temporaryPassword, options: { data: { username: temporaryUsername } } });
     expect(error).not.toBeNull();
     const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     expect(data.users.filter((user) => user.email === temporaryEmail)).toHaveLength(1);

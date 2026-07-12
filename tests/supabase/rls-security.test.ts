@@ -340,11 +340,11 @@ describe("independent administrator security", () => {
     expect(await rowCount(database, `select count(*) from public.tasks`)).toBe(1);
   });
 
-  it("defines Admin API contracts and only exposes the Phase 2.5 protected read routes", () => {
-    expect(adminApiRoutes).toHaveLength(9);
+  it("defines Admin API contracts and exposes only protected admin route groups", () => {
+    expect(adminApiRoutes).toHaveLength(13);
     expect(adminApiRoutes.every((route) => route.startsWith("/api/admin/"))).toBe(true);
     const routes = fs.readdirSync(path.join(process.cwd(), "app/api/admin"));
-    expect(routes.sort()).toEqual(["system", "users"]);
+    expect(routes.sort()).toEqual(["messages", "system", "users"]);
     expect(fs.readFileSync(path.join(process.cwd(), "app/api/admin/system/stats/route.ts"), "utf8")).toContain("assertAdminRequest");
     expect(fs.readFileSync(path.join(process.cwd(), "app/api/admin/users/[userId]/tasks/route.ts"), "utf8")).toContain("assertAdminRequest");
   });
