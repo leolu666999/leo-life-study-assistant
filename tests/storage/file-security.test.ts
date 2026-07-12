@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLOUD_UPLOAD_MAX_BYTES, cloudUploadBucket, sanitizeStorageName, validateCloudUpload } from "@/lib/storage/file-security";
+import { CLOUD_UPLOAD_MAX_BYTES, VERCEL_UPLOAD_MAX_BYTES, cloudUploadBucket, cloudUploadLimit, sanitizeStorageName, validateCloudUpload } from "@/lib/storage/file-security";
 
 const pdf = Buffer.from("%PDF-1.4\nsynthetic phase 6\n%%EOF", "ascii");
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
@@ -38,5 +38,11 @@ describe("cloud file validation", () => {
     expect(cloudUploadBucket("expense")).toBe("receipts");
     expect(cloudUploadBucket("important_file")).toBe("important-files");
     expect(cloudUploadBucket("../../other")).toBe("important-files");
+  });
+
+  it("keeps the 10 MiB Cloud limit locally and caps Vercel multipart at 4 MiB", () => {
+    expect(cloudUploadLimit({})).toBe(CLOUD_UPLOAD_MAX_BYTES);
+    expect(cloudUploadLimit({ VERCEL: "1" })).toBe(VERCEL_UPLOAD_MAX_BYTES);
+    expect(cloudUploadLimit({ VERCEL_ENV: "preview" })).toBe(VERCEL_UPLOAD_MAX_BYTES);
   });
 });

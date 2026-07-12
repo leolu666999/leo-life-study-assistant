@@ -1,7 +1,7 @@
 import { mutationResponse } from "@/lib/realtime";
 import { getFileService } from "@/lib/services/file-service";
 import { repositoryContextForRequest } from "@/lib/repositories/request-context";
-import { CLOUD_UPLOAD_MAX_BYTES } from "@/lib/storage/file-security";
+import { CLOUD_UPLOAD_MAX_BYTES, cloudUploadLimit } from "@/lib/storage/file-security";
 
 export const runtime = "nodejs";
 
@@ -13,8 +13,10 @@ export async function POST(request: Request) {
   }
 
   const context = await repositoryContextForRequest(request);
-  if (context.backend === "supabase" && file.size > CLOUD_UPLOAD_MAX_BYTES) {
-    return Response.json({ error: "File exceeds the 10 MB cloud upload limit" }, { status: 413 });
+  const cloudLimit = cloudUploadLimit();
+  if (context.backend === "supabase" && file.size > cloudLimit) {
+    const limitLabel = cloudLimit === CLOUD_UPLOAD_MAX_BYTES ? "10 MB" : "4 MB";
+    return Response.json({ error: `File exceeds the ${limitLabel} cloud upload limit` }, { status: 413 });
   }
   const buffer = Buffer.from(await file.arrayBuffer());
   const metadata = await getFileService().saveUpload({

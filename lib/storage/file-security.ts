@@ -2,6 +2,11 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 export const CLOUD_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+export const VERCEL_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+
+export function cloudUploadLimit(env: Record<string, string | undefined> = process.env) {
+  return env.VERCEL === "1" || env.VERCEL_ENV ? VERCEL_UPLOAD_MAX_BYTES : CLOUD_UPLOAD_MAX_BYTES;
+}
 
 const TYPES = {
   "application/pdf": { extensions: [".pdf"], signature: (data: Buffer) => data.subarray(0, 5).toString("ascii") === "%PDF-" },

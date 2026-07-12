@@ -45,6 +45,22 @@ describe("Auth runtime boundary", () => {
   it("rejects cloud mode when Auth is disabled", () => {
     expect(authRuntimeSafetyError({ DATA_BACKEND: "supabase", AUTH_REQUIRED: "false" })).toMatch(/requires AUTH_REQUIRED/);
   });
+
+  it("fails closed when a Vercel deployment is not explicitly Cloud mode", () => {
+    expect(authRuntimeSafetyError({ VERCEL: "1", DATA_BACKEND: "sqlite", AUTH_REQUIRED: "false" })).toMatch(/Vercel requires DATA_BACKEND/);
+  });
+
+  it("accepts Vercel only with complete Cloud and server-only configuration", () => {
+    const cloud = {
+      VERCEL: "1", DATA_BACKEND: "supabase", FILE_BACKEND: "supabase", AUTH_REQUIRED: "true",
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "public-test",
+      SUPABASE_SECRET_KEY: "server-only-test", ADMIN_USER_ID: "00000000-0000-4000-8000-000000000001"
+    };
+    expect(authRuntimeSafetyError(cloud)).toBeNull();
+    for (const name of ["FILE_BACKEND", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SECRET_KEY", "ADMIN_USER_ID"]) {
+      expect(authRuntimeSafetyError({ ...cloud, [name]: undefined })).toMatch(new RegExp(name));
+    }
+  });
 });
 
 describe("Auth redirect safety", () => {

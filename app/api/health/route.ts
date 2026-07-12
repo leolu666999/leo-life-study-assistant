@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
-import { dbPath, getDb } from "@/lib/db";
-import { appLogDir, appName, dataBackend, dataDir, defaultPort, uploadsDir } from "@/lib/app-config";
 
 export const runtime = "nodejs";
 
 export async function GET() {
+  const appName = "MyAssist";
+  const dataBackend = process.env.DATA_BACKEND?.trim() || "sqlite";
   try {
     if (dataBackend === "supabase") {
-      return NextResponse.json({ ok: true, app: appName, database: "supabase", dataBackend, port: defaultPort, time: new Date().toISOString() });
+      return NextResponse.json({ ok: true, app: appName, database: "supabase", dataBackend, time: new Date().toISOString() }, {
+        headers: { "cache-control": "private, no-store" }
+      });
     }
+    const [{ dbPath, getDb }, { appLogDir, dataDir, defaultPort, uploadsDir }] = await Promise.all([
+      import("@/lib/db"), import("@/lib/app-config")
+    ]);
     getDb().prepare("SELECT 1 AS ok").get();
     return NextResponse.json({
       ok: true,

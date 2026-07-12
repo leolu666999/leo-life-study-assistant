@@ -2,6 +2,20 @@ type RuntimeEnvironment = Record<string, string | undefined>;
 
 export function authRuntimeSafetyError(env: RuntimeEnvironment) {
   const backend = env.DATA_BACKEND || "sqlite";
+  const isVercel = env.VERCEL === "1" || Boolean(env.VERCEL_ENV);
+  if (isVercel) {
+    if (backend !== "supabase") return "Vercel requires DATA_BACKEND=supabase";
+    if (env.FILE_BACKEND !== "supabase") return "Vercel requires FILE_BACKEND=supabase";
+    if (env.AUTH_REQUIRED !== "true") return "Vercel requires AUTH_REQUIRED=true";
+    for (const name of [
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+      "SUPABASE_SECRET_KEY",
+      "ADMIN_USER_ID"
+    ]) {
+      if (!env[name]?.trim()) return `Vercel requires ${name}`;
+    }
+  }
   if (backend === "supabase" && env.AUTH_REQUIRED !== "true") {
     return "DATA_BACKEND=supabase requires AUTH_REQUIRED=true";
   }

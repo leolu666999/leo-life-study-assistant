@@ -8,6 +8,9 @@ function encodeSse(event: string, data: unknown) {
 }
 
 export async function GET() {
+  if (process.env.DATA_BACKEND === "supabase") {
+    return new Response(null, { status: 204, headers: { "cache-control": "private, no-store" } });
+  }
   const encoder = new TextEncoder();
   const emitter = getRealtimeEmitter();
   let heartbeat: ReturnType<typeof setInterval> | undefined;
