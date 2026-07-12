@@ -77,6 +77,7 @@ The existing compatibility endpoint buffers multipart uploads in a Vercel Functi
 ## Secret and data checks
 
 - `.env*`, `data/*`, `uploads/*`, migration reports, build output, and Supabase local state are ignored.
+- `.vercelignore` independently excludes dependencies, build output, SQLite/data/uploads, backups, reports, local Supabase state, and environment files from CLI deployment archives.
 - Only `.env.example`, `data/.gitkeep`, and `uploads/.gitkeep` are tracked.
 - Client static bundle scans must show zero `SUPABASE_SECRET_KEY`, `ADMIN_USER_ID`, test password, or secret value matches.
 - Vercel deployment source must be the GitHub `main` commit after Phase 7A preflight changes are pushed.

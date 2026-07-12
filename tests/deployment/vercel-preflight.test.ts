@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import fs from "node:fs";
 
 const originalBackend = process.env.DATA_BACKEND;
 
@@ -8,6 +9,13 @@ afterEach(() => {
 });
 
 describe("Vercel Cloud-only utility routes", () => {
+  it("excludes every local data and generated directory from CLI deployment", () => {
+    const ignored = fs.readFileSync(".vercelignore", "utf8");
+    for (const entry of ["node_modules/", ".next/", "data/", "uploads/", ".env*", "migration-reports/", "supabase/.temp/"]) {
+      expect(ignored).toContain(entry);
+    }
+  });
+
   it("health reports Supabase without local filesystem paths", async () => {
     process.env.DATA_BACKEND = "supabase";
     const { GET } = await import("@/app/api/health/route");
