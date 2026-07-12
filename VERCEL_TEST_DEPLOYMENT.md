@@ -6,8 +6,8 @@ Status: Preview deployment ready; production remains disabled.
 
 - Project: `lu-zhiyuan/myassist-test`
 - Environment: Vercel Preview
-- URL: `https://myassist-test-odok95h5k-lu-zhiyuan.vercel.app`
-- Deployment: `dpl_DSbzDuzKuLKKR8AYbJDGShjWP7Aq`
+- URL: `https://myassist-test-66wlksycg-lu-zhiyuan.vercel.app`
+- Deployment: `dpl_5jPZHiq3sfW5bwNk77cg6sWSbnYS`
 - Build status: Ready
 - Source upload: 351.5 KB after `.vercelignore`
 - Backend: isolated Supabase test project only
@@ -24,8 +24,8 @@ Phase 7 adds formal username/email login, password recovery, developer messages,
 - Environment: isolated Vercel test deployment
 - Backend: Supabase test project only
 - Custom domain: none
-- Public launch: no
+- Public launch: preview only
 
 The deployment must configure only the seven variable names listed in `VERCEL_DEPLOYMENT_PREFLIGHT.md`. Values are entered through authenticated local CLI/dashboard workflows and are never copied into this document, chat, GitHub, or browser code.
 
-The deployment can be rolled back from the Vercel deployment list without changing Supabase or local data. Production has not been deployed. Physical iPhone/PWA checks remain a maintainer-run step because the current network resets direct `vercel.app` traffic.
+Vercel SSO Deployment Protection is disabled for this test project so ordinary visitors reach MyAssist's own login/register page directly. This does not weaken MyAssist Auth, RLS, Admin API, or Storage isolation. The deployment can be rolled back from the Vercel deployment list without changing Supabase or local data. Production has not been deployed.

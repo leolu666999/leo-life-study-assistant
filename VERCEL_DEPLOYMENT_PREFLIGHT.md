@@ -91,4 +91,4 @@ The existing compatibility endpoint buffers multipart uploads in a Vercel Functi
 4. Automated Storage reconciliation and malware scanning remain future work.
 5. Preview deployments need deliberate Supabase redirect allowlisting; wildcard preview domains should not be broadly allowed for production.
 
-No blocker remains for a maintainer-only test deployment once Vercel authentication and environment configuration are complete.
+No blocker remains for a public-preview test deployment once the required environment configuration is complete. Vercel SSO Deployment Protection should remain disabled for this project so visitors reach the MyAssist login/register page directly; MyAssist Auth, RLS, and server-side admin checks remain the application security boundary.

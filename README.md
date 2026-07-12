@@ -158,6 +158,10 @@ npm run migration:preflight -- --db "/absolute/path/to/snapshot.db"
 
 Every user-facing feature change must update both the in-app guide under Settings and this README in the same change set.
 
+## Vercel Preview 访问 / Preview Access
+
+Vercel Preview 部署用于隔离 Supabase 测试项目。项目级 Vercel SSO Deployment Protection 已关闭，普通访客打开公网链接会直接进入 MyAssist 自己的登录/注册页面，而不是 Vercel 登录页。应用安全仍由 MyAssist 的 Supabase Auth、RLS、server-only Admin API 和 private Storage 策略负责。
+
 ## 架构 / Architecture
 
 - 前端：Next.js App Router + React + Tailwind CSS，页面入口复用 `components/leo-app.tsx`。

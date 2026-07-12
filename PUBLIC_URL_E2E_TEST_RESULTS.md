@@ -1,8 +1,8 @@
 # Public URL E2E Test Results
 
-Status: automated backend/build checks passed; physical cross-device checks pending.
+Status: automated backend/build checks passed; anonymous browser access to MyAssist login verified; physical phone/PWA checks pending.
 
-Preview: `https://myassist-test-odok95h5k-lu-zhiyuan.vercel.app`
+Preview: `https://myassist-test-66wlksycg-lu-zhiyuan.vercel.app`
 
 ## Phase 7 verified
 
@@ -17,13 +17,15 @@ Preview: `https://myassist-test-odok95h5k-lu-zhiyuan.vercel.app`
 - Admin original-file access: 60-second signed URL only.
 - Typecheck and clean production build: passed.
 - Vercel Preview build: Ready.
+- Vercel SSO Deployment Protection: disabled.
+- Anonymous browser visit: HTTP 200 and redirected to `/login?next=%2F` with MyAssist login/register UI.
 - Tracked source/client bundle secret value hits: 0.
 - Desktop finance modal: no vertical or horizontal overflow at 1440x900.
 - Mobile finance modal: single-column vertical scroll and zero horizontal overflow at 390x844.
 
 ## Manual checks still required
 
-- Open the Preview from a phone/another network.
+- Open the Preview from a phone/another network and confirm it reaches MyAssist login/register without Vercel login.
 - Complete email confirmation and password-reset email links using the Preview callback allow-list.
 - Install and relaunch the PWA on iOS/Android.
 - Confirm camera/file picker behavior on a physical phone.
