@@ -1,6 +1,32 @@
 # Public URL E2E Test Results
 
-Status: pending Vercel authentication and test URL creation.
+Status: automated backend/build checks passed; physical cross-device checks pending.
+
+Preview: `https://myassist-test-odok95h5k-lu-zhiyuan.vercel.app`
+
+## Phase 7 verified
+
+- Local contract/security tests: 148/148 passed.
+- Real Supabase Phase 7 tests: 7/7 passed.
+- Real Auth lifecycle tests: 20/20 passed.
+- Username login through `/api/auth/login`: HTTP 200 with an SSR session cookie.
+- Duplicate username and duplicate email: rejected without an extra Auth user.
+- Anonymous contact submission: accepted without exposing stored messages.
+- Anonymous/ordinary direct message reads: denied.
+- Ordinary Admin API access: 403; configured Admin Account: 200.
+- Admin original-file access: 60-second signed URL only.
+- Typecheck and clean production build: passed.
+- Vercel Preview build: Ready.
+- Tracked source/client bundle secret value hits: 0.
+- Desktop finance modal: no vertical or horizontal overflow at 1440x900.
+- Mobile finance modal: single-column vertical scroll and zero horizontal overflow at 390x844.
+
+## Manual checks still required
+
+- Open the Preview from a phone/another network.
+- Complete email confirmation and password-reset email links using the Preview callback allow-list.
+- Install and relaunch the PWA on iOS/Android.
+- Confirm camera/file picker behavior on a physical phone.
 
 The public E2E run will use only the isolated test Supabase project, test Auth accounts, synthetic tasks/To Do/plans/journals/expenses/ICS, and small generated PDF/PNG files. It will not use or migrate the real SQLite database, real timetable, journal, expenses, Important Files, or local uploads.
 
@@ -17,4 +43,4 @@ Required result groups:
 - Isolation: User B and ordinary Admin APIs cannot see User A data.
 - PWA: manifest, icons, service worker registration, API/Auth non-caching.
 
-No test is marked passed until the deployed HTTPS URL and resulting database/object state are checked.
+No physical cross-device item is marked passed until the maintainer runs it on the real device.
