@@ -195,6 +195,8 @@ Phase 7 已加入正式账号和支持入口：注册要求全局唯一用户名
 
 “新增收支”弹窗采用统一 segmented control、金额主视觉、分类 chips、响应式日期/支付方式布局和独立凭证上传卡。桌面端普通 MacBook 视口完整显示；手机端单列纵向滚动，不产生横向滚动。
 
+任务、Deadline 和清单的新建/编辑弹窗暂时隐藏优先级选项。数据库字段与已有记录保持不变；编辑旧任务会保留原优先级，新任务继续使用现有默认值。
+
 安全的环境变量示例见 `.env.example`。`NEXT_PUBLIC_SUPABASE_URL` 与 publishable key 可以进入浏览器；`SUPABASE_SECRET_KEY`、`ADMIN_USER_ID`、数据库密码和 access token 只能留在本机服务端或 CLI，绝不能加 `NEXT_PUBLIC_`，也不能提交到 GitHub。
 
 端口可以通过环境变量调整：

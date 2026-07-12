@@ -3653,6 +3653,7 @@ function UserGuidePage() {
       content: (
         <>
           <p>Task 用于持续推进的事情；Deadline 用于有明确截止时刻的事项。它们都在“任务”页面统一管理。</p>
+          <p>优先级选项目前暂时从所有任务编辑弹窗隐藏；已有任务的优先级数据会保留，新建任务使用系统默认值。</p>
           <p>新建或编辑任务时可以开启进度追踪，设置当前值、目标值和单位。开启固定后，进度条会显示在页面底部。</p>
           <p>任务完成后可在“已完成”中恢复；删除前会出现确认提示。</p>
         </>
@@ -4322,7 +4323,6 @@ function QuickModal({
   const [selectedTaskType, setSelectedTaskType] = useState<TaskType>(
     isDeadlineForm ? "deadline" : normalizeType(task?.type || "todo")
   );
-  const [priority, setPriority] = useState<Task["priority"]>(task?.priority || "medium");
   const [taskTags, setTaskTags] = useState<string[]>(() => {
     const initialTags = task?.tags || [];
     return normalizeType(task?.type) === "checklist" && !initialTags.includes("清单")
@@ -4452,7 +4452,7 @@ function QuickModal({
               description: form.get("description"),
               type: isDeadlineForm ? "deadline" : selectedTaskType,
               status: isDeadlineForm ? task?.status ?? "not_started" : form.get("status"),
-              priority: form.get("priority") || "medium",
+              priority: task?.priority || "medium",
               tags: selectedTaskType === "checklist" && !taskTags.includes("清单") ? [...taskTags, "清单"] : taskTags,
               subtasks: selectedTaskType === "checklist"
                 ? checklistItems
@@ -4569,31 +4569,6 @@ function QuickModal({
               }}
             />
             <textarea name="description" className="min-h-[90px] rounded-lg border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="描述" defaultValue={task?.description || ""} />
-            <div className="grid gap-2">
-              <input type="hidden" name="priority" value={priority} />
-              <div className="text-xs font-medium text-slate-500">优先级</div>
-              <div className="grid grid-cols-3 gap-2 rounded-full bg-slate-100 p-1">
-                {([
-                  ["low", "低"],
-                  ["medium", "中"],
-                  ["high", "高"]
-                ] as const).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`rounded-full px-3 py-2 text-sm font-medium transition ${
-                      priority === value ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-white"
-                    }`}
-                    onClick={() => {
-                      setPriority(value);
-                      setDirty(true);
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
             {!isDeadlineForm && (
               <div className="grid gap-3 md:grid-cols-2">
                 <Select
