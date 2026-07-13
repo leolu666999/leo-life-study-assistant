@@ -3232,7 +3232,7 @@ function ExpensesPage({
                 title={expense.receiptFileId ? "查看小票" : "没有小票"}
               >
                 {expense.receiptFileId && isImageMime(expense.receiptMimeType) ? (
-                  <img src={`/api/uploads/${expense.receiptFileId}`} alt="小票缩略图" className="h-full w-full object-cover" />
+                  <UploadImage fileId={expense.receiptFileId} alt="小票缩略图" className="h-full w-full object-cover" />
                 ) : expense.receiptFileId ? (
                   <ImageIcon size={20} />
                 ) : (
@@ -3283,7 +3283,7 @@ function ExpensesPage({
                 <X size={16} />
               </button>
             </div>
-            <img src={`/api/uploads/${previewFileId}`} alt="小票大图" className="max-h-[78vh] w-full rounded-lg object-contain" />
+            <UploadImage fileId={previewFileId} alt="小票大图" className="max-h-[78vh] w-full rounded-lg object-contain" />
           </div>
         </div>
       )}
@@ -3347,7 +3347,7 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
                 title="查看文件"
               >
                 {isImageMime(file.mimeType) ? (
-                  <img src={`/api/uploads/${file.fileId}`} alt={file.title} className="h-full w-full object-cover" />
+                  <UploadImage fileId={file.fileId} alt={file.title} className="h-full w-full object-cover" />
                 ) : (
                   <FileText size={34} />
                 )}
@@ -3422,7 +3422,7 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
               </button>
             </div>
             {isImageMime(previewFile.mimeType) ? (
-              <img src={`/api/uploads/${previewFile.fileId}`} alt={previewFile.title} className="max-h-[70vh] w-full rounded-lg object-contain" />
+              <UploadImage fileId={previewFile.fileId} alt={previewFile.title} className="max-h-[70vh] w-full rounded-lg object-contain" />
             ) : (
               <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
                 <div className="font-medium text-slate-900">{previewFile.originalName}</div>
@@ -3686,6 +3686,7 @@ function UserGuidePage() {
         <>
           <p>Cloud 版本注册时需要唯一用户名、邮箱和密码；登录时可输入用户名或邮箱。忘记密码可从登录页进入“找回密码”，通过注册邮箱接收重置链接。</p>
           <p>邮件确认和密码重置会回到当前使用的 MyAssist 地址：本地开发为 localhost:3011，公网测试为 Vercel HTTPS 域名。旧邮件如果提示 otp_expired，需要重新发送。</p>
+          <p>登录页可以显示/隐藏密码，也可以选择是否在这台电脑保持登录；不勾选时登录状态随浏览器会话结束。</p>
           <p>设置页的“联系开发者”可提交问题或建议。未登录时也可从找回密码页进入留言板；开发者联系方式未配置时会显示“暂未配置”。</p>
           <p>独立管理员账号可进入 Admin Dashboard 查看用户概览、各模块数据和留言。普通账号无法进入，文件原件只通过短期链接查看。</p>
         </>
@@ -3706,6 +3707,7 @@ function UserGuidePage() {
         <>
           <p>文件页用于保存签证、学校、住宿、保险等资料。上传后可设置分类、标签、备注和到期日。</p>
           <p>本地模式的文件本体保存在电脑 uploads 目录；Cloud 测试模式使用当前账号私有的 Supabase Storage。具体本地路径可在“设置 → 本地存储”查看。</p>
+          <p>Cloud 模式下图片缩略图和预览会使用短期 signed URL 加载，链接会自动失效；这不会把文件变成公开文件。</p>
         </>
       )
     },
@@ -4255,7 +4257,7 @@ function ExpenseModal({
           {receiptPreviewUrl ? (
             <img src={receiptPreviewUrl} alt="小票预览" className="h-40 w-full rounded-lg border border-slate-100 object-contain" />
           ) : receiptFileId && isImageMime(expense?.receiptMimeType || "") && (
-            <img src={`/api/uploads/${receiptFileId}`} alt="小票预览" className="h-40 w-full rounded-lg border border-slate-100 object-contain" />
+            <UploadImage fileId={receiptFileId} alt="小票预览" className="h-40 w-full rounded-lg border border-slate-100 object-contain" />
           )}
         </div>
 
@@ -5454,6 +5456,26 @@ function formatExpenseTotals(totals: Record<string, number>) {
 
 function isImageMime(mime?: string | null) {
   return !mime || mime.startsWith("image/");
+}
+
+function UploadImage({ fileId, alt, className }: { fileId: string; alt: string; className?: string }) {
+  const [src, setSrc] = useState(`/api/uploads/${fileId}`);
+
+  useEffect(() => {
+    let active = true;
+    setSrc(`/api/uploads/${fileId}`);
+    fetch(`/api/uploads/${fileId}?signed=1`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (active && data?.url) setSrc(String(data.url));
+      })
+      .catch(() => {
+        if (active) setSrc(`/api/uploads/${fileId}`);
+      });
+    return () => { active = false; };
+  }, [fileId]);
+
+  return <img src={src} alt={alt} className={className} />;
 }
 
 function statusLabel(status: string) {

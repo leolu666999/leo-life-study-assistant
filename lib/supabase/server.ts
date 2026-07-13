@@ -47,7 +47,12 @@ export function createSupabaseAdminClient(): SupabaseClient {
   );
 }
 
-export async function createSupabaseServerClient() {
+function sessionCookieOptions(options: Record<string, unknown>) {
+  const { maxAge: _maxAge, expires: _expires, ...sessionOptions } = options;
+  return sessionOptions;
+}
+
+export async function createSupabaseServerClient(options: { sessionOnly?: boolean } = {}) {
   const cookieStore = await cookies();
   return createServerClient(
     requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
@@ -57,7 +62,9 @@ export async function createSupabaseServerClient() {
         getAll: () => cookieStore.getAll(),
         setAll: (cookiesToSet) => {
           try {
-            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+            cookiesToSet.forEach(({ name, value, options: cookieOptions }) => {
+              cookieStore.set(name, value, options.sessionOnly ? sessionCookieOptions(cookieOptions) : cookieOptions);
+            });
           } catch {
             // Server Components cannot write cookies; middleware refreshes them.
           }

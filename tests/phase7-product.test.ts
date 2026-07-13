@@ -27,8 +27,19 @@ describe("Phase 7 production account and contact contracts", () => {
     const contact = read("app/api/developer-contact/route.ts");
     expect(login).toContain('from("profiles")');
     expect(login).toContain("createSupabaseAdminClient");
+    expect(login).toContain("rememberMe");
+    expect(login).toContain("myassist_session_only");
     expect(contact).toContain("authenticatedRequestUser");
     expect(contact).not.toContain("user_id: body");
+  });
+
+  it("supports visible password controls and signed private image previews", () => {
+    const authForm = read("components/auth/auth-form.tsx");
+    const app = read("components/leo-app.tsx");
+    expect(authForm).toContain("显示密码");
+    expect(authForm).toContain("在这台电脑保持登录");
+    expect(app).toContain("?signed=1");
+    expect(app).toContain("function UploadImage");
   });
 
   it("protects admin pages and all elevated routes", () => {

@@ -7,6 +7,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const identifier = String(body.identifier || "").trim();
   const password = String(body.password || "");
+  const rememberMe = body.rememberMe !== false;
   if (!identifier || !password) return NextResponse.json({ error: "请输入用户名或邮箱和密码。" }, { status: 400 });
 
   let email = identifier;
@@ -22,7 +23,13 @@ export async function POST(request: Request) {
     email = data.user.email;
   }
 
-  const { error } = await (await createSupabaseServerClient()).auth.signInWithPassword({ email, password });
+  const { error } = await (await createSupabaseServerClient({ sessionOnly: !rememberMe })).auth.signInWithPassword({ email, password });
   if (error) return NextResponse.json({ error: "用户名、邮箱或密码不正确。" }, { status: 401 });
-  return NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true });
+  if (rememberMe) {
+    response.cookies.delete("myassist_session_only");
+  } else {
+    response.cookies.set("myassist_session_only", "1", { path: "/", sameSite: "lax" });
+  }
+  return response;
 }

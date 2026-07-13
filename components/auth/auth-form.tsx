@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { buildAuthCallbackUrl } from "@/lib/auth/callback-url";
 import { safeRedirectPath } from "@/lib/auth/redirect";
@@ -13,6 +14,9 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -32,7 +36,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
         const response = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ identifier: email.trim(), password })
+          body: JSON.stringify({ identifier: email.trim(), password, rememberMe })
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "登录失败。");
@@ -104,29 +108,60 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
       {needsPassword && (
         <label className="grid gap-2 text-sm font-medium text-slate-700">
           {mode === "reset" ? "新密码" : "密码"}
-          <input
-            required
-            minLength={8}
-            type="password"
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="h-11 rounded-lg border border-slate-200 px-3 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
-          />
+          <span className="relative block">
+            <input
+              required
+              minLength={8}
+              type={showPassword ? "text" : "password"}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="h-11 w-full rounded-lg border border-slate-200 px-3 pr-11 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
+            />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 rounded-md p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? "隐藏密码" : "显示密码"}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </span>
         </label>
       )}
       {mode === "reset" && (
         <label className="grid gap-2 text-sm font-medium text-slate-700">
           再次输入新密码
+          <span className="relative block">
+            <input
+              required
+              minLength={8}
+              type={showConfirmation ? "text" : "password"}
+              autoComplete="new-password"
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              className="h-11 w-full rounded-lg border border-slate-200 px-3 pr-11 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
+            />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 rounded-md p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+              onClick={() => setShowConfirmation((value) => !value)}
+              aria-label={showConfirmation ? "隐藏确认密码" : "显示确认密码"}
+            >
+              {showConfirmation ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </span>
+        </label>
+      )}
+      {mode === "login" && (
+        <label className="flex items-center gap-2 text-sm text-slate-600">
           <input
-            required
-            minLength={8}
-            type="password"
-            autoComplete="new-password"
-            value={confirmation}
-            onChange={(event) => setConfirmation(event.target.value)}
-            className="h-11 rounded-lg border border-slate-200 px-3 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(event) => setRememberMe(event.target.checked)}
+            className="h-4 w-4 rounded border-slate-300"
           />
+          在这台电脑保持登录
         </label>
       )}
       {mode === "login" && <div className="text-right"><Link href="/forgot-password" className="text-sm text-slate-600 hover:text-slate-950">找回密码</Link></div>}

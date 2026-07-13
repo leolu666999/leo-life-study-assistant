@@ -10,6 +10,11 @@ function authConfiguration() {
   return url && publishableKey ? { url, publishableKey } : null;
 }
 
+function sessionCookieOptions(options: Record<string, unknown>) {
+  const { maxAge: _maxAge, expires: _expires, ...sessionOptions } = options;
+  return sessionOptions;
+}
+
 export async function middleware(request: NextRequest) {
   const safetyError = authRuntimeSafetyError(process.env);
   if (safetyError) {
@@ -25,13 +30,16 @@ export async function middleware(request: NextRequest) {
   }
 
   let response = NextResponse.next({ request });
+  const sessionOnly = request.cookies.get("myassist_session_only")?.value === "1";
   const supabase = createServerClient(configuration.url, configuration.publishableKey, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (cookiesToSet) => {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, sessionOnly ? sessionCookieOptions(options) : options);
+        });
       }
     }
   });
