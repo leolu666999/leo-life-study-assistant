@@ -4377,7 +4377,7 @@ function QuickModal({
               title: form.get("title"),
               description: form.get("description"),
               type: isDeadlineForm ? "deadline" : selectedTaskType,
-              status: isDeadlineForm ? task?.status ?? "not_started" : form.get("status"),
+              status: task ? undefined : "not_started",
               priority: task?.priority || "medium",
               tags: selectedTaskType === "checklist" && !taskTags.includes("清单") ? [...taskTags, "清单"] : taskTags,
               subtasks: selectedTaskType === "checklist"
@@ -4496,7 +4496,7 @@ function QuickModal({
             </div>
             <textarea name="description" className="min-h-[90px] rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="描述" defaultValue={task?.description || ""} />
             {!isDeadlineForm && (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3">
                 <Select
                   name="type"
                   value={selectedTaskType}
@@ -4507,7 +4507,6 @@ function QuickModal({
                     ["checklist", "清单"]
                   ]}
                 />
-                <Select name="status" defaultValue={task?.status === "archived" ? "completed" : task?.status || "not_started"} options={[["not_started", "未开始"], ["in_progress", "进行中"], ["completed", "已完成"]]} />
               </div>
             )}
             {!isDeadlineForm && selectedTaskType === "checklist" && (

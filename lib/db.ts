@@ -858,8 +858,13 @@ function syncTaskSubtasks(taskId: string, drafts: SubtaskDraftInput[], db = getD
 
 export function setSubtaskCompleted(id: string, completed: boolean) {
   const db = getDb();
-  db.prepare("UPDATE subtasks SET completed = ?, updatedAt = ? WHERE id = ?").run(completed ? 1 : 0, now(), id);
+  const timestamp = now();
+  db.prepare("UPDATE subtasks SET completed = ?, updatedAt = ? WHERE id = ?").run(completed ? 1 : 0, timestamp, id);
   const row = db.prepare("SELECT * FROM subtasks WHERE id = ?").get(id);
+  if (row) {
+    db.prepare("UPDATE tasks SET status = 'in_progress', updatedAt = ? WHERE id = ? AND status = 'not_started'")
+      .run(timestamp, String((row as { taskId?: unknown }).taskId ?? ""));
+  }
   return row ? rowToSubtask(row) : null;
 }
 
@@ -905,11 +910,8 @@ export function updateTask(id: string, input: TaskInput) {
   };
   next.tags = normalizeTaskTags(next.type, next.tags);
 
-  const progressChanged =
-    input.progressCurrent !== undefined &&
-    Number(input.progressCurrent ?? 0) > 0 &&
-    current.status === "not_started";
-  if (progressChanged) next.status = "in_progress";
+  const shouldAutoStart = input.status === undefined && current.status === "not_started";
+  if (shouldAutoStart) next.status = "in_progress";
   if (next.pinnedToBottom) {
     db.prepare("UPDATE tasks SET pinnedToBottom = 0 WHERE id != ?").run(id);
     db.prepare("UPDATE progress_items SET pinned = 0").run();
