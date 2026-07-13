@@ -11,9 +11,13 @@ afterEach(() => {
 describe("Vercel Cloud-only utility routes", () => {
   it("excludes every local data and generated directory from CLI deployment", () => {
     const ignored = fs.readFileSync(".vercelignore", "utf8");
-    for (const entry of ["node_modules/", ".next/", "data/", "uploads/", ".env*", "migration-reports/", "supabase/.temp/"]) {
+    for (const entry of ["/node_modules/", "/.next/", "/data/", "/uploads/", ".env*", "/migration-reports/", "/supabase/.temp/"]) {
       expect(ignored).toContain(entry);
     }
+    expect(ignored).not.toMatch(/^uploads\/$/m);
+    expect(ignored).not.toMatch(/^data\/$/m);
+    expect(fs.existsSync("app/api/uploads/[id]/route.ts")).toBe(true);
+    expect(fs.existsSync("app/api/admin/users/[userId]/data/route.ts")).toBe(true);
   });
 
   it("health reports Supabase without local filesystem paths", async () => {
