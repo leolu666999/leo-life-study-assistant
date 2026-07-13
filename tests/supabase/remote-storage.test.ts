@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createServerClient } from "@supabase/ssr";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { POST as upload } from "@/app/api/upload/route";
 import { GET as download } from "@/app/api/uploads/[id]/route";
@@ -46,6 +47,24 @@ function request(path: string, session?: Session, method = "GET", body?: unknown
       ...(body === undefined ? {} : { "content-type": "application/json" })
     },
     body: body === undefined ? undefined : JSON.stringify(body)
+  });
+}
+
+async function cookieRequest(path: string, session: Session) {
+  const jar = new Map<string, string>();
+  const cookieClient = createServerClient(url, key, {
+    cookies: {
+      getAll: () => [...jar].map(([name, value]) => ({ name, value })),
+      setAll: (values) => values.forEach(({ name, value }) => jar.set(name, value))
+    }
+  });
+  const { error } = await cookieClient.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token
+  });
+  if (error) throw error;
+  return new Request(`http://local.test${path}`, {
+    headers: { cookie: [...jar].map(([name, value]) => `${name}=${encodeURIComponent(value)}`).join("; ") }
   });
 }
 
@@ -159,6 +178,14 @@ describe.sequential("Phase 6 real Supabase Storage", () => {
     expect(Buffer.from(await own.arrayBuffer())).toEqual(pdfBytes);
     expect((await download(request(`/api/uploads/${importantUploadA.id}`, b), params(importantUploadA.id))).status).toBe(404);
     expect((await download(request(`/api/uploads/${importantUploadA.id}`, admin), params(importantUploadA.id))).status).toBe(404);
+  });
+
+  it("6b. browser Cookie Session can load the owner's private image route", async () => {
+    const own = await download(await cookieRequest(`/api/uploads/${importantUploadA.id}?preview=1`, a), params(importantUploadA.id));
+    expect(own.status).toBe(200);
+    expect(Buffer.from(await own.arrayBuffer())).toEqual(pdfBytes);
+    expect(own.headers.get("cache-control")).toContain("no-store");
+    expect(own.headers.get("vary")).toContain("Cookie");
   });
 
   it("7. signed download URL is short-lived, owner-only, and not persisted", async () => {
