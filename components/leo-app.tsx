@@ -105,7 +105,7 @@ type SyncState = {
 type SaveRequest = (url: string, options?: RequestInit) => Promise<Response | void>;
 type AuthStatus = {
   authRequired: boolean;
-  user: { id: string; email: string | null } | null;
+  user: { id: string; email: string | null; username?: string | null } | null;
   isAdmin: boolean;
 };
 type ScheduleEvent = {
@@ -3736,7 +3736,7 @@ function UserGuidePage() {
         <>
           <p>任务、清单和记录存放在本地 SQLite 数据库，上传文件存放在本地 uploads 目录，不会进入 Git。</p>
           <p>开启 Auth 测试不会迁移或读取真实数据；如果测试配置指向真实 Application Support、仓库 data/uploads 或系统临时目录之外，MyAssist 会拒绝业务访问。</p>
-          <p>不要手动删除应用数据目录。更新代码不会覆盖这些数据；需要备份时，可在设置页导出 JSON 备份。</p>
+          <p>不要手动删除应用数据目录。更新代码不会覆盖这些数据；需要备份时，后续会提供更清晰的备份与恢复入口。</p>
         </>
       )
     }
@@ -3881,7 +3881,7 @@ function SettingsPage({
 
   return (
     <>
-      <PageHeader title="设置" subtitle="本地路径、背景、备份和未来功能占位。" />
+      <PageHeader title="设置" subtitle="账号、手机访问、本地存储和外观偏好。" />
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center lg:col-span-2">
           <div className="flex items-start gap-3">
@@ -3912,7 +3912,10 @@ function SettingsPage({
           <section className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center lg:col-span-2">
             <div>
               <h2 className="font-semibold">当前账号</h2>
-              <p className="mt-1 text-sm text-slate-500">{authStatus.user.email || "已登录账号"}</p>
+              <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                <InfoRow label="用户名" value={authStatus.user.username || "未设置"} />
+                <InfoRow label="邮箱地址" value={authStatus.user.email || "未设置"} />
+              </div>
               <p className="mt-1 text-xs text-slate-400">{authStatus.isAdmin ? "独立管理员账号" : "普通个人账号"}</p>
             </div>
             <form action="/auth/signout" method="post">
@@ -3964,9 +3967,6 @@ function SettingsPage({
           <InfoRow label="数据库路径" value={storageInfo.databasePath} />
           <InfoRow label="上传路径" value={storageInfo.uploadsDir} />
           <InfoRow label="服务端口" value={storageInfo.port} />
-          <a className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" href="/api/backup/export">
-            <Download size={16} /> 导出 JSON 备份
-          </a>
         </section>
         <section className="rounded-lg bg-white p-4 shadow-soft">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -4064,15 +4064,6 @@ function SettingsPage({
             />
           </label>
           {uploadMessage && <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{uploadMessage}</div>}
-        </section>
-        <section className="rounded-lg bg-white p-4 shadow-soft">
-          <SectionTitle title="未来功能占位" />
-          <div className="space-y-2 text-sm text-slate-600">
-            <div>Import backup：占位，MVP 暂不导入。</div>
-            <div>Canvas / USYD sync：占位，MVP 暂不同步。</div>
-            <div>OCR 手写计划：占位，MVP 暂不识别。</div>
-            <div>AI 周/月复盘：占位，MVP 暂不启用。</div>
-          </div>
         </section>
       </div>
     </>
