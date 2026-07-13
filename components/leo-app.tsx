@@ -3809,7 +3809,6 @@ function SettingsPage({
   const [showHomeTitleDraft, setShowHomeTitleDraft] = useState(appSettings.showHomeTitle);
   const [savingHomeSettings, setSavingHomeSettings] = useState(false);
   const [homeSettingsMessage, setHomeSettingsMessage] = useState("");
-  const [currentUrl, setCurrentUrl] = useState("http://电脑局域网IP:3011");
   const [phoneUrl, setPhoneUrl] = useState("");
   const [storageInfo, setStorageInfo] = useState({
     databasePath: "正在读取...",
@@ -3819,7 +3818,6 @@ function SettingsPage({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setCurrentUrl(`${window.location.protocol}//${window.location.host}`);
 
     async function refreshNetworkUrl() {
       try {
@@ -3962,12 +3960,8 @@ function SettingsPage({
             <SectionTitle title="手机访问 / 同步状态" />
             <SyncStatusPill state={syncState} />
           </div>
-          <InfoRow label="当前端口" value={storageInfo.port} />
-          <InfoRow label="当前打开地址" value={currentUrl} />
-          <InfoRow label="手机输入这个网址" value={phoneUrl || "正在读取电脑局域网 IP..."} />
           {syncState.lastSyncAt && <InfoRow label="上次同步" value={formatDateTime(syncState.lastSyncAt)} />}
           <div className="space-y-3 text-sm text-slate-600">
-            <p>电脑和手机连接同一个 Wi‑Fi，或者电脑连接手机热点后，在手机浏览器里输入下面这个地址。</p>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <div className="text-slate-500">实时手机访问网址</div>
               <div className="mt-1 break-all font-mono text-base font-semibold text-slate-900">{phoneUrl || "正在读取..."}</div>
