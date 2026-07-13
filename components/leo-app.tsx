@@ -4416,10 +4416,6 @@ function QuickModal({
 
         {mode === "todoList" ? (
           <div className="grid gap-3">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
-              <div className="text-xs text-slate-500">标题</div>
-              <div className="mt-1 text-sm font-semibold text-slate-900">{buildTodoListTitle(todoDate)}</div>
-            </div>
             <Input name="date" type="date" value={todoDate} onChange={(event) => setTodoDate(event.target.value)} required />
             <TodoChecklistEditor
               items={todoItems}
