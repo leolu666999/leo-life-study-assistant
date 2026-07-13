@@ -3424,7 +3424,7 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
               <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
                 <div className="font-medium text-slate-900">{previewFile.originalName}</div>
                 <div className="mt-1">{previewFile.mimeType}</div>
-                <a className="mt-3 inline-flex rounded-lg bg-slate-900 px-3 py-2 text-white" href={`/api/uploads/${previewFile.fileId}`} target="_blank" rel="noreferrer">
+                <a className="mt-3 inline-flex rounded-lg bg-slate-900 px-3 py-2 text-white" href={`/api/private-files/${previewFile.fileId}`} target="_blank" rel="noreferrer">
                   打开文件
                 </a>
               </div>
@@ -3704,7 +3704,7 @@ function UserGuidePage() {
         <>
           <p>文件页用于保存签证、学校、住宿、保险等资料。上传后可设置分类、标签、备注和到期日。</p>
           <p>本地模式的文件本体保存在电脑 uploads 目录；Cloud 测试模式使用当前账号私有的 Supabase Storage。具体本地路径可在“设置 → 本地存储”查看。</p>
-          <p>Cloud 模式下图片缩略图和预览通过 MyAssist 的受保护接口加载。服务端会读取当前登录 Session、核对当前账号是否为文件所有者，并禁止共享缓存，不会把文件变成公开文件。</p>
+          <p>Cloud 模式下图片缩略图和预览通过 MyAssist 独立的私有文件接口加载。服务端会读取当前登录 Session、核对当前账号是否为文件所有者，并强制禁止缓存，不会把文件变成公开文件。</p>
           <p>其他私人数据接口同样不会使用共享缓存，因此在同一台设备切换账号时，不会复用上一个账号的任务、收支或文件响应。</p>
         </>
       )
@@ -5389,7 +5389,7 @@ function UploadImage({ fileId, alt, className }: { fileId: string; alt: string; 
   return (
     <img
       key={`${fileId}-${retry}`}
-      src={`/api/uploads/${fileId}?preview=1&retry=${retry}`}
+      src={`/api/private-files/${fileId}?preview=1&retry=${retry}`}
       alt={alt}
       className={className}
       onError={() => {
