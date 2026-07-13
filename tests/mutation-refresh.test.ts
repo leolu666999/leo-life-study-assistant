@@ -1,0 +1,19 @@
+import { describe, expect, it } from "vitest";
+import { mutationRefreshScope } from "@/lib/mutation-refresh";
+
+describe("mutation refresh scope", () => {
+  it("keeps expense changes inside finance state", () => {
+    expect(mutationRefreshScope("/api/expenses")).toBe("expenses");
+    expect(mutationRefreshScope("/api/expenses/expense-id")).toBe("expenses");
+  });
+
+  it("does not reload the application after a raw upload", () => {
+    expect(mutationRefreshScope("/api/upload")).toBe("none");
+  });
+
+  it("maps related task endpoints to one targeted scope", () => {
+    expect(mutationRefreshScope("/api/tasks/task-id/complete")).toBe("tasks");
+    expect(mutationRefreshScope("/api/subtasks/subtask-id")).toBe("tasks");
+    expect(mutationRefreshScope("/api/progress/progress-id")).toBe("tasks");
+  });
+});

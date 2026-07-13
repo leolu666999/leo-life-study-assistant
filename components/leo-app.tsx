@@ -51,6 +51,7 @@ import type {
   TodoListItem
 } from "@/lib/types";
 import { currencies } from "@/lib/currencies";
+import { mutationRefreshScope, type MutationRefreshScope } from "@/lib/mutation-refresh";
 
 type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "courses" | "schedule" | "guide" | "journal" | "archive" | "settings";
 type ModalMode = "task" | "deadline" | "plan" | "todoList" | "counter" | "expense" | null;
@@ -103,6 +104,19 @@ type SyncState = {
   message: string;
 };
 type SaveRequest = (url: string, options?: RequestInit) => Promise<Response | void>;
+
+function realtimeEntityScope(entity?: string): MutationRefreshScope {
+  if (!entity) return "all";
+  if (entity === "expenses") return "expenses";
+  if (["tasks", "subtasks", "progress"].includes(entity)) return "tasks";
+  if (["todo-lists", "todo-list-items"].includes(entity)) return "todo";
+  if (entity === "plans") return "plans";
+  if (entity === "journal") return "journal";
+  if (["important-files", "uploads"].includes(entity)) return "files";
+  if (["timetable", "courses"].includes(entity)) return "timetable";
+  if (entity === "settings") return "settings";
+  return "all";
+}
 type AuthStatus = {
   authRequired: boolean;
   user: { id: string; email: string | null; username?: string | null } | null;
@@ -359,6 +373,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const syncLockRef = useRef(false);
   const lastAutoSyncFailedAtRef = useRef(0);
   const lastRealtimeRefreshAtRef = useRef(0);
+  const localMutationInFlightRef = useRef(0);
   const notifiedReminderKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -432,11 +447,17 @@ export function LeoApp({ initialView }: { initialView: View }) {
         message: current.pendingCount > 0 ? "已连接电脑，有待同步内容。" : "已连接电脑。"
       }));
     });
-    events.addEventListener("data-change", () => {
+    events.addEventListener("data-change", (message) => {
+      if (localMutationInFlightRef.current > 0) return;
       const nowTime = Date.now();
       if (nowTime - lastRealtimeRefreshAtRef.current < 250) return;
       lastRealtimeRefreshAtRef.current = nowTime;
-      void loadAll(false);
+      try {
+        const event = JSON.parse((message as MessageEvent<string>).data) as { entity?: string };
+        void refreshMutationScope(realtimeEntityScope(event.entity));
+      } catch {
+        void loadAll(false);
+      }
     });
     events.onerror = () => {
       setSyncState((current) => ({
@@ -489,6 +510,92 @@ export function LeoApp({ initialView }: { initialView: View }) {
     setImportantFiles(importantFileData);
     setAppSettings(settingsData);
     if (showLoading) setLoading(false);
+  }
+
+  async function refreshMutationScope(scope: MutationRefreshScope) {
+    if (scope === "none") return;
+    if (scope === "all") {
+      await loadAll(false);
+      return;
+    }
+    if (scope === "expenses") {
+      const [expenseData, settingsData] = await Promise.all([
+        fetchJsonOr<Expense[]>("/api/expenses", expenses),
+        fetchJsonOr<AppSettings>("/api/settings", appSettings)
+      ]);
+      setExpenses(expenseData);
+      setAppSettings(settingsData);
+      return;
+    }
+    if (scope === "tasks") {
+      const [taskData, archiveData, progressData, planData] = await Promise.all([
+        fetchJsonOr<Task[]>("/api/tasks", tasks),
+        fetchJsonOr<Task[]>("/api/archive", archiveTasks),
+        fetchJsonOr<ProgressItem[]>("/api/progress", progress),
+        fetchJsonOr<Plan[]>("/api/plans", plans)
+      ]);
+      setTasks(taskData);
+      setArchiveTasks(archiveData);
+      setProgress(progressData);
+      setPlans(planData);
+      return;
+    }
+    if (scope === "todo") {
+      setTodoLists(await fetchJsonOr<TodoList[]>("/api/todo-lists", todoLists));
+      return;
+    }
+    if (scope === "plans") {
+      const [planData, taskData, archiveData, journalData] = await Promise.all([
+        fetchJsonOr<Plan[]>("/api/plans", plans),
+        fetchJsonOr<Task[]>("/api/tasks", tasks),
+        fetchJsonOr<Task[]>("/api/archive", archiveTasks),
+        fetchJsonOr<JournalEntry[]>("/api/journal", journal)
+      ]);
+      setPlans(planData);
+      setTasks(taskData);
+      setArchiveTasks(archiveData);
+      setJournal(journalData);
+      return;
+    }
+    if (scope === "journal") {
+      setJournal(await fetchJsonOr<JournalEntry[]>("/api/journal", journal));
+      return;
+    }
+    if (scope === "files") {
+      setImportantFiles(await fetchJsonOr<ImportantFile[]>("/api/important-files", importantFiles));
+      return;
+    }
+    if (scope === "timetable") {
+      const [courseData, timetableData] = await Promise.all([
+        fetchJsonOr<Course[]>("/api/courses", courses),
+        fetchJsonOr<{ occurrences: CourseOccurrence[] }>("/api/timetable?includeCancelled=1", { occurrences: courseOccurrences })
+      ]);
+      setCourses(courseData);
+      setCourseOccurrences(timetableData.occurrences);
+      return;
+    }
+    setAppSettings(await fetchJsonOr<AppSettings>("/api/settings", appSettings));
+  }
+
+  function applyExpenseMutation(url: string, method: string, data: unknown, body: BodyInit | null | undefined) {
+    const id = url.match(/^\/api\/expenses\/([^/?]+)/)?.[1];
+    if (method === "DELETE" && id) {
+      setExpenses((current) => current.filter((expense) => expense.id !== id));
+      return true;
+    }
+    if (!data || typeof data !== "object" || !("id" in data)) return false;
+    const savedExpense = data as Expense;
+    setExpenses((current) => [savedExpense, ...current.filter((expense) => expense.id !== savedExpense.id)]);
+    if (typeof body === "string") {
+      try {
+        const payload = JSON.parse(body) as { currency?: AppSettings["lastUsedCurrency"] };
+        const currency = payload.currency;
+        if (currency) setAppSettings((current) => ({ ...current, lastUsedCurrency: currency }));
+      } catch {
+        // Keep the saved row visible even if a future caller uses a different body format.
+      }
+    }
+    return true;
   }
 
   async function loadAuthStatus() {
@@ -631,6 +738,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
       message: "正在保存..."
     }));
 
+    localMutationInFlightRef.current += 1;
     try {
       const response = await fetch(url, {
         ...options,
@@ -643,7 +751,11 @@ export function LeoApp({ initialView }: { initialView: View }) {
         saveStatus: "saved",
         message: "已保存到电脑。"
       }));
-      await loadAll(false);
+      const scope = mutationRefreshScope(url);
+      const responseData = await response.clone().json().catch(() => null);
+      const method = (options.method || "GET").toUpperCase();
+      const appliedLocally = scope === "expenses" && applyExpenseMutation(url, method, responseData, options.body);
+      if (!appliedLocally) await refreshMutationScope(scope);
       await refreshOfflineCounts();
       return response;
     } catch (error) {
@@ -666,6 +778,8 @@ export function LeoApp({ initialView }: { initialView: View }) {
       }));
       await refreshOfflineCounts();
       return undefined;
+    } finally {
+      localMutationInFlightRef.current = Math.max(0, localMutationInFlightRef.current - 1);
     }
   }
 
@@ -1006,7 +1120,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
             setEditingTask(null);
             setEditingExpense(null);
           }}
-          onCreated={() => loadAll(false)}
+          onCreated={async () => undefined}
           onSaveRequest={saveRequest}
         />
       )}
@@ -3673,6 +3787,7 @@ function UserGuidePage() {
           <p>在“收支”中选择收入或支出，填写金额、币种、分类和日期。支持 AUD、USD、CNY、EUR、GBP、JPY 等 21 种主流货币。</p>
           <p>新增收支时先选择支出或收入，再填写醒目的金额区域并点击分类标签。日期与支付方式可快速录入，凭证区支持图片或 PDF；手机端会自动改为单列。</p>
           <p>第一次新增账目时需要手动选择货币。成功保存后，下一次会默认使用最近一次保存的货币；只切换但不保存不会改变默认值。</p>
+          <p>网页版保存后会直接更新当前收支列表和首页统计，不会整页刷新，也不会重新加载任务、课程、日记等无关内容。</p>
           <p>今日、本周和本月的收入、支出与结余会按币种分别统计，不会把不同货币直接相加。</p>
         </>
       )

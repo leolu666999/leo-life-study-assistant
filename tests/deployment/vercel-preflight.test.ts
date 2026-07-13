@@ -9,6 +9,11 @@ afterEach(() => {
 });
 
 describe("Vercel Cloud-only utility routes", () => {
+  it("runs server functions beside the Sydney Supabase project", () => {
+    const config = JSON.parse(fs.readFileSync("vercel.json", "utf8"));
+    expect(config.regions).toEqual(["syd1"]);
+  });
+
   it("excludes every local data and generated directory from CLI deployment", () => {
     const ignored = fs.readFileSync(".vercelignore", "utf8");
     for (const entry of ["/node_modules/", "/.next/", "/data/", "/uploads/", ".env*", "/migration-reports/", "/supabase/.temp/"]) {
