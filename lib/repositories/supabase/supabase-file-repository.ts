@@ -133,7 +133,7 @@ export const supabaseFileRepository: FileRepository = {
     if (!row?.bucket || !row.object_path) return null;
     const ttl = Math.max(1, Math.min(300, Math.floor(expiresIn)));
     const { client } = requireSupabaseContext(context);
-    const { data, error } = await client.storage.from(String(row.bucket)).createSignedUrl(String(row.object_path), ttl, { download: String(row.originalName) });
+    const { data, error } = await client.storage.from(String(row.bucket)).createSignedUrl(String(row.object_path), ttl);
     if (error) throw error;
     return { url: data.signedUrl, expiresIn: ttl };
   },
