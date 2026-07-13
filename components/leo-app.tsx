@@ -53,6 +53,7 @@ import type {
 } from "@/lib/types";
 import { currencies } from "@/lib/currencies";
 import { mutationRefreshScope, type MutationRefreshScope } from "@/lib/mutation-refresh";
+import { buildTimetableMonthDateKeys } from "@/lib/timetable-month";
 
 type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "courses" | "schedule" | "guide" | "journal" | "archive" | "settings";
 type ModalMode = "task" | "deadline" | "plan" | "todoList" | "counter" | "expense" | null;
@@ -2797,6 +2798,119 @@ function TimetableCalendarEvent({
   );
 }
 
+function TimetableMonthView({
+  occurrences,
+  anchorDate,
+  onEdit,
+  onCancel
+}: {
+  occurrences: CourseOccurrence[];
+  anchorDate: string;
+  onEdit: (occurrence: CourseOccurrence) => void;
+  onCancel: (occurrence: CourseOccurrence) => void;
+}) {
+  const days = buildTimetableMonthDateKeys(anchorDate).map((dateKey) => new Date(`${dateKey}T00:00:00`));
+  const monthKey = anchorDate.slice(0, 7);
+  const todayKey = localDateKey(new Date());
+  const occurrencesByDay = new Map<string, CourseOccurrence[]>();
+
+  for (const occurrence of occurrences) {
+    const dateKey = timetableDateKey(occurrence.startAt);
+    occurrencesByDay.set(dateKey, [...(occurrencesByDay.get(dateKey) ?? []), occurrence]);
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto">
+        <div className="min-w-[780px]">
+          <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+            {["周一", "周二", "周三", "周四", "周五", "周六", "周日"].map((label) => (
+              <div key={label} className="border-r border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-500 last:border-r-0">
+                {label}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {days.map((day) => {
+              const dateKey = localDateKey(day);
+              const inCurrentMonth = dateKey.startsWith(monthKey);
+              const dayOccurrences = (occurrencesByDay.get(dateKey) ?? [])
+                .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+              return (
+                <div
+                  key={dateKey}
+                  className={`min-h-[132px] border-b border-r border-slate-200 p-2 last:border-r-0 ${inCurrentMonth ? "bg-white" : "bg-slate-50/70"}`}
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <span
+                      className={`flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-xs font-semibold ${
+                        dateKey === todayKey
+                          ? "bg-slate-900 text-white"
+                          : inCurrentMonth
+                            ? "text-slate-700"
+                            : "text-slate-400"
+                      }`}
+                    >
+                      {day.getDate()}
+                    </span>
+                    {dayOccurrences.length > 0 && <span className="text-[10px] font-medium text-slate-400">{dayOccurrences.length} 节</span>}
+                  </div>
+                  <div className="space-y-1.5">
+                    {dayOccurrences.map((occurrence) => (
+                      <TimetableMonthEvent
+                        key={occurrence.id}
+                        occurrence={occurrence}
+                        onEdit={() => onEdit(occurrence)}
+                        onCancel={() => onCancel(occurrence)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimetableMonthEvent({
+  occurrence,
+  onEdit,
+  onCancel
+}: {
+  occurrence: CourseOccurrence;
+  onEdit: () => void;
+  onCancel: () => void;
+}) {
+  const course = occurrence.course;
+  const color = usydCourseAccent(course?.courseCode);
+  const background = usydCourseBackground(course?.courseCode);
+  const title = `${course?.courseCode ?? "COURSE"} · ${course?.activityType ?? "课程"}`;
+  return (
+    <article
+      className="group relative overflow-hidden rounded-md border border-l-[3px] px-2 py-1.5 text-left shadow-sm transition hover:shadow-md"
+      style={{ borderColor: color, background }}
+      title={`${title} · ${formatCalendarTimeRange(occurrence)} · ${occurrence.location || course?.defaultLocation || "地点待确认"}`}
+    >
+      <button className="block w-full pr-5 text-left" type="button" onClick={onEdit} title="编辑课程">
+        <div className="truncate text-[11px] font-semibold leading-tight text-slate-900">{course?.courseCode ?? "COURSE"}</div>
+        <div className="mt-0.5 truncate text-[10px] font-medium leading-tight text-slate-600">{formatCalendarTimeRange(occurrence)}</div>
+        <div className="mt-0.5 truncate text-[10px] leading-tight text-slate-500">{course?.activityType ?? "课程"}</div>
+      </button>
+      <button
+        className="absolute right-1 top-1 rounded bg-white/90 p-0.5 text-red-500 opacity-0 shadow-sm transition hover:bg-white group-hover:opacity-100 focus:opacity-100"
+        type="button"
+        onClick={onCancel}
+        title="取消课程"
+      >
+        <X size={11} />
+      </button>
+    </article>
+  );
+}
+
 function TimetableCourseSummaryList({
   summaries,
   expandedKey,
@@ -3282,25 +3396,20 @@ function CoursesPage({ courses }: { courses: Course[] }) {
               onCancel={(occurrence) => void cancelOccurrence(occurrence)}
             />
           )
+        ) : view === "month" ? (
+          <TimetableMonthView
+            occurrences={visibleOccurrences}
+            anchorDate={anchorDate}
+            onEdit={(occurrence) => void updateOccurrence(occurrence)}
+            onCancel={(occurrence) => void cancelOccurrence(occurrence)}
+          />
         ) : view === "semester" ? (
           <TimetableCourseSummaryList
             summaries={semesterCourseSummaries}
             expandedKey={expandedCourseKey}
             onToggle={(key) => setExpandedCourseKey((current) => current === key ? null : key)}
           />
-        ) : (
-          <div className="space-y-3">
-            {visibleOccurrences.length === 0 && <EmptyBlock text="当前范围没有课程。" />}
-            {visibleOccurrences.map((occurrence) => (
-              <TimetableOccurrenceCard
-                key={occurrence.id}
-                occurrence={occurrence}
-                onEdit={() => void updateOccurrence(occurrence)}
-                onCancel={() => void cancelOccurrence(occurrence)}
-              />
-            ))}
-          </div>
-        )}
+        ) : null}
       </section>
 
       {courses.length > 0 && (
@@ -3888,7 +3997,7 @@ function UserGuidePage() {
       content: (
         <>
           <p>课程页支持导入 Calendar Feed 或 ICS 文件。先预览内容，确认课程、时间和地点无误后再导入。</p>
-          <p>课表中的日期、星期和时间统一按悉尼时间显示，并自动处理夏令时。日、周视图使用时间轴，学期视图按课程归纳所有上课安排。</p>
+          <p>课表中的日期、星期和时间统一按悉尼时间显示，并自动处理夏令时。日、周视图使用时间轴，月视图使用周一到周日的日历网格，学期视图按课程归纳所有上课安排。</p>
         </>
       )
     },
