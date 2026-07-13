@@ -30,6 +30,32 @@ textarea {
   font: inherit;
 }
 
+.app-modal-panel {
+  border-radius: 24px !important;
+}
+
+input.rounded-lg,
+input.rounded-md,
+select.rounded-lg,
+select.rounded-md,
+textarea.rounded-lg,
+textarea.rounded-md {
+  border-radius: 16px !important;
+}
+
+select {
+  border-radius: 16px;
+}
+
+select:not([multiple]) {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364758b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.85rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+
 .expense-amount-input::-webkit-inner-spin-button,
 .expense-amount-input::-webkit-outer-spin-button {
   margin: 0;
@@ -237,7 +263,7 @@ textarea {
   .app-modal-panel {
     max-height: calc(100dvh - 24px) !important;
     width: calc(100vw - 16px) !important;
-    border-radius: 14px !important;
+    border-radius: 24px !important;
     padding: 16px !important;
   }
 
