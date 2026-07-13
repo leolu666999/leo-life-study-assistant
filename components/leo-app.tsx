@@ -42,6 +42,7 @@ import type {
   JournalEntry,
   Plan,
   ProgressItem,
+  Subtask,
   Task,
   TaskType,
   TimetableCourse,
@@ -577,25 +578,133 @@ export function LeoApp({ initialView }: { initialView: View }) {
     setAppSettings(await fetchJsonOr<AppSettings>("/api/settings", appSettings));
   }
 
-  function applyExpenseMutation(url: string, method: string, data: unknown, body: BodyInit | null | undefined) {
-    const id = url.match(/^\/api\/expenses\/([^/?]+)/)?.[1];
-    if (method === "DELETE" && id) {
-      setExpenses((current) => current.filter((expense) => expense.id !== id));
+  function applyTaskToState(savedTask: Task) {
+    const finished = savedTask.status === "completed" || savedTask.status === "archived";
+    setTasks((current) => finished
+      ? current.filter((task) => task.id !== savedTask.id)
+      : [savedTask, ...current.filter((task) => task.id !== savedTask.id)]);
+    setArchiveTasks((current) => finished
+      ? [savedTask, ...current.filter((task) => task.id !== savedTask.id)]
+      : current.filter((task) => task.id !== savedTask.id));
+    setPlans((current) => current.map((plan) => ({
+      ...plan,
+      items: plan.items?.map((task) => task.id === savedTask.id ? savedTask : task)
+    })));
+    setProgress((current) => {
+      const index = current.findIndex((item) => item.id === savedTask.id || item.linkedTaskId === savedTask.id);
+      if (!savedTask.progressEnabled && !savedTask.progressTarget) {
+        return index < 0 ? current : current.filter((_, itemIndex) => itemIndex !== index);
+      }
+      const previous = index >= 0 ? current[index] : undefined;
+      const next: ProgressItem = {
+        id: previous?.id || savedTask.id,
+        title: savedTask.title,
+        currentValue: Number(savedTask.progressCurrent || 0),
+        targetValue: Number(savedTask.progressTarget || 1),
+        unit: savedTask.progressUnit || "",
+        category: savedTask.tags[0] || "进度",
+        linkedTaskId: savedTask.id,
+        pinned: Boolean(savedTask.pinnedToBottom),
+        createdAt: previous?.createdAt || savedTask.createdAt,
+        updatedAt: savedTask.updatedAt
+      };
+      return [next, ...current.filter((_, itemIndex) => itemIndex !== index)];
+    });
+  }
+
+  function applyMutationResponse(url: string, method: string, data: unknown, body: BodyInit | null | undefined) {
+    const path = url.split("?", 1)[0];
+    const id = path.match(/^\/api\/[^/]+\/([^/]+)/)?.[1];
+
+    if (path.startsWith("/api/expenses")) {
+      if (method === "DELETE" && id) setExpenses((current) => current.filter((expense) => expense.id !== id));
+      else if (data && typeof data === "object" && "id" in data) {
+        const savedExpense = data as Expense;
+        setExpenses((current) => [savedExpense, ...current.filter((expense) => expense.id !== savedExpense.id)]);
+        if (typeof body === "string") {
+          try {
+            const currency = (JSON.parse(body) as { currency?: AppSettings["lastUsedCurrency"] }).currency;
+            if (currency) setAppSettings((current) => ({ ...current, lastUsedCurrency: currency }));
+          } catch {
+            // The saved expense remains valid even if a future caller uses another body format.
+          }
+        }
+      } else return false;
       return true;
     }
-    if (!data || typeof data !== "object" || !("id" in data)) return false;
-    const savedExpense = data as Expense;
-    setExpenses((current) => [savedExpense, ...current.filter((expense) => expense.id !== savedExpense.id)]);
-    if (typeof body === "string") {
-      try {
-        const payload = JSON.parse(body) as { currency?: AppSettings["lastUsedCurrency"] };
-        const currency = payload.currency;
-        if (currency) setAppSettings((current) => ({ ...current, lastUsedCurrency: currency }));
-      } catch {
-        // Keep the saved row visible even if a future caller uses a different body format.
-      }
+
+    if (path.startsWith("/api/tasks")) {
+      if (method === "DELETE" && id) {
+        setTasks((current) => current.filter((task) => task.id !== id));
+        setArchiveTasks((current) => current.filter((task) => task.id !== id));
+        setProgress((current) => current.filter((item) => item.id !== id && item.linkedTaskId !== id));
+        setPlans((current) => current.map((plan) => ({ ...plan, items: plan.items?.filter((task) => task.id !== id) })));
+      } else if (data && typeof data === "object" && "id" in data) applyTaskToState(data as Task);
+      else return false;
+      return true;
     }
-    return true;
+
+    if (path.startsWith("/api/subtasks") && data && typeof data === "object" && "id" in data) {
+      const saved = data as Subtask;
+      setTasks((current) => current.map((task) => task.id === saved.taskId
+        ? { ...task, subtasks: task.subtasks?.map((subtask) => subtask.id === saved.id ? saved : subtask) }
+        : task));
+      return true;
+    }
+
+    if (path.startsWith("/api/progress")) {
+      if (Array.isArray(data)) setProgress(data as ProgressItem[]);
+      else if (data && typeof data === "object" && "id" in data) {
+        const saved = data as ProgressItem;
+        setProgress((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
+      } else return false;
+      return true;
+    }
+
+    if (path.startsWith("/api/todo-list-items") && data && typeof data === "object" && "id" in data) {
+      const saved = data as TodoListItem;
+      setTodoLists((current) => current.map((list) => list.id === saved.todoListId
+        ? { ...list, items: list.items.map((item) => item.id === saved.id ? saved : item) }
+        : list));
+      return true;
+    }
+
+    if (path.startsWith("/api/todo-lists") && data && typeof data === "object" && "id" in data) {
+      const saved = data as TodoList;
+      setTodoLists((current) => [saved, ...current.filter((list) => list.id !== saved.id)]);
+      return true;
+    }
+
+    if (path.startsWith("/api/plans")) {
+      if (method === "DELETE" && id) setPlans((current) => current.filter((plan) => plan.id !== id));
+      else if (data && typeof data === "object" && "id" in data) {
+        const saved = data as Plan;
+        setPlans((current) => [saved, ...current.filter((plan) => plan.id !== saved.id)]);
+      } else return false;
+      return true;
+    }
+
+    if (path.startsWith("/api/journal") && data && typeof data === "object" && "id" in data) {
+      const saved = data as JournalEntry;
+      setJournal((current) => [saved, ...current.filter((entry) => entry.id !== saved.id)]);
+      return true;
+    }
+
+    if (path.startsWith("/api/important-files")) {
+      if (method === "DELETE" && id) setImportantFiles((current) => current.filter((file) => file.id !== id));
+      else if (data && typeof data === "object" && "id" in data) {
+        const saved = data as ImportantFile;
+        setImportantFiles((current) => [saved, ...current.filter((file) => file.id !== saved.id)]);
+      } else return false;
+      return true;
+    }
+
+    if (path.startsWith("/api/settings") && data && typeof data === "object") {
+      setAppSettings(data as AppSettings);
+      return true;
+    }
+
+    return mutationRefreshScope(url) === "none";
   }
 
   async function loadAuthStatus() {
@@ -754,8 +863,16 @@ export function LeoApp({ initialView }: { initialView: View }) {
       const scope = mutationRefreshScope(url);
       const responseData = await response.clone().json().catch(() => null);
       const method = (options.method || "GET").toUpperCase();
-      const appliedLocally = scope === "expenses" && applyExpenseMutation(url, method, responseData, options.body);
+      const appliedLocally = applyMutationResponse(url, method, responseData, options.body);
       if (!appliedLocally) await refreshMutationScope(scope);
+      else if (scope === "tasks") {
+        void fetchJsonOr<Plan[]>("/api/plans", plans).then(setPlans);
+        if (url.startsWith("/api/progress")) {
+          void fetchJsonOr<Task[]>("/api/tasks", tasks).then(setTasks);
+        }
+      } else if (scope === "plans") {
+        void fetchJsonOr<JournalEntry[]>("/api/journal", journal).then(setJournal);
+      }
       await refreshOfflineCounts();
       return response;
     } catch (error) {
@@ -796,18 +913,15 @@ export function LeoApp({ initialView }: { initialView: View }) {
       }))
     );
 
-    const response = await fetch(`/api/todo-list-items/${id}`, {
+    try {
+      await saveRequest(`/api/todo-list-items/${id}`, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({ completed })
-    });
-
-    if (!response.ok) {
+      });
+    } catch {
       setTodoLists(previousTodoLists);
       throw new Error("To Do List item update failed");
     }
-
-    await loadAll(false);
   }
 
   async function toggleTaskSubtask(taskId: string, subtaskId: string, completed: boolean) {
@@ -825,18 +939,15 @@ export function LeoApp({ initialView }: { initialView: View }) {
       )
     );
 
-    const response = await fetch(`/api/subtasks/${subtaskId}`, {
+    try {
+      await saveRequest(`/api/subtasks/${subtaskId}`, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({ completed })
-    });
-
-    if (!response.ok) {
+      });
+    } catch {
       setTasks(previousTasks);
       throw new Error("Checklist item update failed");
     }
-
-    await loadAll(false);
   }
 
   async function completeTaskSmooth(id: string) {
@@ -853,14 +964,13 @@ export function LeoApp({ initialView }: { initialView: View }) {
       ]);
     }
 
-    const response = await fetch(`/api/tasks/${id}/complete`, { method: "POST" });
-    if (!response.ok) {
+    try {
+      await saveRequest(`/api/tasks/${id}/complete`, { method: "POST" });
+    } catch {
       setTasks(previousTasks);
       setArchiveTasks(previousArchiveTasks);
       throw new Error("Task completion failed");
     }
-
-    await loadAll(false);
   }
 
   async function updateTaskProgressSmooth(taskId: string, nextValue: number) {
@@ -887,21 +997,18 @@ export function LeoApp({ initialView }: { initialView: View }) {
       )
     );
 
-    const response = await fetch(`/api/tasks/${taskId}/progress-entries`, {
+    try {
+      await saveRequest(`/api/tasks/${taskId}/progress-entries`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         currentValueAfter: safeValue
       })
-    });
-
-    if (!response.ok) {
+      });
+    } catch {
       setTasks(previousTasks);
       setProgress(previousProgress);
       throw new Error("Task progress update failed");
     }
-
-    await loadAll(false);
   }
 
   const pinnedProgress = progress.find((item) => item.pinned) || progress[0];
@@ -3048,20 +3155,26 @@ function CoursesPage({ courses }: { courses: Course[] }) {
     if (!scope) return;
     const location = prompt("新的地点", occurrence.location || "");
     if (location === null) return;
-    await fetch(`/api/timetable/occurrences/${occurrence.id}`, {
+    const response = await fetch(`/api/timetable/occurrences/${occurrence.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ scope, patch: { location } })
     });
-    await loadTimetable();
+    if (!response.ok) throw new Error("课程更新失败");
+    const saved = await response.json() as CourseOccurrence;
+    if (scope === "single") setOccurrences((current) => current.map((item) => item.id === saved.id ? saved : item));
+    else await loadTimetable();
   }
 
   async function cancelOccurrence(occurrence: CourseOccurrence) {
     const scope = promptScope("取消范围：single / week / month / future / series");
     if (!scope) return;
     if (!confirm("确定取消选中范围内的课程吗？")) return;
-    await fetch(`/api/timetable/occurrences/${occurrence.id}?scope=${encodeURIComponent(scope)}`, { method: "DELETE" });
-    await loadTimetable();
+    const response = await fetch(`/api/timetable/occurrences/${occurrence.id}?scope=${encodeURIComponent(scope)}`, { method: "DELETE" });
+    if (!response.ok) throw new Error("课程取消失败");
+    const saved = await response.json() as CourseOccurrence;
+    if (scope === "single") setOccurrences((current) => current.map((item) => item.id === saved.id ? saved : item));
+    else await loadTimetable();
   }
 
   const visibleOccurrences = filterOccurrencesForView(occurrences, view, anchorDate);
@@ -3514,9 +3627,7 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
           file={editingFile}
           onClose={() => setModalOpen(false)}
           onSaveRequest={onSave}
-          onCreated={async () => {
-            await onSave("/api/important-files", { method: "GET" });
-          }}
+          onCreated={async () => undefined}
         />
       )}
 
@@ -3738,6 +3849,7 @@ function UserGuidePage() {
           <p>开发人员可以开启隔离 Auth 测试模式来验证注册、登录和账号权限。该模式只允许使用系统临时目录中的空测试数据库，检测到真实本地数据库时会直接拒绝运行。</p>
           <p>Cloud 测试模式现已支持 Settings、任务、To Do、计划、日记、收支、课程、课表、重要文件和小票，并按登录账号隔离。Cloud 文件使用私有 Storage；本地模式仍只读取电脑上的 uploads。</p>
           <p>Cloud 模式保存任务、计划、To Do 或收支时，多张相关数据表会在同一个数据库事务中更新；任一步失败都会整体撤销，不会留下半条任务、孤儿子项或不完整计划。</p>
+          <p>网页版新增、编辑、完成、恢复或删除内容后会直接更新当前页面；任务、To Do、计划、日记、收支和文件之间不会互相触发无关的整站重新加载。</p>
           <p>Cloud 课表确认导入也使用单一数据库事务；重复导入不会增加重复课次，本地编辑过的课次会在再次导入时得到保护。Calendar Feed 会阻止本机和私网地址，并限制跳转、等待时间和文件大小。</p>
           <p>Cloud 文件只接受 PDF、JPEG、PNG 和 WebP，单个最大 10MB。文件链接会短期失效，删除失败会保留可重试状态，不会静默隐藏孤儿文件。</p>
           <p>Vercel Preview 公网链接会直接进入 MyAssist 自己的登录/注册页面，不再要求先登录 Vercel；账号隔离仍由 MyAssist Auth、RLS 和受保护 Admin API 负责。</p>
