@@ -16,4 +16,14 @@ describe("mutation refresh scope", () => {
     expect(mutationRefreshScope("/api/subtasks/subtask-id")).toBe("tasks");
     expect(mutationRefreshScope("/api/progress/progress-id")).toBe("tasks");
   });
+
+  it("keeps every common editor inside its own data scope", () => {
+    expect(mutationRefreshScope("/api/todo-lists/list-id")).toBe("todo");
+    expect(mutationRefreshScope("/api/todo-list-items/item-id")).toBe("todo");
+    expect(mutationRefreshScope("/api/plans/plan-id")).toBe("plans");
+    expect(mutationRefreshScope("/api/journal")).toBe("journal");
+    expect(mutationRefreshScope("/api/important-files/file-id")).toBe("files");
+    expect(mutationRefreshScope("/api/timetable/occurrences/occurrence-id")).toBe("timetable");
+    expect(mutationRefreshScope("/api/settings")).toBe("settings");
+  });
 });
