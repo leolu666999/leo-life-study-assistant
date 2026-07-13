@@ -954,9 +954,6 @@ export function LeoApp({ initialView }: { initialView: View }) {
                     if (!response.ok) throw new Error("保存首页设置失败");
                     setAppSettings(await response.json());
                   }}
-                  background={background}
-                  setBackground={chooseBackground}
-                  onUploaded={() => loadAll(false)}
                   syncState={syncState}
                   onManualSync={() => syncPendingToComputer({ silent: false })}
                   onCheckSync={() => checkHealth(false)}
@@ -3797,9 +3794,6 @@ function SettingsPage({
   appSettings,
   authStatus,
   onSaveSettings,
-  background,
-  setBackground,
-  onUploaded,
   syncState,
   onManualSync,
   onCheckSync
@@ -3807,15 +3801,10 @@ function SettingsPage({
   appSettings: AppSettings;
   authStatus: AuthStatus;
   onSaveSettings: (patch: Pick<AppSettings, "homeTitle" | "showHomeTitle">) => Promise<void>;
-  background: string;
-  setBackground: (value: string) => void;
-  onUploaded: () => void;
   syncState: SyncState;
   onManualSync: () => void;
   onCheckSync: () => void;
 }) {
-  const [uploading, setUploading] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState("");
   const [homeTitleDraft, setHomeTitleDraft] = useState(appSettings.homeTitle);
   const [showHomeTitleDraft, setShowHomeTitleDraft] = useState(appSettings.showHomeTitle);
   const [savingHomeSettings, setSavingHomeSettings] = useState(false);
@@ -4012,58 +4001,6 @@ function SettingsPage({
               </div>
             </div>
           </div>
-        </section>
-        <section className="rounded-lg bg-white p-4 shadow-soft">
-          <SectionTitle title="外观" />
-          <Select
-            value={background}
-            onChange={(event) => setBackground(event.target.value)}
-            options={[
-              ["default", "Default"],
-              ["ocean", "Ocean"],
-              ["city", "City"],
-              ["forest", "Forest"],
-              ["starry", "Starry sky"],
-              ["usyd", "USYD Main Building"]
-            ]}
-          />
-          <p className="mt-3 text-sm text-slate-500">主题偏好保存在 localStorage，主数据仍然全部进入 SQLite。</p>
-        </section>
-        <section className="rounded-lg bg-white p-4 shadow-soft">
-          <SectionTitle title="上传" />
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 p-5 text-sm text-slate-600">
-            <Upload size={18} />
-            {uploading ? "上传中..." : "选择文件上传到 ./uploads"}
-            <input
-              className="hidden"
-              type="file"
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
-              onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                setUploadMessage("");
-                if (file.size > 50 * 1024 * 1024) {
-                  setUploadMessage("文件太大了，先控制在 50MB 以内。");
-                  event.currentTarget.value = "";
-                  return;
-                }
-                setUploading(true);
-                try {
-                  const form = new FormData();
-                  form.append("file", file);
-                  const response = await fetch("/api/upload", { method: "POST", body: form });
-                  if (!response.ok) throw new Error("upload failed");
-                  setUploadMessage("上传完成。");
-                  onUploaded();
-                } catch {
-                  setUploadMessage("上传失败，请确认电脑服务还开着，然后再试一次。");
-                } finally {
-                  setUploading(false);
-                }
-              }}
-            />
-          </label>
-          {uploadMessage && <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{uploadMessage}</div>}
         </section>
       </div>
     </>
