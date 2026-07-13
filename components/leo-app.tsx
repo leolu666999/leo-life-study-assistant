@@ -3704,7 +3704,7 @@ function UserGuidePage() {
         <>
           <p>文件页用于保存签证、学校、住宿、保险等资料。上传后可设置分类、标签、备注和到期日。</p>
           <p>本地模式的文件本体保存在电脑 uploads 目录；Cloud 测试模式使用当前账号私有的 Supabase Storage。具体本地路径可在“设置 → 本地存储”查看。</p>
-          <p>Cloud 模式下图片缩略图和预览会使用短期 signed URL 加载，链接会自动失效；这不会把文件变成公开文件。</p>
+          <p>Cloud 模式下图片缩略图和预览通过 MyAssist 的受保护接口加载。服务端会核对当前账号是否为文件所有者，不会把文件变成公开文件。</p>
         </>
       )
     },
@@ -5369,23 +5369,34 @@ function isImageMime(mime?: string | null) {
 }
 
 function UploadImage({ fileId, alt, className }: { fileId: string; alt: string; className?: string }) {
-  const [src, setSrc] = useState(`/api/uploads/${fileId}`);
+  const [retry, setRetry] = useState(0);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    let active = true;
-    setSrc(`/api/uploads/${fileId}`);
-    fetch(`/api/uploads/${fileId}?signed=1`, { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
-      .then((data) => {
-        if (active && data?.url) setSrc(String(data.url));
-      })
-      .catch(() => {
-        if (active) setSrc(`/api/uploads/${fileId}`);
-      });
-    return () => { active = false; };
+    setRetry(0);
+    setFailed(false);
   }, [fileId]);
 
-  return <img src={src} alt={alt} className={className} />;
+  if (failed) {
+    return (
+      <div className={`flex items-center justify-center bg-slate-50 px-4 text-center text-sm text-slate-500 ${className ?? ""}`}>
+        图片暂时无法加载
+      </div>
+    );
+  }
+
+  return (
+    <img
+      key={`${fileId}-${retry}`}
+      src={`/api/uploads/${fileId}?preview=1&retry=${retry}`}
+      alt={alt}
+      className={className}
+      onError={() => {
+        if (retry === 0) setRetry(1);
+        else setFailed(true);
+      }}
+    />
+  );
 }
 
 function statusLabel(status: string) {

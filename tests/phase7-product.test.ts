@@ -33,12 +33,12 @@ describe("Phase 7 production account and contact contracts", () => {
     expect(contact).not.toContain("user_id: body");
   });
 
-  it("supports visible password controls and signed private image previews", () => {
+  it("supports visible password controls and protected private image previews", () => {
     const authForm = read("components/auth/auth-form.tsx");
     const app = read("components/leo-app.tsx");
     expect(authForm).toContain("显示密码");
     expect(authForm).toContain("在这台电脑保持登录");
-    expect(app).toContain("?signed=1");
+    expect(app).toContain("?preview=1&retry=");
     expect(app).toContain("function UploadImage");
   });
 
