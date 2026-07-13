@@ -4,6 +4,13 @@ import { authRuntimeSafetyError } from "@/lib/auth/runtime-guard";
 
 const publicAuthPaths = new Set(["/login", "/register", "/forgot-password", "/reset-password", "/contact-developer", "/api/developer-contact", "/api/auth/login"]);
 
+function protectPrivateApiResponse(response: NextResponse, path: string) {
+  if (!path.startsWith("/api/")) return response;
+  response.headers.set("cache-control", "private, no-store, max-age=0");
+  response.headers.set("vary", "Cookie, Authorization");
+  return response;
+}
+
 function authConfiguration() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -50,7 +57,10 @@ export async function middleware(request: NextRequest) {
 
   if (!user && !isPublicAuthPath) {
     if (path.startsWith("/api/")) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return protectPrivateApiResponse(
+        NextResponse.json({ error: "Authentication required" }, { status: 401 }),
+        path
+      );
     }
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
@@ -66,7 +76,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(homeUrl);
   }
 
-  return response;
+  return protectPrivateApiResponse(response, path);
 }
 
 export const config = {

@@ -36,10 +36,13 @@ describe("Phase 7 production account and contact contracts", () => {
   it("supports visible password controls and protected private image previews", () => {
     const authForm = read("components/auth/auth-form.tsx");
     const app = read("components/leo-app.tsx");
+    const middleware = read("middleware.ts");
     expect(authForm).toContain("显示密码");
     expect(authForm).toContain("在这台电脑保持登录");
     expect(app).toContain("?preview=1&retry=");
     expect(app).toContain("function UploadImage");
+    expect(middleware).toContain('"cache-control", "private, no-store, max-age=0"');
+    expect(middleware).toContain('"vary", "Cookie, Authorization"');
   });
 
   it("protects admin pages and all elevated routes", () => {
