@@ -4021,7 +4021,7 @@ function ExpenseModal({
   const [uploadMessage, setUploadMessage] = useState("");
   const [, setDirty] = useState(false);
   const [transactionType, setTransactionType] = useState<Expense["type"]>(expense?.type || "expense");
-  const [category, setCategory] = useState(expense?.category || (expense?.type === "income" ? "外卖收入" : "吃饭"));
+  const [expenseTags, setExpenseTags] = useState<string[]>(() => expense?.category ? [expense.category] : []);
   useEscapeClose(onClose);
 
   useEffect(() => {
@@ -4038,7 +4038,7 @@ function ExpenseModal({
       }}
     >
       <form
-        className="app-modal-panel max-h-[96vh] w-full max-w-3xl overflow-auto rounded-lg bg-white p-4 shadow-soft"
+        className="app-modal-panel max-h-[96vh] w-full max-w-3xl overflow-auto rounded-[24px] bg-white p-4 shadow-soft"
         onChangeCapture={() => setDirty(true)}
         onSubmit={async (event) => {
           event.preventDefault();
@@ -4048,7 +4048,7 @@ function ExpenseModal({
             title: form.get("title"),
             amount: Number(form.get("amount") || 0),
             currency: form.get("currency"),
-            category,
+            category: expenseTags[0] || "其他",
             date: form.get("date"),
             merchant: form.get("merchant") || null,
             paymentMethod: form.get("paymentMethod") || null,
@@ -4065,7 +4065,7 @@ function ExpenseModal({
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-xl font-semibold">{expense ? "编辑收支" : "新增收支"}</h2>
-          <button type="button" className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={onClose}>
+          <button type="button" className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={onClose}>
             关闭
           </button>
         </div>
@@ -4081,7 +4081,6 @@ function ExpenseModal({
                 }`}
                 onClick={() => {
                   setTransactionType(type);
-                  setCategory(type === "income" ? "外卖收入" : "吃饭");
                   setDirty(true);
                 }}
               >
@@ -4091,34 +4090,34 @@ function ExpenseModal({
           </div>
           <label className="grid gap-1 text-sm font-medium text-slate-700">
             金额
-            <div className="grid grid-cols-[minmax(118px,0.36fr)_minmax(0,1fr)] overflow-hidden rounded-lg border border-slate-200 bg-white focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-100">
-              <Select name="currency" defaultValue={expense?.currency || lastUsedCurrency || ""} required aria-label="货币"
-                className="h-16 rounded-none border-0 border-r border-slate-200 bg-slate-50 px-3 font-semibold focus:ring-0"
-                options={[["", "货币"], ...currencies.map((currency) => [currency.code, `${currency.code} — ${currency.localizedName}`] as [string, string])]} />
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(150px,0.45fr)_minmax(150px,0.45fr)]">
               <input name="amount" type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" defaultValue={expense?.amount ?? ""} required
-                className="expense-amount-input h-16 min-w-0 border-0 px-4 text-right text-3xl font-semibold text-slate-950 outline-none placeholder:text-slate-300" />
+                className="expense-amount-input h-16 min-w-0 rounded-2xl border border-slate-200 bg-white px-4 text-left text-3xl font-semibold text-slate-950 outline-none placeholder:text-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-100" />
+              <Select name="currency" defaultValue={expense?.currency || lastUsedCurrency || ""} required aria-label="货币"
+                className="h-16 px-3 font-semibold"
+                options={[["", "货币"], ...currencies.map((currency) => [currency.code, `${currency.code} — ${currency.localizedName}`] as [string, string])]} />
+              <Select name="paymentMethod" defaultValue={expense?.paymentMethod || ""} aria-label="支付方式"
+                className="h-16 px-3 font-semibold"
+                options={[["", "支付方式"], ...paymentMethods.map((item) => [item, item] as [string, string])]} />
             </div>
           </label>
           <label className="grid gap-1 text-sm font-medium text-slate-700">
             标题
-            <Input name="title" className="h-11" placeholder={transactionType === "income" ? "例如：工资、退款、兼职收入" : "例如：午餐、超市购物、打车"} defaultValue={expense?.title || ""} required />
+            <Input name="title" className="h-11" placeholder={transactionType === "income" ? "工资、退款、兼职收入" : "午餐、超市购物、打车"} defaultValue={expense?.title || ""} required />
           </label>
-          <fieldset className="grid gap-2">
-            <legend className="mb-1 text-sm font-medium text-slate-700">分类</legend>
-            <div className="flex flex-wrap gap-2">
-              {(transactionType === "income" ? incomeCategories : expenseCategories).map((item) => {
-                const icon: Record<string, string> = { 吃饭: "🍜", 超市: "🛒", 交通: "🚕", 购物: "🛍", 房租: "🏠", 居住: "🏠", 工资: "💼", 退款: "↩", 兼职收入: "💻", 外卖收入: "🛵", 其他: "···" };
-                return <button key={item} type="button" onClick={() => { setCategory(item); setDirty(true); }}
-                  className={`min-h-8 rounded-full px-3 py-1.5 text-sm font-medium transition ${category === item ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>{icon[item] ? `${icon[item]} ` : ""}{item}</button>;
-              })}
-            </div>
-          </fieldset>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm font-medium text-slate-700">
+            标签
+            <TagEditor
+              tags={expenseTags}
+              onChange={(tags) => {
+                setExpenseTags(tags);
+                setDirty(true);
+              }}
+            />
+          </label>
+          <div className="grid gap-3">
             <label className="grid gap-1 text-sm font-medium text-slate-700">日期
               <Input name="date" type="date" defaultValue={expense?.date || new Date().toISOString().slice(0, 10)} required />
-            </label>
-            <label className="grid gap-1 text-sm font-medium text-slate-700">支付方式
-              <Select name="paymentMethod" defaultValue={expense?.paymentMethod || ""} options={[["", "请选择"], ...paymentMethods.map((item) => [item, item] as [string, string])]} />
             </label>
           </div>
           <label className="grid gap-1 text-sm font-medium text-slate-700">{transactionType === "income" ? "来源" : "商家"}
@@ -4129,11 +4128,11 @@ function ExpenseModal({
             />
           </label>
           <label className="grid gap-1 text-sm font-medium text-slate-700">备注
-            <textarea name="notes" rows={2} className="min-h-[56px] resize-y rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100" placeholder="添加备注，可选" defaultValue={expense?.notes || ""} />
+            <textarea name="notes" rows={2} className="min-h-[56px] resize-y rounded-2xl border border-slate-200 p-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100" placeholder="添加备注，可选" defaultValue={expense?.notes || ""} />
           </label>
 
-          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 transition hover:border-slate-300 hover:bg-slate-100">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm"><Upload size={19} /></span>
+          <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 transition hover:border-slate-300 hover:bg-slate-100">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm"><Upload size={19} /></span>
             <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-slate-800">{uploading ? "上传中..." : receiptName ? receiptName : "上传凭证"}</span><span className="mt-1 block text-xs text-slate-500">上传凭证、小票或账单图片 · JPG、PNG、WEBP 或 PDF，可选</span></span>
             {receiptFileId && (
               <span className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500">
@@ -4175,15 +4174,15 @@ function ExpenseModal({
               }}
             />
           </label>
-          {uploadMessage && <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{uploadMessage}</div>}
+          {uploadMessage && <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-600">{uploadMessage}</div>}
           {receiptPreviewUrl ? (
-            <img src={receiptPreviewUrl} alt="小票预览" className="h-40 w-full rounded-lg border border-slate-100 object-contain" />
+            <img src={receiptPreviewUrl} alt="小票预览" className="h-40 w-full rounded-2xl border border-slate-100 object-contain" />
           ) : receiptFileId && isImageMime(expense?.receiptMimeType || "") && (
-            <UploadImage fileId={receiptFileId} alt="小票预览" className="h-40 w-full rounded-lg border border-slate-100 object-contain" />
+            <UploadImage fileId={receiptFileId} alt="小票预览" className="h-40 w-full rounded-2xl border border-slate-100 object-contain" />
           )}
         </div>
 
-        <button className="mt-3 h-11 w-full rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800">
+        <button className="mt-3 h-11 w-full rounded-full bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800">
           保存
         </button>
       </form>
