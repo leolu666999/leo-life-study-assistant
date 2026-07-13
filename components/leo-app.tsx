@@ -3899,7 +3899,7 @@ function SettingsPage({
           <section className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center lg:col-span-2">
             <div>
               <h2 className="font-semibold">当前账号</h2>
-              <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+              <div className="mt-3 grid gap-2 text-sm text-slate-600">
                 <InfoRow label="用户名" value={authStatus.user.username || "未设置"} />
                 <InfoRow label="邮箱地址" value={authStatus.user.email || "未设置"} />
               </div>
