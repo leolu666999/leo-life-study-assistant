@@ -39,6 +39,38 @@ function createSupabaseBearerClient(token: string): SupabaseClient {
   );
 }
 
+function requestCookies(request: Request) {
+  const header = request.headers.get("cookie");
+  if (!header) return [];
+
+  return header.split(";").flatMap((part) => {
+    const separator = part.indexOf("=");
+    if (separator < 1) return [];
+    const name = part.slice(0, separator).trim();
+    const rawValue = part.slice(separator + 1).trim();
+    if (!name) return [];
+    try {
+      return [{ name, value: decodeURIComponent(rawValue) }];
+    } catch {
+      return [{ name, value: rawValue }];
+    }
+  });
+}
+
+function createSupabaseRequestClient(request: Request): SupabaseClient {
+  return createServerClient(
+    requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    requiredEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+    {
+      cookies: {
+        getAll: () => requestCookies(request),
+        // Middleware refreshes sessions and writes response cookies.
+        setAll: () => undefined
+      }
+    }
+  );
+}
+
 export function createSupabaseAdminClient(): SupabaseClient {
   return createClient(
     requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
@@ -88,7 +120,8 @@ export async function authenticatedRequestUser(request: Request): Promise<User |
     return error ? null : data.user;
   }
   try {
-    return await currentSessionUser();
+    const { data, error } = await createSupabaseRequestClient(request).auth.getUser();
+    return error ? null : data.user;
   } catch {
     return null;
   }
@@ -104,7 +137,7 @@ export async function authenticatedRequestContext(request: Request): Promise<{ c
     return error || !data.user ? null : { client, user: data.user };
   }
   try {
-    const client = await createSupabaseServerClient();
+    const client = createSupabaseRequestClient(request);
     const { data, error } = await client.auth.getUser();
     return error || !data.user ? null : { client, user: data.user };
   } catch {
