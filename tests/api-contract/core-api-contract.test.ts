@@ -201,7 +201,7 @@ describe("Tasks API contract", () => {
     const created = await createTask({ title: "旧标题", type: "deadline", dueDate: "2026-08-01T09:00" });
     const response = await routes.task.PATCH(request("http://local.test/api/tasks/id", "PATCH", { title: "新标题", priority: "high" }), context(String(created.body.id)));
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ id: created.body.id, title: "新标题", type: "deadline", priority: "high", dueDate: "2026-08-01T09:00" });
+    expect(await response.json()).toMatchObject({ id: created.body.id, title: "新标题", type: "deadline", priority: "high", dueDate: "2026-08-01T09:00", status: "in_progress" });
   });
 
   it("complete, archive and restore keep their current status transitions", async () => {
@@ -239,7 +239,7 @@ describe("Tasks API contract", () => {
     const response = await routes.progressEntries.POST(request("http://local.test", "POST", { amountDelta: 3, note: "测试记录", durationMinutes: 20 }), context(id));
     expect(response.status).toBe(201);
     const body = await response.json();
-    expect(body).toMatchObject({ id, progressCurrent: 5 });
+    expect(body).toMatchObject({ id, progressCurrent: 5, status: "in_progress" });
     expect(body.progressEntries).toEqual([expect.objectContaining({ taskId: id, amountDelta: 3, currentValueAfter: null, durationMinutes: 20, note: "测试记录" })]);
   });
 
@@ -253,6 +253,8 @@ describe("Tasks API contract", () => {
     const subtaskId = String((created.body.subtasks as Array<Record<string, unknown>>)[0].id);
     const updated = await routes.subtask.PATCH(request("http://local.test", "PATCH", { completed: true }), context(subtaskId));
     expect(await updated.json()).toMatchObject({ id: subtaskId, completed: true });
+    const tasks = await routes.tasks.GET(request("http://local.test/api/tasks", "GET"));
+    expect(await tasks.json()).toEqual(expect.arrayContaining([expect.objectContaining({ id: created.body.id, status: "in_progress" })]));
     const missing = await routes.subtask.PATCH(request("http://local.test", "PATCH", { completed: true }), context("missing"));
     expect(missing.status).toBe(404);
   });

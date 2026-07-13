@@ -124,7 +124,7 @@ async function updateTask(id: string, input: TaskInput, context?: RepositoryCont
   const type = (input.type === "shopping" ? "checklist" : input.type ?? current.type) as Task["type"];
   const tags = normalizeTags(type, input.tags ?? current.tags);
   const next = { ...current, ...input, type, tags };
-  if (input.progressCurrent !== undefined && Number(input.progressCurrent ?? 0) > 0 && current.status === "not_started") next.status = "in_progress";
+  if (input.status === undefined && current.status === "not_started") next.status = "in_progress";
   const { error } = await client.rpc("save_task_with_relations", {
     p_task_id: id, p_create: false, p_task: taskPayload(next), p_tags: tags,
     p_subtasks: subtaskPayload(input.subtasks ?? [], current.subtasks), p_replace_subtasks: Boolean(input.subtasks)
@@ -211,6 +211,14 @@ export const supabaseTaskRepository: TaskRepository = {
     const { client, userId } = requireSupabaseContext(context);
     const { data, error } = await client.from("subtasks").update({ completed }).eq("user_id", userId).eq("id", id).select("*").maybeSingle();
     if (error) throw error;
+    if (data) {
+      const { error: taskError } = await client.from("tasks")
+        .update({ status: "in_progress", updatedAt: new Date().toISOString() })
+        .eq("user_id", userId)
+        .eq("id", String(data.taskId))
+        .eq("status", "not_started");
+      if (taskError) throw taskError;
+    }
     return data ? mapSubtask(data) : null;
   },
   listProgress,
