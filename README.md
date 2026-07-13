@@ -164,7 +164,7 @@ Vercel Preview 部署用于隔离 Supabase 测试项目。项目级 Vercel SSO D
 
 Supabase Auth 的 Site URL 使用 `https://myassist-test.vercel.app`。允许的邮件回调包含 `http://localhost:3011/**`、`http://127.0.0.1:3011/**`、稳定 Vercel 域名和当前 Vercel 预览域名模式；邮箱确认与密码重置都应回到 `/auth/callback`，不应跳到 `localhost:3000`。
 
-Cloud 文件仍保存在 private Supabase Storage。图片缩略图和预览通过 MyAssist 同源受保护接口加载：服务端直接读取当前请求的登录 Session、核对当前账号与文件所有者，再以内联方式返回图片；响应不会被共享缓存，非登录用户或其他账号不能访问。
+Cloud 文件仍保存在 private Supabase Storage。图片缩略图和预览通过 MyAssist 同源 `/api/private-files/[id]` 受保护接口加载：服务端直接读取当前请求的登录 Session、核对当前账号与文件所有者，再以内联方式返回图片；该动态接口强制不缓存，非登录用户或其他账号不能访问。
 
 所有登录后的私人 API 响应均标记为 private/no-store，并按 Cookie 与 Authorization 区分，避免同一设备切换账号后复用上一个账号的缓存数据。
 

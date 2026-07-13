@@ -4,6 +4,8 @@ import { authenticatedRequestUser, createSupabaseAdminClient } from "@/lib/supab
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 const privateHeaders = {
   "cache-control": "private, no-store, max-age=0",

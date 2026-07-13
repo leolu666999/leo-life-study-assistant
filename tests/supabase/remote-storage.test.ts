@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { POST as upload } from "@/app/api/upload/route";
-import { GET as download } from "@/app/api/uploads/[id]/route";
+import { GET as download } from "@/app/api/private-files/[id]/route";
 import { GET as listImportant, POST as createImportant } from "@/app/api/important-files/route";
 import { PATCH as patchImportant, DELETE as deleteImportant } from "@/app/api/important-files/[id]/route";
 import { POST as createExpense } from "@/app/api/expenses/route";

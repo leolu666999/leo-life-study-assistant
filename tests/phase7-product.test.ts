@@ -39,7 +39,11 @@ describe("Phase 7 production account and contact contracts", () => {
     const middleware = read("middleware.ts");
     expect(authForm).toContain("显示密码");
     expect(authForm).toContain("在这台电脑保持登录");
-    expect(app).toContain("?preview=1&retry=");
+    expect(app).toContain("/api/private-files/");
+    const privateFiles = read("app/api/private-files/[id]/route.ts");
+    expect(privateFiles).toContain('from "../../uploads/[id]/route"');
+    expect(privateFiles).toContain('dynamic = "force-dynamic"');
+    expect(privateFiles).toContain('fetchCache = "force-no-store"');
     expect(app).toContain("function UploadImage");
     expect(middleware).toContain('"cache-control", "private, no-store, max-age=0"');
     expect(middleware).toContain('"vary", "Cookie, Authorization"');
