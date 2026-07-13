@@ -3476,7 +3476,7 @@ function ImportantFileModal({
       }}
     >
       <form
-        className="app-modal-panel max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-soft"
+        className="app-modal-panel max-h-[90vh] w-full max-w-2xl overflow-auto rounded-[24px] bg-white p-5 shadow-soft"
         onChangeCapture={() => setDirty(true)}
         onSubmit={async (event) => {
           event.preventDefault();
@@ -3500,7 +3500,7 @@ function ImportantFileModal({
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">{file ? "编辑重要文件" : "上传重要文件"}</h2>
-          <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>
+          <button type="button" className="rounded-full border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>
             关闭
           </button>
         </div>
@@ -4416,7 +4416,7 @@ function QuickModal({
 
         {mode === "todoList" ? (
           <div className="grid gap-3">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
               <div className="text-xs text-slate-500">标题</div>
               <div className="mt-1 text-sm font-semibold text-slate-900">{buildTodoListTitle(todoDate)}</div>
             </div>
@@ -4428,7 +4428,7 @@ function QuickModal({
                 setTodoItems(items);
               }}
             />
-            <textarea name="notes" className="min-h-[70px] rounded-lg border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="备注，可选" />
+            <textarea name="notes" className="min-h-[70px] rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="备注，可选" />
           </div>
         ) : mode === "plan" ? (
           <div className="grid gap-3">
@@ -4438,8 +4438,8 @@ function QuickModal({
               <Input name="startDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
               <Input name="endDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
             </div>
-            <textarea name="reflectionNote" className="min-h-[100px] rounded-lg border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="日计划复盘，可留空" />
-            <div className="rounded-lg border border-slate-200 p-3">
+            <textarea name="reflectionNote" className="min-h-[100px] rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="日计划复盘，可留空" />
+            <div className="rounded-2xl border border-slate-200 p-3">
               <div className="mb-2 text-sm font-medium">加入任务</div>
               <div className="grid gap-2 md:grid-cols-2">
                 {tasks.map((item) => (
@@ -4471,7 +4471,7 @@ function QuickModal({
               <Input name="progressUnit" placeholder="单位，例如 次 / 页 / 小时 / %" defaultValue={defaultProgressUnit(progressType)} />
             </div>
             <Input name="category" placeholder="分类，例如 football / study" />
-            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
               <input type="checkbox" name="pinnedToBottom" defaultChecked={false} />
               固定到底部进度条
             </label>
@@ -4479,10 +4479,6 @@ function QuickModal({
         ) : (
           <div className="grid gap-3">
             <Input name="title" placeholder="输入任务标题" defaultValue={task?.title || ""} required className="h-[52px] rounded-full px-5" />
-            <div className="grid gap-3 md:grid-cols-2">
-              <Input name="startDate" type="date" defaultValue={task?.startDate || ""} />
-              <Input name="dueDate" type="datetime-local" defaultValue={toDateTimeInputValue(task?.dueDate)} />
-            </div>
             <TagEditor
               tags={taskTags}
               onChange={(tags) => {
@@ -4494,7 +4490,11 @@ function QuickModal({
                 );
               }}
             />
-            <textarea name="description" className="min-h-[90px] rounded-lg border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="描述" defaultValue={task?.description || ""} />
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input name="startDate" type="date" defaultValue={task?.startDate || ""} />
+              <Input name="dueDate" type="datetime-local" defaultValue={toDateTimeInputValue(task?.dueDate)} />
+            </div>
+            <textarea name="description" className="min-h-[90px] rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="描述" defaultValue={task?.description || ""} />
             {!isDeadlineForm && (
               <div className="grid gap-3 md:grid-cols-2">
                 <Select
@@ -4521,7 +4521,7 @@ function QuickModal({
             )}
             <button
               type="button"
-              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-left text-sm transition hover:bg-slate-100"
+              className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-left text-sm transition hover:bg-slate-100"
               onClick={() => setReminderEditorOpen(true)}
             >
               <span className="inline-flex min-w-0 items-center gap-2">
@@ -4569,12 +4569,12 @@ function QuickModal({
                 onClose={() => setReminderEditorOpen(false)}
               />
             )}
-            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
               <input type="checkbox" checked={progressEnabled} onChange={(event) => setProgressEnabled(event.target.checked)} />
               开启进度追踪
             </label>
             {progressEnabled && (
-              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <Select
                   value={progressType}
                   onChange={(event) => setProgressType(event.target.value as typeof progressType)}
@@ -4599,7 +4599,7 @@ function QuickModal({
             )}
           </div>
         )}
-        <button className="mt-5 w-full rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white">
+        <button className="mt-5 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white">
           保存
         </button>
       </form>
@@ -4820,7 +4820,7 @@ function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 px-3 py-2 outline-none focus-within:border-slate-400">
+    <div className="rounded-2xl border border-slate-200 px-3 py-2 outline-none focus-within:border-slate-400">
       <div className="flex min-h-[32px] flex-wrap items-center gap-2">
         {tags.map((tag) => (
           <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
@@ -5243,13 +5243,13 @@ function SearchBox({
 
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const { className = "", ...rest } = props;
-  return <input className={`rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 ${className}`} {...rest} />;
+  return <input className={`rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 ${className}`} {...rest} />;
 }
 
 function Select(props: React.SelectHTMLAttributes<HTMLSelectElement> & { options: Array<[string, string]> }) {
   const { options, className = "", ...rest } = props;
   return (
-    <select className={`rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 ${className}`} {...rest}>
+    <select className={`rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 ${className}`} {...rest}>
       {options.map(([value, label]) => (
         <option key={value} value={value}>{label}</option>
       ))}
