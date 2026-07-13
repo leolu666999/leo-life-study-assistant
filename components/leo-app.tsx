@@ -3976,12 +3976,6 @@ function SettingsPage({
               <div className="mt-1">打开命令提示符，运行 ipconfig，查看 IPv4 地址。</div>
             </div>
             <div className="rounded-lg border border-slate-200 p-3">
-              <div className="text-slate-500">手机访问格式</div>
-              <div className="mt-1 break-all font-mono text-slate-900">http://电脑局域网IP:3011</div>
-              <div className="mt-2 text-slate-500">当前示例</div>
-              <div className="mt-1 break-all font-mono text-slate-900">{phoneUrl || "http://192.168.1.23:3011"}</div>
-            </div>
-            <div className="rounded-lg border border-slate-200 p-3">
               <div className="font-medium text-slate-800">离线暂存</div>
               <div className="mt-1">{syncState.message}</div>
               <div className="mt-2 text-xs text-slate-500">待同步 {syncState.pendingCount} 条 · 失败 {syncState.failedCount} 条</div>
