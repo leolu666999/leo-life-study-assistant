@@ -208,17 +208,12 @@ export const supabaseTaskRepository: TaskRepository = {
     return getTask(taskId, context);
   },
   async updateSubtaskCompletion(id, completed, context) {
-    const { client, userId } = requireSupabaseContext(context);
-    const { data, error } = await client.from("subtasks").update({ completed }).eq("user_id", userId).eq("id", id).select("*").maybeSingle();
+    const { client } = requireSupabaseContext(context);
+    const { data, error } = await client.rpc("update_checklist_subtask_atomic", {
+      p_subtask_id: id,
+      p_completed: completed
+    });
     if (error) throw error;
-    if (data) {
-      const { error: taskError } = await client.from("tasks")
-        .update({ status: "in_progress", updatedAt: new Date().toISOString() })
-        .eq("user_id", userId)
-        .eq("id", String(data.taskId))
-        .eq("status", "not_started");
-      if (taskError) throw taskError;
-    }
     return data ? mapSubtask(data) : null;
   },
   listProgress,
