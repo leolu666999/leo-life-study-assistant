@@ -43,6 +43,11 @@ describe("Phase 7 production account and contact contracts", () => {
     expect(authForm).toContain("用户名全局唯一，且不区分大小写");
     expect(authForm).toContain("至少 8 个字符，密码区分大小写");
     expect(authForm).toContain("密码区分大小写，请输入注册时设置的完整密码");
+    expect(authForm).toContain("data.user.identities.length === 0");
+    expect(authForm).toContain('error.code === "user_already_exists"');
+    expect(authForm).toContain('errorText.includes("email already registered")');
+    expect(authForm).toContain("该邮箱已被使用，请直接登录或使用“找回密码”");
+    expect(authForm).toContain("每个邮箱只能注册一个账号");
     expect(app).toContain("/api/private-files/");
     const privateFiles = read("app/api/private-files/[id]/route.ts");
     expect(privateFiles).toContain('from "../../uploads/[id]/route"');

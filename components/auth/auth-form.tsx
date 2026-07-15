@@ -53,7 +53,21 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
           password,
           options: { emailRedirectTo: redirectTo, data: { username } }
         });
-        if (error) throw error;
+        if (error) {
+          const errorText = `${error.code || ""} ${error.message}`.toLowerCase();
+          const emailAlreadyUsed = error.code === "user_already_exists"
+            || errorText.includes("user already registered")
+            || errorText.includes("email already registered")
+            || errorText.includes("email already exists")
+            || errorText.includes("email address is already registered");
+          if (emailAlreadyUsed) {
+            throw new Error("该邮箱已被使用，请直接登录或使用“找回密码”。");
+          }
+          throw error;
+        }
+        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          throw new Error("该邮箱已被使用，请直接登录或使用“找回密码”。");
+        }
         if (data.session) {
           window.location.assign("/");
           return;
@@ -110,6 +124,11 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
           {mode === "login" && (
             <span className="text-xs font-normal leading-5 text-slate-500">
               可输入注册邮箱或用户名；用户名不区分大小写。
+            </span>
+          )}
+          {mode === "register" && (
+            <span className="text-xs font-normal leading-5 text-slate-500">
+              每个邮箱只能注册一个账号；如果邮箱已被使用，系统会在提交后明确提示。
             </span>
           )}
         </label>
