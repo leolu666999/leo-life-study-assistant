@@ -1,4 +1,5 @@
 import { getTaskRepository } from "@/lib/repositories";
+import { deriveChecklistProgress } from "@/lib/checklist-progress";
 import type { RepositoryContext } from "@/lib/repositories/repository-context";
 import type { ProgressEntryInput, TaskInput } from "@/lib/repositories/task-repository";
 import type { ProgressItem } from "@/lib/types";
@@ -19,11 +20,11 @@ export class TaskService {
   }
 
   createTask(input: TaskInput, context?: RepositoryContext) {
-    return this.repository.createTask(input, context);
+    return this.repository.createTask(normalizeChecklistTaskProgress(input), context);
   }
 
   updateTask(id: string, input: TaskInput, context?: RepositoryContext) {
-    return this.repository.updateTask(id, input, context);
+    return this.repository.updateTask(id, normalizeChecklistTaskProgress(input), context);
   }
 
   completeTask(id: string, context?: RepositoryContext) {
@@ -73,4 +74,21 @@ export class TaskService {
 
 export function getTaskService() {
   return new TaskService();
+}
+
+export function normalizeChecklistTaskProgress(input: TaskInput): TaskInput {
+  if (input.type !== "checklist" || !input.progressEnabled || input.progressType !== "count" || !input.subtasks) {
+    return input;
+  }
+  const progress = deriveChecklistProgress(input.subtasks.map((item) =>
+    typeof item === "string"
+      ? { title: item, completed: false }
+      : { title: item.title ?? "", completed: Boolean(item.completed) }
+  ));
+  return {
+    ...input,
+    progressCurrent: progress.current,
+    progressTarget: progress.target,
+    progressUnit: progress.unit
+  };
 }

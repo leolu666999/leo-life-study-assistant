@@ -859,13 +859,41 @@ function syncTaskSubtasks(taskId: string, drafts: SubtaskDraftInput[], db = getD
 export function setSubtaskCompleted(id: string, completed: boolean) {
   const db = getDb();
   const timestamp = now();
-  db.prepare("UPDATE subtasks SET completed = ?, updatedAt = ? WHERE id = ?").run(completed ? 1 : 0, timestamp, id);
-  const row = db.prepare("SELECT * FROM subtasks WHERE id = ?").get(id);
-  if (row) {
-    db.prepare("UPDATE tasks SET status = 'in_progress', updatedAt = ? WHERE id = ? AND status = 'not_started'")
-      .run(timestamp, String((row as { taskId?: unknown }).taskId ?? ""));
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    db.prepare("UPDATE subtasks SET completed = ?, updatedAt = ? WHERE id = ?").run(completed ? 1 : 0, timestamp, id);
+    const row = db.prepare("SELECT * FROM subtasks WHERE id = ?").get(id);
+    if (!row) {
+      db.exec("COMMIT");
+      return null;
+    }
+    const taskId = String((row as { taskId?: unknown }).taskId ?? "");
+    db.prepare(`
+      UPDATE tasks
+      SET status = CASE WHEN status = 'not_started' THEN 'in_progress' ELSE status END,
+          progressCurrent = CASE
+            WHEN type = 'checklist' AND progressEnabled = 1 AND progressType = 'count'
+            THEN (SELECT COUNT(*) FROM subtasks WHERE taskId = ? AND completed = 1)
+            ELSE progressCurrent
+          END,
+          progressTarget = CASE
+            WHEN type = 'checklist' AND progressEnabled = 1 AND progressType = 'count'
+            THEN (SELECT COUNT(*) FROM subtasks WHERE taskId = ?)
+            ELSE progressTarget
+          END,
+          progressUnit = CASE
+            WHEN type = 'checklist' AND progressEnabled = 1 AND progressType = 'count' THEN '项'
+            ELSE progressUnit
+          END,
+          updatedAt = ?
+      WHERE id = ?
+    `).run(taskId, taskId, timestamp, taskId);
+    db.exec("COMMIT");
+    return rowToSubtask(row);
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
   }
-  return row ? rowToSubtask(row) : null;
 }
 
 export function getTask(id: string, db = getDb()) {

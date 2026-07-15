@@ -154,15 +154,23 @@ describe.sequential("Wave 2 cloud Task Repository", () => {
   it("6. User A creates a checklist Task with progress and the current response shape", async () => {
     const response = await postTask(request("/api/tasks", userA, "POST", {
       title: "A cloud task", type: "checklist", priority: "high", tags: ["cloud"],
-      progressEnabled: true, progressCurrent: 1, progressTarget: 5, progressUnit: "次",
-      subtasks: [{ title: "A private item", completed: false }]
+      progressEnabled: true, progressType: "count", progressCurrent: 99, progressTarget: 99, progressUnit: "wrong",
+      subtasks: [
+        { title: "A private item", completed: false },
+        { title: "B", completed: true },
+        { title: "C", completed: false },
+        { title: "D", completed: false },
+        { title: "E", completed: false }
+      ]
     }));
     expect(response.status).toBe(201);
-    const body = await json(response) as { id: string; subtasks: Array<{ id: string }>; tags: string[]; progressCurrent: number };
+    const body = await json(response) as { id: string; subtasks: Array<{ id: string }>; tags: string[]; progressCurrent: number; progressTarget: number; progressUnit: string };
     taskAId = body.id;
     subtaskAId = body.subtasks[0].id;
     expect(body.tags).toEqual(expect.arrayContaining(["cloud", "清单"]));
     expect(body.progressCurrent).toBe(1);
+    expect(body.progressTarget).toBe(5);
+    expect(body.progressUnit).toBe("项");
   });
 
   it("7. User A lists its Task", async () => {
@@ -202,6 +210,8 @@ describe.sequential("Wave 2 cloud Task Repository", () => {
     expect((await patchSubtask(request(`/api/subtasks/${subtaskAId}`, userB, "PATCH", { completed: true }), params(subtaskAId))).status).toBe(404);
     const own = await patchSubtask(request(`/api/subtasks/${subtaskAId}`, userA, "PATCH", { completed: true }), params(subtaskAId));
     expect(await json(own)).toMatchObject({ id: subtaskAId, completed: true });
+    const { data } = await admin.from("tasks").select("progressCurrent,progressTarget,progressUnit").eq("id", taskAId).single();
+    expect(data).toMatchObject({ progressCurrent: 2, progressTarget: 5, progressUnit: "项" });
   });
 
   it("14. archive and restore preserve current Task transitions", async () => {

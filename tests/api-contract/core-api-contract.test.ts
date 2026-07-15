@@ -191,6 +191,24 @@ describe("Tasks API contract", () => {
     expect(body).toMatchObject({ progressEnabled: true, progressType: "pages", progressCurrent: 10, progressTarget: 100, progressUnit: "页" });
   });
 
+  it("POST derives count progress from checklist rows", async () => {
+    const { body } = await createTask({
+      title: "自动清单进度",
+      type: "checklist",
+      progressEnabled: true,
+      progressType: "count",
+      progressCurrent: 99,
+      progressTarget: 99,
+      progressUnit: "wrong",
+      subtasks: [
+        { title: "A", completed: true },
+        { title: "B", completed: false },
+        { title: "", completed: true }
+      ]
+    });
+    expect(body).toMatchObject({ progressCurrent: 1, progressTarget: 2, progressUnit: "项" });
+  });
+
   it("PATCH returns 404 for an unknown task", async () => {
     const response = await routes.task.PATCH(request("http://local.test/api/tasks/missing", "PATCH", { title: "x" }), context("missing"));
     expect(response.status).toBe(404);
@@ -249,12 +267,24 @@ describe("Tasks API contract", () => {
   });
 
   it("subtask PATCH updates completion and returns 404 when missing", async () => {
-    const created = await createTask({ title: "清单", type: "checklist", subtasks: ["项目"] });
+    const created = await createTask({
+      title: "清单",
+      type: "checklist",
+      progressEnabled: true,
+      progressType: "count",
+      subtasks: ["项目", "项目 2"]
+    });
     const subtaskId = String((created.body.subtasks as Array<Record<string, unknown>>)[0].id);
     const updated = await routes.subtask.PATCH(request("http://local.test", "PATCH", { completed: true }), context(subtaskId));
     expect(await updated.json()).toMatchObject({ id: subtaskId, completed: true });
     const tasks = await routes.tasks.GET(request("http://local.test/api/tasks", "GET"));
-    expect(await tasks.json()).toEqual(expect.arrayContaining([expect.objectContaining({ id: created.body.id, status: "in_progress" })]));
+    expect(await tasks.json()).toEqual(expect.arrayContaining([expect.objectContaining({
+      id: created.body.id,
+      status: "in_progress",
+      progressCurrent: 1,
+      progressTarget: 2,
+      progressUnit: "项"
+    })]));
     const missing = await routes.subtask.PATCH(request("http://local.test", "PATCH", { completed: true }), context("missing"));
     expect(missing.status).toBe(404);
   });

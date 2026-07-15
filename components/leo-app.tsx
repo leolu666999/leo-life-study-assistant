@@ -52,6 +52,7 @@ import type {
   TodoListItem
 } from "@/lib/types";
 import { currencies } from "@/lib/currencies";
+import { deriveChecklistProgress } from "@/lib/checklist-progress";
 import { mutationRefreshScope, type MutationRefreshScope } from "@/lib/mutation-refresh";
 import { buildTimetableMonthDateKeys } from "@/lib/timetable-month";
 
@@ -927,18 +928,37 @@ export function LeoApp({ initialView }: { initialView: View }) {
 
   async function toggleTaskSubtask(taskId: string, subtaskId: string, completed: boolean) {
     const previousTasks = tasks;
+    const previousProgress = progress;
     setTasks((currentTasks) =>
       currentTasks.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              subtasks: task.subtasks?.map((subtask) =>
-                subtask.id === subtaskId ? { ...subtask, completed } : subtask
-              )
-            }
-          : task
+        task.id !== taskId ? task : (() => {
+          const subtasks = task.subtasks?.map((subtask) =>
+            subtask.id === subtaskId ? { ...subtask, completed } : subtask
+          ) ?? [];
+          const checklist = deriveChecklistProgress(subtasks);
+          const syncProgress = task.type === "checklist" && task.progressEnabled && task.progressType === "count";
+          return {
+            ...task,
+            subtasks,
+            status: task.status === "not_started" ? "in_progress" : task.status,
+            progressCurrent: syncProgress ? checklist.current : task.progressCurrent,
+            progressTarget: syncProgress ? checklist.target : task.progressTarget,
+            progressUnit: syncProgress ? checklist.unit : task.progressUnit
+          };
+        })()
       )
     );
+    const optimisticTask = tasks.find((task) => task.id === taskId);
+    if (optimisticTask?.type === "checklist" && optimisticTask.progressEnabled && optimisticTask.progressType === "count") {
+      const checklist = deriveChecklistProgress((optimisticTask.subtasks ?? []).map((subtask) =>
+        subtask.id === subtaskId ? { ...subtask, completed } : subtask
+      ));
+      setProgress((currentProgress) => currentProgress.map((item) =>
+        item.id === taskId || item.linkedTaskId === taskId
+          ? { ...item, currentValue: checklist.current, targetValue: checklist.target, unit: checklist.unit }
+          : item
+      ));
+    }
 
     try {
       await saveRequest(`/api/subtasks/${subtaskId}`, {
@@ -947,6 +967,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
       });
     } catch {
       setTasks(previousTasks);
+      setProgress(previousProgress);
       throw new Error("Checklist item update failed");
     }
   }
@@ -3988,6 +4009,7 @@ function UserGuidePage() {
           <p>Task 用于持续推进的事情；Deadline 用于有明确截止时刻的事项。它们都在“任务”页面统一管理。</p>
           <p>优先级选项目前暂时从所有任务编辑弹窗隐藏；已有任务的优先级数据会保留，新建任务使用系统默认值。</p>
           <p>新建或编辑任务时可以开启进度追踪，设置当前值、目标值和单位。开启固定后，进度条会显示在页面底部。</p>
+          <p>清单任务使用“次数”进度时，当前值会自动等于已勾选条目数，目标值会自动等于有效条目总数。</p>
           <p>任务完成后可在“已完成”中恢复；删除前会出现确认提示。</p>
         </>
       )
@@ -4547,6 +4569,7 @@ function QuickModal({
   }
 
   const isDeadlineForm = mode === "deadline" || task?.type === "deadline";
+  const initialTaskType = isDeadlineForm ? "deadline" : normalizeType(task?.type || "todo");
   const initialReminder = parseReminderRule(task?.reminderRule);
   const [reminderType, setReminderType] = useState<ReminderType>(initialReminder.type);
   const [reminderEditorOpen, setReminderEditorOpen] = useState(false);
@@ -4572,13 +4595,16 @@ function QuickModal({
   const [beforeUnit, setBeforeUnit] = useState<"minutes" | "hours" | "days">(
     initialReminder.type === "custom" ? initialReminder.beforeUnit ?? "hours" : "hours"
   );
-  const [progressEnabled, setProgressEnabled] = useState(Boolean(task?.progressEnabled || task?.progressTarget || mode === "counter"));
-  const [progressType, setProgressType] = useState(task?.progressType || "count");
+  const [progressEnabled, setProgressEnabled] = useState(Boolean(
+    task?.progressEnabled || task?.progressTarget || mode === "counter" || initialTaskType === "checklist"
+  ));
+  const [progressType, setProgressType] = useState(initialTaskType === "checklist" ? "count" : task?.progressType || "count");
+  const [progressCurrentValue, setProgressCurrentValue] = useState(String(task?.progressCurrent ?? 0));
+  const [progressTargetValue, setProgressTargetValue] = useState(String(task?.progressTarget ?? (task?.progressType === "percentage" ? 100 : "")));
+  const [progressUnitValue, setProgressUnitValue] = useState(task?.progressUnit || defaultProgressUnit(task?.progressType || "count"));
   const [todoDate, setTodoDate] = useState(new Date().toISOString().slice(0, 10));
   const [todoItems, setTodoItems] = useState<TodoDraftItem[]>([createTodoDraftItem()]);
-  const [selectedTaskType, setSelectedTaskType] = useState<TaskType>(
-    isDeadlineForm ? "deadline" : normalizeType(task?.type || "todo")
-  );
+  const [selectedTaskType, setSelectedTaskType] = useState<TaskType>(initialTaskType);
   const [taskTags, setTaskTags] = useState<string[]>(() => {
     const initialTags = task?.tags || [];
     return normalizeType(task?.type) === "checklist" && !initialTags.includes("清单")
@@ -4591,6 +4617,8 @@ function QuickModal({
       : [createTodoDraftItem()]
   );
   const [, setDirty] = useState(false);
+  const checklistProgress = deriveChecklistProgress(checklistItems);
+  const usesAutomaticChecklistProgress = selectedTaskType === "checklist" && progressEnabled && progressType === "count";
   const modalTitle = task
     ? "编辑任务"
     : mode === "todoList"
@@ -4636,7 +4664,11 @@ function QuickModal({
       if (nextType === "checklist") return currentTags.includes("清单") ? currentTags : [...currentTags, "清单"];
       return currentTags.filter((tag) => tag !== "清单");
     });
-    if (nextType === "counter") setProgressEnabled(true);
+    if (nextType === "counter" || nextType === "checklist") {
+      setProgressEnabled(true);
+      setProgressType("count");
+      setProgressUnitValue(nextType === "checklist" ? "项" : "次");
+    }
     setDirty(true);
   }
 
@@ -4696,9 +4728,9 @@ function QuickModal({
                 tags: [String(form.get("category") || "进度")],
                 progressEnabled: true,
                 progressType,
-                progressCurrent: Number(form.get("progressCurrent") || 0),
-                progressTarget: Number(form.get("progressTarget") || 1),
-                progressUnit: form.get("progressUnit") || defaultProgressUnit(progressType),
+                progressCurrent: Number(progressCurrentValue || 0),
+                progressTarget: Number(progressTargetValue || 1),
+                progressUnit: progressUnitValue || defaultProgressUnit(progressType),
                 pinnedToBottom: form.get("pinnedToBottom") === "on"
               })
             });
@@ -4718,9 +4750,15 @@ function QuickModal({
               startDate: form.get("startDate") || null,
               dueDate: form.get("dueDate") || null,
               reminderRule: serializeReminderRule(),
-              progressCurrent: form.get("progressCurrent") ? Number(form.get("progressCurrent")) : null,
-              progressTarget: form.get("progressTarget") ? Number(form.get("progressTarget")) : null,
-              progressUnit: progressEnabled ? form.get("progressUnit") || defaultProgressUnit(progressType) : null,
+              progressCurrent: progressEnabled
+                ? usesAutomaticChecklistProgress ? checklistProgress.current : Number(progressCurrentValue || 0)
+                : null,
+              progressTarget: progressEnabled
+                ? usesAutomaticChecklistProgress ? checklistProgress.target : progressTargetValue ? Number(progressTargetValue) : null
+                : null,
+              progressUnit: progressEnabled
+                ? usesAutomaticChecklistProgress ? checklistProgress.unit : progressUnitValue || defaultProgressUnit(progressType)
+                : null,
               progressEnabled,
               progressType: progressEnabled ? progressType : "none",
               pinnedToBottom: progressEnabled && form.get("pinnedToBottom") === "on"
@@ -4782,7 +4820,12 @@ function QuickModal({
             <Input name="title" placeholder="进度名称" required />
             <Select
               value={progressType}
-              onChange={(event) => setProgressType(event.target.value as typeof progressType)}
+              onChange={(event) => {
+                const nextType = event.target.value as typeof progressType;
+                setProgressType(nextType);
+                setProgressUnitValue(defaultProgressUnit(nextType));
+                if (nextType === "percentage" && !progressTargetValue) setProgressTargetValue("100");
+              }}
               options={[
                 ["count", "次数"],
                 ["pages", "阅读页数"],
@@ -4791,10 +4834,17 @@ function QuickModal({
                 ["custom", "自定义单位"]
               ]}
             />
-            <div className="grid gap-3 md:grid-cols-3">
-              <Input name="progressCurrent" type="number" defaultValue="0" />
-              <Input name="progressTarget" type="number" defaultValue="10" />
-              <Input name="progressUnit" placeholder="单位，例如 次 / 页 / 小时 / %" defaultValue={defaultProgressUnit(progressType)} />
+            <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+              <label className="grid gap-1 text-xs font-medium text-slate-500">当前
+                <Input type="number" min="0" value={progressCurrentValue} onChange={(event) => setProgressCurrentValue(event.target.value)} className="h-10 bg-white" />
+              </label>
+              <span className="pb-3 text-slate-400">/</span>
+              <label className="grid gap-1 text-xs font-medium text-slate-500">目标
+                <Input type="number" min="0" value={progressTargetValue} onChange={(event) => setProgressTargetValue(event.target.value)} className="h-10 bg-white" />
+              </label>
+              <label className="col-span-3 grid gap-1 text-xs font-medium text-slate-500">单位
+                <Input value={progressUnitValue} onChange={(event) => setProgressUnitValue(event.target.value)} placeholder="次 / 页 / 小时 / %" className="h-10 bg-white" />
+              </label>
             </div>
             <Input name="category" placeholder="分类，例如 football / study" />
             <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
@@ -4900,22 +4950,53 @@ function QuickModal({
             </label>
             {progressEnabled && (
               <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <Select
-                  value={progressType}
-                  onChange={(event) => setProgressType(event.target.value as typeof progressType)}
-                  options={[
-                    ["count", "次数"],
-                    ["pages", "阅读页数"],
-                    ["percentage", "百分比"],
-                    ["time", "时间"],
-                    ["custom", "自定义单位"]
-                  ]}
-                />
-                <div className="grid gap-3 md:grid-cols-3">
-                  <Input name="progressCurrent" type="number" placeholder="当前进度" defaultValue={task?.progressCurrent ?? 0} />
-                  <Input name="progressTarget" type="number" placeholder="目标值" defaultValue={task?.progressTarget ?? (progressType === "percentage" ? 100 : "")} />
-                  <Input name="progressUnit" placeholder="单位" defaultValue={task?.progressUnit || defaultProgressUnit(progressType)} />
-                </div>
+                {selectedTaskType === "checklist" ? (
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">
+                    <span className="font-medium text-slate-700">清单计次</span>
+                    <span className="text-xs text-slate-500">目标自动取条目数</span>
+                  </div>
+                ) : (
+                  <Select
+                    value={progressType}
+                    onChange={(event) => {
+                      const nextType = event.target.value as typeof progressType;
+                      setProgressType(nextType);
+                      setProgressUnitValue(defaultProgressUnit(nextType));
+                      if (nextType === "percentage" && !progressTargetValue) setProgressTargetValue("100");
+                    }}
+                    options={[
+                      ["count", "次数"],
+                      ["pages", "阅读页数"],
+                      ["percentage", "百分比"],
+                      ["time", "时间"],
+                      ["custom", "自定义单位"]
+                    ]}
+                  />
+                )}
+                {usesAutomaticChecklistProgress ? (
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
+                    <div>
+                      <div className="text-xs font-medium text-slate-500">清单进度自动同步</div>
+                      <div className="mt-0.5 text-sm text-slate-600">勾选、增加或删除条目后会自动更新</div>
+                    </div>
+                    <div className="shrink-0 text-lg font-semibold text-slate-950">
+                      {checklistProgress.current} / {checklistProgress.target} 项
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2 rounded-2xl border border-slate-200 bg-white p-2">
+                    <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-500">当前
+                      <Input type="number" min="0" value={progressCurrentValue} onChange={(event) => setProgressCurrentValue(event.target.value)} className="h-10 px-3" />
+                    </label>
+                    <span className="pb-3 text-slate-400">/</span>
+                    <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-500">目标
+                      <Input type="number" min="0" value={progressTargetValue} onChange={(event) => setProgressTargetValue(event.target.value)} className="h-10 px-3" />
+                    </label>
+                    <label className="grid w-20 gap-1 text-xs font-medium text-slate-500">单位
+                      <Input value={progressUnitValue} onChange={(event) => setProgressUnitValue(event.target.value)} className="h-10 px-3 text-center" />
+                    </label>
+                  </div>
+                )}
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input type="checkbox" name="pinnedToBottom" defaultChecked={Boolean(task?.pinnedToBottom)} />
                   固定到底部进度条
