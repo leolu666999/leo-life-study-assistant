@@ -89,7 +89,11 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
           用户名
           <input required minLength={3} maxLength={24} pattern="[A-Za-z0-9_]+" autoComplete="username" value={username}
             onChange={(event) => setUsername(event.target.value)} placeholder="字母、数字或下划线"
+            title="3 至 24 位，仅限英文字母、数字和下划线"
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-100" />
+          <span className="text-xs font-normal leading-5 text-slate-500">
+            3 至 24 位，仅限英文字母、数字和下划线；用户名全局唯一，且不区分大小写。
+          </span>
         </label>
       )}
       {needsEmail && (
@@ -103,6 +107,11 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
             onChange={(event) => setEmail(event.target.value)}
             className="h-11 rounded-lg border border-slate-200 px-3 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
           />
+          {mode === "login" && (
+            <span className="text-xs font-normal leading-5 text-slate-500">
+              可输入注册邮箱或用户名；用户名不区分大小写。
+            </span>
+          )}
         </label>
       )}
       {needsPassword && (
@@ -127,6 +136,13 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </span>
+          {(mode === "login" || mode === "register") && (
+            <span className="text-xs font-normal leading-5 text-slate-500">
+              {mode === "register"
+                ? "至少 8 个字符，密码区分大小写；建议混合字母、数字和符号。"
+                : "密码区分大小写，请输入注册时设置的完整密码。"}
+            </span>
+          )}
         </label>
       )}
       {mode === "reset" && (

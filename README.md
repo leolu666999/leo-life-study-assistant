@@ -208,6 +208,8 @@ Phase 6 已增加 Supabase File Repository 与私有 Storage 生命周期：Clou
 
 Phase 7 已加入正式账号和支持入口：注册要求全局唯一用户名、邮箱和密码，登录支持“用户名或邮箱 + 密码”；用户名存入 `profiles` 并使用大小写不敏感唯一约束。找回密码继续使用 Supabase Auth 安全邮件流程，“联系开发者”允许登录用户或匿名访客留言。`developer_messages` 不开放任何客户端读取策略，只有受保护的 Admin API 可以查看和更新状态。
 
+账号规则会直接显示在登录和注册页面：用户名为 3 至 24 位，仅限英文字母、数字和下划线，全局唯一且不区分大小写；密码至少 8 个字符并区分大小写，建议混合字母、数字和符号。登录时可使用注册邮箱或用户名。
+
 独立管理员后台位于 `/admin`。只有 `ADMIN_USER_ID` 对应的独立 Admin Account 能进入；用户列表、用户数据、留言和文件查看均经过 `/api/admin/*`、`assertAdmin()` 与服务端 elevated client。原文件只提供 60 秒 signed URL，留言状态修改会写入 `admin_audit_logs`。开发者联系方式通过服务端 `DEVELOPER_CONTACT_EMAIL` 和 `DEVELOPER_CONTACT_PHONE` 配置，不写入源码或浏览器 bundle。
 
 “新增收支”弹窗采用统一 segmented control、金额主视觉、分类 chips、响应式日期/支付方式布局和独立凭证上传卡。桌面端普通 MacBook 视口完整显示；手机端单列纵向滚动，不产生横向滚动。

@@ -39,6 +39,10 @@ describe("Phase 7 production account and contact contracts", () => {
     const middleware = read("middleware.ts");
     expect(authForm).toContain("显示密码");
     expect(authForm).toContain("在这台电脑保持登录");
+    expect(authForm).toContain("3 至 24 位，仅限英文字母、数字和下划线");
+    expect(authForm).toContain("用户名全局唯一，且不区分大小写");
+    expect(authForm).toContain("至少 8 个字符，密码区分大小写");
+    expect(authForm).toContain("密码区分大小写，请输入注册时设置的完整密码");
     expect(app).toContain("/api/private-files/");
     const privateFiles = read("app/api/private-files/[id]/route.ts");
     expect(privateFiles).toContain('from "../../uploads/[id]/route"');
