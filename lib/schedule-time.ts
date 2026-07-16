@@ -16,12 +16,21 @@ type TimeToken = {
 };
 
 const timeTokenPattern =
-  /(凌晨|早上|上午|中午|下午|傍晚|晚上)?\s*([01]?\d|2[0-3])\s*(?:(?:[:：]\s*([0-5]\d))|(?:点(?:\s*(半|[0-5]?\d\s*分?))?))/g;
+  /(凌晨|早上|上午|中午|下午|傍晚|晚上)?\s*([01]?\d|2[0-3]|[一二三四五六七八九十]{1,3})\s*(?:(?:[:：]\s*([0-5]\d))|(?:点(?:\s*(半|[0-5]?\d\s*分?|[一二三四五六七八九十]{1,3}\s*分?))?))/g;
+
+function parseNumber(value: string) {
+  if (/^\d+$/.test(value)) return Number(value);
+  const digits: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  if (value === "十") return 10;
+  const [before, after] = value.split("十");
+  if (value.includes("十")) return (before ? digits[before] ?? 0 : 1) * 10 + (after ? digits[after] ?? 0 : 0);
+  return digits[value] ?? Number.NaN;
+}
 
 function parseMinute(value?: string) {
   if (!value) return 0;
   if (value.trim() === "半") return 30;
-  return Number(value.replace(/\s*分\s*$/, "").trim() || 0);
+  return parseNumber(value.replace(/\s*分\s*$/, "").trim() || "0");
 }
 
 function collectTimeTokens(text: string) {
@@ -33,7 +42,7 @@ function collectTimeTokens(text: string) {
       end: start + match[0].length,
       text: match[0],
       period: match[1] ?? "",
-      hour: Number(match[2]),
+      hour: parseNumber(match[2]),
       minute: parseMinute(match[3] ?? match[4])
     });
   }

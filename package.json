@@ -18,7 +18,7 @@
     "test:storage:remote": "FILE_BACKEND=supabase node --env-file=.env.supabase-test.local ./node_modules/vitest/vitest.mjs run tests/supabase/remote-storage.test.ts --config vitest.remote.config.ts --maxWorkers=1",
     "test:phase7:remote": "node --env-file=.env.supabase-test.local ./node_modules/vitest/vitest.mjs run tests/supabase/remote-phase7.test.ts --config vitest.remote.config.ts --maxWorkers=1",
     "start": "next start -H 0.0.0.0 -p 3011",
-    "test": "vitest run tests/api-contract/core-api-contract.test.ts tests/supabase/rls-security.test.ts tests/auth/data-mode-security.test.ts tests/auth/auth-boundary.test.ts tests/auth/sqlite-isolation.test.ts tests/timezone.test.ts tests/timetable-phase5.test.ts tests/timetable-month.test.ts tests/checklist-progress.test.ts tests/storage/file-security.test.ts tests/deployment/vercel-preflight.test.ts tests/phase7-product.test.ts tests/mutation-refresh.test.ts",
+    "test": "vitest run tests/api-contract/core-api-contract.test.ts tests/supabase/rls-security.test.ts tests/auth/data-mode-security.test.ts tests/auth/auth-boundary.test.ts tests/auth/sqlite-isolation.test.ts tests/timezone.test.ts tests/timetable-phase5.test.ts tests/timetable-month.test.ts tests/checklist-progress.test.ts tests/storage/file-security.test.ts tests/deployment/vercel-preflight.test.ts tests/phase7-product.test.ts tests/mutation-refresh.test.ts tests/schedule-entry-parser.test.ts",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "desktop:dev": "electron .",
@@ -63,7 +63,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rrule": "^2.8.1",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "tesseract.js": "^6.0.1"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.14",
