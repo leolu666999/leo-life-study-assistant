@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   applicationName: "MyAssist",
   title: "MyAssist",
-  description: "生活、学习、计划、收支和进度管理面板",
+  description: "MyAssist 是你的留学生活助手，统一管理课表、任务、日程、收支和重要文件。",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
