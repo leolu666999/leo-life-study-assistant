@@ -4008,8 +4008,8 @@ function UserGuidePage() {
         <>
           <p>Task 用于持续推进的事情；Deadline 用于有明确截止时刻的事项。它们都在“任务”页面统一管理。</p>
           <p>优先级选项目前暂时从所有任务编辑弹窗隐藏；已有任务的优先级数据会保留，新建任务使用系统默认值。</p>
-          <p>新建或编辑任务时可以开启进度追踪，设置当前值、目标值和单位。开启固定后，进度条会显示在页面底部。</p>
-          <p>清单任务使用“次数”进度时，当前值会自动等于已勾选条目数，目标值会自动等于有效条目总数。</p>
+          <p>新建或编辑任务时，任务类型、计数和提醒会从左到右显示在同一行。类型可选“待办、计数、清单”：待办无需计数，计数填写当前值和目标值，清单自动按条目完成数计数。</p>
+          <p>进度统一使用数字记录，不再选择阅读页数、百分比、时间或自定义单位。清单当前值会自动等于已勾选条目数，目标值会自动等于有效条目总数。</p>
           <p>任务完成后可在“已完成”中恢复；删除前会出现确认提示。</p>
         </>
       )
@@ -4600,10 +4600,8 @@ function QuickModal({
   const [progressEnabled, setProgressEnabled] = useState(Boolean(
     task?.progressEnabled || task?.progressTarget || mode === "counter" || initialTaskType === "checklist"
   ));
-  const [progressType, setProgressType] = useState(initialTaskType === "checklist" ? "count" : task?.progressType || "count");
   const [progressCurrentValue, setProgressCurrentValue] = useState(String(task?.progressCurrent ?? 0));
   const [progressTargetValue, setProgressTargetValue] = useState(String(task?.progressTarget ?? (task?.progressType === "percentage" ? 100 : "")));
-  const [progressUnitValue, setProgressUnitValue] = useState(task?.progressUnit || defaultProgressUnit(task?.progressType || "count"));
   const [todoDate, setTodoDate] = useState(new Date().toISOString().slice(0, 10));
   const [todoItems, setTodoItems] = useState<TodoDraftItem[]>([createTodoDraftItem()]);
   const [selectedTaskType, setSelectedTaskType] = useState<TaskType>(initialTaskType);
@@ -4620,7 +4618,7 @@ function QuickModal({
   );
   const [, setDirty] = useState(false);
   const checklistProgress = deriveChecklistProgress(checklistItems);
-  const usesAutomaticChecklistProgress = selectedTaskType === "checklist" && progressEnabled && progressType === "count";
+  const usesAutomaticChecklistProgress = selectedTaskType === "checklist" && progressEnabled;
   const modalTitle = task
     ? "编辑任务"
     : mode === "todoList"
@@ -4668,8 +4666,8 @@ function QuickModal({
     });
     if (nextType === "counter" || nextType === "checklist") {
       setProgressEnabled(true);
-      setProgressType("count");
-      setProgressUnitValue(nextType === "checklist" ? "项" : "次");
+    } else {
+      setProgressEnabled(false);
     }
     setDirty(true);
   }
@@ -4729,10 +4727,10 @@ function QuickModal({
                 priority: "medium",
                 tags: [String(form.get("category") || "进度")],
                 progressEnabled: true,
-                progressType,
+                progressType: "count",
                 progressCurrent: Number(progressCurrentValue || 0),
                 progressTarget: Number(progressTargetValue || 1),
-                progressUnit: progressUnitValue || defaultProgressUnit(progressType),
+                progressUnit: "次",
                 pinnedToBottom: form.get("pinnedToBottom") === "on"
               })
             });
@@ -4759,10 +4757,10 @@ function QuickModal({
                 ? usesAutomaticChecklistProgress ? checklistProgress.target : progressTargetValue ? Number(progressTargetValue) : null
                 : null,
               progressUnit: progressEnabled
-                ? usesAutomaticChecklistProgress ? checklistProgress.unit : progressUnitValue || defaultProgressUnit(progressType)
+                ? usesAutomaticChecklistProgress ? checklistProgress.unit : "次"
                 : null,
               progressEnabled,
-              progressType: progressEnabled ? progressType : "none",
+              progressType: progressEnabled ? "count" : "none",
               pinnedToBottom: progressEnabled && form.get("pinnedToBottom") === "on"
             };
             await onSaveRequest(task ? `/api/tasks/${task.id}` : "/api/tasks", {
@@ -4820,32 +4818,13 @@ function QuickModal({
         ) : mode === "counter" ? (
           <div className="grid gap-3">
             <Input name="title" placeholder="进度名称" required />
-            <Select
-              value={progressType}
-              onChange={(event) => {
-                const nextType = event.target.value as typeof progressType;
-                setProgressType(nextType);
-                setProgressUnitValue(defaultProgressUnit(nextType));
-                if (nextType === "percentage" && !progressTargetValue) setProgressTargetValue("100");
-              }}
-              options={[
-                ["count", "次数"],
-                ["pages", "阅读页数"],
-                ["percentage", "百分比"],
-                ["time", "时间"],
-                ["custom", "自定义单位"]
-              ]}
-            />
             <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
               <label className="grid gap-1 text-xs font-medium text-slate-500">当前
                 <Input type="number" min="0" value={progressCurrentValue} onChange={(event) => setProgressCurrentValue(event.target.value)} className="h-10 bg-white" />
               </label>
               <span className="pb-3 text-slate-400">/</span>
               <label className="grid gap-1 text-xs font-medium text-slate-500">目标
-                <Input type="number" min="0" value={progressTargetValue} onChange={(event) => setProgressTargetValue(event.target.value)} className="h-10 bg-white" />
-              </label>
-              <label className="col-span-3 grid gap-1 text-xs font-medium text-slate-500">单位
-                <Input value={progressUnitValue} onChange={(event) => setProgressUnitValue(event.target.value)} placeholder="次 / 页 / 小时 / %" className="h-10 bg-white" />
+                <Input type="number" min="1" required value={progressTargetValue} onChange={(event) => setProgressTargetValue(event.target.value)} className="h-10 bg-white" />
               </label>
             </div>
             <Input name="category" placeholder="分类，例如 football / study" />
@@ -4873,20 +4852,85 @@ function QuickModal({
               <Input name="dueDate" type="datetime-local" defaultValue={toDateTimeInputValue(task?.dueDate)} />
             </div>
             <textarea name="description" className="min-h-[90px] rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="描述" defaultValue={task?.description || ""} />
-            {!isDeadlineForm && (
-              <div className="grid gap-3">
-                <Select
-                  name="type"
-                  value={selectedTaskType}
-                  onChange={(event) => changeTaskType(event.target.value as TaskType)}
-                  options={[
-                    ["todo", "待办"],
-                    ["counter", "计数"],
-                    ["checklist", "清单"]
-                  ]}
-                />
+            <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)_minmax(0,1fr)] gap-2">
+              {!isDeadlineForm ? (
+                <label className="grid min-w-0 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-2 text-xs font-medium text-slate-500">
+                  类型
+                  <Select
+                    name="type"
+                    value={selectedTaskType}
+                    onChange={(event) => changeTaskType(event.target.value as TaskType)}
+                    className="task-type-select h-10 min-w-0 w-full px-1 text-xs sm:px-2 sm:text-sm"
+                    options={[
+                      ["todo", "待办"],
+                      ["counter", "计数"],
+                      ["checklist", "清单"]
+                    ]}
+                  />
+                </label>
+              ) : (
+                <label className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  <input type="checkbox" checked={progressEnabled} onChange={(event) => setProgressEnabled(event.target.checked)} />
+                  <span className="leading-tight">计数进度</span>
+                </label>
+              )}
+
+              <div className="grid min-w-0 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-2 text-xs font-medium text-slate-500">
+                计数
+                {usesAutomaticChecklistProgress ? (
+                  <div className="flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900">
+                    {checklistProgress.current} / {checklistProgress.target}
+                  </div>
+                ) : progressEnabled ? (
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
+                    <Input
+                      aria-label="当前值"
+                      type="number"
+                      min="0"
+                      value={progressCurrentValue}
+                      onChange={(event) => setProgressCurrentValue(event.target.value)}
+                      className="progress-number-input h-10 min-w-0 px-1 text-center text-xs sm:px-2 sm:text-sm"
+                    />
+                    <span className="text-slate-400">/</span>
+                    <Input
+                      aria-label="目标值"
+                      type="number"
+                      min="1"
+                      required
+                      value={progressTargetValue}
+                      onChange={(event) => setProgressTargetValue(event.target.value)}
+                      placeholder="目标"
+                      className="progress-number-input h-10 min-w-0 px-1 text-center text-xs sm:px-2 sm:text-sm"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-2 text-sm font-normal text-slate-400">
+                    无需计数
+                  </div>
+                )}
               </div>
-            )}
+
+              <button
+                type="button"
+                className="flex min-w-0 items-center justify-center gap-1 rounded-2xl border border-slate-200 bg-slate-50 px-1 py-2 text-center text-sm transition hover:bg-slate-100 sm:justify-between sm:gap-2 sm:px-3 sm:text-left"
+                onClick={() => setReminderEditorOpen(true)}
+              >
+                <span className="inline-flex min-w-0 items-center gap-1 sm:gap-2">
+                  <Bell size={16} className="hidden shrink-0 text-slate-500 sm:block" />
+                  <span className="min-w-0">
+                    <span className="block whitespace-nowrap text-xs font-medium text-slate-500"><span className="sm:hidden">提醒</span><span className="hidden sm:inline">是否提醒</span></span>
+                    <span className="block truncate whitespace-nowrap text-xs font-semibold text-slate-900 sm:text-sm">{reminderRuleLabel({
+                      type: reminderType,
+                      time: reminderTime,
+                      weekdays: weeklyReminderDays,
+                      intervalDays: Number(intervalReminderDays || 7),
+                      anchorDate: intervalAnchorDate
+                    })}</span>
+                  </span>
+                </span>
+                <ChevronDown size={16} className="hidden shrink-0 -rotate-90 text-slate-400 sm:block" />
+              </button>
+            </div>
             {!isDeadlineForm && selectedTaskType === "checklist" && (
               <TodoChecklistEditor
                 items={checklistItems}
@@ -4896,26 +4940,6 @@ function QuickModal({
                 }}
               />
             )}
-            <button
-              type="button"
-              className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-left text-sm transition hover:bg-slate-100"
-              onClick={() => setReminderEditorOpen(true)}
-            >
-              <span className="inline-flex min-w-0 items-center gap-2">
-                <Bell size={16} className="shrink-0 text-slate-500" />
-                <span className="min-w-0">
-                  <span className="block text-xs font-medium text-slate-500">是否提醒</span>
-                  <span className="block truncate font-semibold text-slate-900">{reminderRuleLabel({
-                    type: reminderType,
-                    time: reminderTime,
-                    weekdays: weeklyReminderDays,
-                    intervalDays: Number(intervalReminderDays || 7),
-                    anchorDate: intervalAnchorDate
-                  })}</span>
-                </span>
-              </span>
-              <ChevronDown size={16} className="-rotate-90 text-slate-400" />
-            </button>
             {reminderEditorOpen && (
               <ReminderRuleEditor
                 reminderType={reminderType}
@@ -4946,64 +4970,11 @@ function QuickModal({
                 onClose={() => setReminderEditorOpen(false)}
               />
             )}
-            <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              <input type="checkbox" checked={progressEnabled} onChange={(event) => setProgressEnabled(event.target.checked)} />
-              开启进度追踪
-            </label>
             {progressEnabled && (
-              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                {selectedTaskType === "checklist" ? (
-                  <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm">
-                    <span className="font-medium text-slate-700">清单计次</span>
-                    <span className="text-xs text-slate-500">目标自动取条目数</span>
-                  </div>
-                ) : (
-                  <Select
-                    value={progressType}
-                    onChange={(event) => {
-                      const nextType = event.target.value as typeof progressType;
-                      setProgressType(nextType);
-                      setProgressUnitValue(defaultProgressUnit(nextType));
-                      if (nextType === "percentage" && !progressTargetValue) setProgressTargetValue("100");
-                    }}
-                    options={[
-                      ["count", "次数"],
-                      ["pages", "阅读页数"],
-                      ["percentage", "百分比"],
-                      ["time", "时间"],
-                      ["custom", "自定义单位"]
-                    ]}
-                  />
-                )}
-                {usesAutomaticChecklistProgress ? (
-                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
-                    <div>
-                      <div className="text-xs font-medium text-slate-500">清单进度自动同步</div>
-                      <div className="mt-0.5 text-sm text-slate-600">勾选、增加或删除条目后会自动更新</div>
-                    </div>
-                    <div className="shrink-0 text-lg font-semibold text-slate-950">
-                      {checklistProgress.current} / {checklistProgress.target} 项
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2 rounded-2xl border border-slate-200 bg-white p-2">
-                    <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-500">当前
-                      <Input type="number" min="0" value={progressCurrentValue} onChange={(event) => setProgressCurrentValue(event.target.value)} className="h-10 px-3" />
-                    </label>
-                    <span className="pb-3 text-slate-400">/</span>
-                    <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-500">目标
-                      <Input type="number" min="0" value={progressTargetValue} onChange={(event) => setProgressTargetValue(event.target.value)} className="h-10 px-3" />
-                    </label>
-                    <label className="grid w-20 gap-1 text-xs font-medium text-slate-500">单位
-                      <Input value={progressUnitValue} onChange={(event) => setProgressUnitValue(event.target.value)} className="h-10 px-3 text-center" />
-                    </label>
-                  </div>
-                )}
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                  <input type="checkbox" name="pinnedToBottom" defaultChecked={Boolean(task?.pinnedToBottom)} />
-                  固定到底部进度条
-                </label>
-              </div>
+              <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <input type="checkbox" name="pinnedToBottom" defaultChecked={Boolean(task?.pinnedToBottom)} />
+                固定到底部进度条
+              </label>
             )}
           </div>
         )}
@@ -6100,14 +6071,6 @@ function progressTypeLabel(type?: string | null) {
   if (type === "custom" || type === "custom_unit") return "自定义单位";
   if (type === "none") return "无进度";
   return "次数";
-}
-
-function defaultProgressUnit(type?: string | null) {
-  if (type === "pages") return "页";
-  if (type === "percentage") return "%";
-  if (type === "time") return "小时";
-  if (type === "count") return "次";
-  return "";
 }
 
 function normalizeType(type?: string | null): TaskType {
