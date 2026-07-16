@@ -10,7 +10,7 @@ export const PERSONAL_ACCOUNT = USER_A;
 const businessTables = [
   "tasks", "subtasks", "tags", "task_tags", "plans", "plan_items", "todo_lists", "todo_list_items",
   "progress_items", "task_progress_entries", "courses", "class_sessions", "assignments", "timetable_sources",
-  "timetable_courses", "course_occurrences", "journal_entries", "expenses", "uploaded_files", "important_files", "settings"
+  "timetable_courses", "course_occurrences", "journal_entries", "expenses", "uploaded_files", "important_files", "secure_documents", "settings"
 ];
 
 export async function createPhase2Database() {
@@ -56,7 +56,8 @@ export async function createPhase2Database() {
     "supabase/migrations/202607110001_phase2_schema_rls.sql",
     "supabase/migrations/202607110002_private_storage_policies.sql",
     "supabase/migrations/202607120004_phase6_storage_lifecycle.sql",
-    "supabase/migrations/202607120005_phase6_pending_delete_retry.sql"
+    "supabase/migrations/202607120005_phase6_pending_delete_retry.sql",
+    "supabase/migrations/202607160001_secure_documents.sql"
   ]) {
     await database.exec(fs.readFileSync(path.join(process.cwd(), migration), "utf8"));
   }

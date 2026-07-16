@@ -1,5 +1,5 @@
 import { getFileRepository } from "@/lib/repositories";
-import type { ImportantFileInput, UploadInput } from "@/lib/repositories/file-repository";
+import type { ImportantFileInput, SecureDocumentInput, UploadInput } from "@/lib/repositories/file-repository";
 import type { RepositoryContext } from "@/lib/repositories/repository-context";
 
 export class FileService {
@@ -31,6 +31,22 @@ export class FileService {
 
   deleteImportantFile(id: string, context?: RepositoryContext) {
     return this.repository.deleteImportantFile(id, context);
+  }
+
+  listSecureDocuments(context?: RepositoryContext) {
+    return this.repository.listSecureDocuments(context);
+  }
+
+  createSecureDocument(input: SecureDocumentInput, context?: RepositoryContext) {
+    return this.repository.createSecureDocument(input, context);
+  }
+
+  updateSecureDocument(id: string, input: SecureDocumentInput, context?: RepositoryContext) {
+    return this.repository.updateSecureDocument(id, input, context);
+  }
+
+  deleteSecureDocument(id: string, context?: RepositoryContext) {
+    return this.repository.deleteSecureDocument(id, context);
   }
 }
 

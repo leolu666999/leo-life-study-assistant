@@ -17,6 +17,7 @@ const EXPECTED_TABLES = [
   "plan_items",
   "plans",
   "progress_items",
+  "secure_documents",
   "settings",
   "subtasks",
   "tags",
@@ -689,7 +690,7 @@ function staticCodeAudit(projectRoot, foundTables) {
   const exportFunction = backupDb.slice(backupDb.indexOf("export function exportBackup()"));
   const semanticallyIncludedTables = [
     "tasks", "subtasks", "task_progress_entries", "plans", "plan_items", "courses", "class_sessions",
-    "assignments", "journal_entries", "expenses", "important_files", "uploaded_files", "settings"
+    "assignments", "journal_entries", "expenses", "important_files", "secure_documents", "uploaded_files", "settings"
   ].filter((table) => foundTables.includes(table));
   const backupCompleteness = {
     routeFound: /exportBackup\(\)/.test(read("app/api/backup/export/route.ts")),

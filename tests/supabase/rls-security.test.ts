@@ -84,7 +84,7 @@ afterAll(async () => {
 });
 
 describe("PostgreSQL schema and policy contract", () => {
-  it("creates all 21 private business tables with user_id", async () => {
+  it("creates all 22 private business tables with user_id", async () => {
     const result = await database.query<{ table_name: string }>(`
       select table_name from information_schema.columns
       where table_schema = 'public' and column_name = 'user_id' and table_name = any($1)
@@ -93,13 +93,13 @@ describe("PostgreSQL schema and policy contract", () => {
     expect(result.rows.map((row) => row.table_name)).toEqual([...businessTables].sort());
   });
 
-  it("enables and forces RLS on all 21 business tables", async () => {
+  it("enables and forces RLS on all 22 business tables", async () => {
     const count = await rowCount(database, `select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname = any($1) and c.relrowsecurity and c.relforcerowsecurity`, [businessTables]);
-    expect(count).toBe(21);
+    expect(count).toBe(22);
   });
 
-  it("creates exactly 84 business owner policies", async () => {
-    expect(await rowCount(database, `select count(*) from pg_policies where schemaname = 'public' and tablename = any($1)`, [businessTables])).toBe(84);
+  it("creates exactly 88 business owner policies", async () => {
+    expect(await rowCount(database, `select count(*) from pg_policies where schemaname = 'public' and tablename = any($1)`, [businessTables])).toBe(88);
   });
 
   it("creates four own-data profile policies and no client admin-audit policy", async () => {
@@ -228,6 +228,19 @@ describe("ordinary user RLS isolation", () => {
   it("14. Anonymous role cannot access a private table", async () => {
     await asAnonymous(database);
     await expect(database.query(`select * from public.tasks`)).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("15. User B cannot read or modify User A secure document", async () => {
+    await asAuthenticated(database, USER_A);
+    const created = await database.query<{ id: string }>(`insert into public.secure_documents (user_id, title, content) values ($1, 'A private note', 'secret') returning id`, [USER_A]);
+    const id = created.rows[0]?.id;
+    await asAuthenticated(database, USER_B);
+    expect(await rowCount(database, `select count(*) from public.secure_documents where id = $1`, [id])).toBe(0);
+    expect(await affected(`update public.secure_documents set content = 'hijacked' where id = $1`, [id])).toBe(0);
+    expect(await affected(`delete from public.secure_documents where id = $1`, [id])).toBe(0);
+    await asServiceRole(database);
+    const content = await database.query<{ content: string }>(`select content from public.secure_documents where id = $1`, [id]);
+    expect(content.rows[0]?.content).toBe("secret");
   });
 });
 

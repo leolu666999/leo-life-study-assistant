@@ -4,7 +4,8 @@ import { assertAdminRequest, createSupabaseAdminClient } from "@/lib/supabase/se
 
 const allowed = {
   tasks: "tasks", todo: "todo_lists", expenses: "expenses", journal: "journal_entries",
-  timetable: "course_occurrences", files: "uploaded_files", importantFiles: "important_files"
+  timetable: "course_occurrences", files: "uploaded_files", importantFiles: "important_files",
+  documents: "secure_documents"
 } as const;
 export async function GET(request: Request, context: { params: Promise<{ userId: string }> }) {
   try {
