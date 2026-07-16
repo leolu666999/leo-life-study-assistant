@@ -21,7 +21,7 @@ const featureItems = [
   {
     eyebrow: "任务与日程",
     title: "课程、活动和 To Do 汇成一条时间线",
-    description: "粘贴活动文字或上传截图，确认后即可加入日程与当天 To Do。每日清单里写下明确时间，也会自动出现在 Today’s Schedule。",
+    description: "粘贴活动文字或上传截图，确认后即可加入日程与当天 To Do。首页只保留未完成任务，完成记录可在任务中心随时查看和恢复。",
     visual: <SchedulePreview />
   },
   {
