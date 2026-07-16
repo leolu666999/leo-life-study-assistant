@@ -79,4 +79,11 @@ describe("Phase 7 production account and contact contracts", () => {
     expect(source).toContain("上传凭证、小票或账单图片");
     expect(source).toContain("flex flex-wrap gap-2");
   });
+
+  it("keeps completed and archived task cards out of the dashboard", () => {
+    const source = read("components/leo-app.tsx");
+    expect(source).toContain('tasks.filter((task) => task.status !== "completed" && task.status !== "archived")');
+    expect(source).not.toContain('archiveTasks.filter((task) => task.status === "completed")');
+    expect(source).toContain('statusFilter === "completed" && isCompletedGroup');
+  });
 });
