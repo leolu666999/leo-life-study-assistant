@@ -88,7 +88,7 @@ export function LandingPage() {
             <Link href="/login" className="rounded-lg px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/15 sm:px-4">
               登录
             </Link>
-            <Link href="/register" className="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100">
+            <Link href="/register" className="rounded-lg bg-[#e64626] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#cf3b1e]">
               注册
             </Link>
           </div>
@@ -112,7 +112,9 @@ export function LandingPage() {
         <div className="absolute inset-0 bg-slate-950/55" aria-hidden="true" />
         <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl items-center px-4 pb-20 pt-28 sm:px-6 sm:pb-24 sm:pt-32 lg:px-8">
           <div className="max-w-2xl">
-            <p className="mb-5 text-sm font-semibold text-white/75">为海外学习和独立生活而设计</p>
+            <p className="mb-5 inline-flex items-center rounded-full border border-[#ff8a65]/60 bg-[#e64626]/85 px-3 py-1.5 text-sm font-semibold text-white">
+              为海外学习和独立生活而设计
+            </p>
             <h1 className="text-4xl font-bold leading-[1.05] text-white sm:text-6xl lg:text-7xl">
               MyAssist
               <span className="mt-3 block text-2xl font-semibold text-white/80 sm:ml-4 sm:mt-0 sm:inline sm:text-3xl lg:text-4xl">你的留学生活助手</span>
@@ -121,7 +123,7 @@ export function LandingPage() {
               把课表、任务、每日安排、收支和重要文件放在一个安静清晰的空间里。无论在电脑还是手机上，打开就能继续。
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100">
+              <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-[#e64626] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#cf3b1e]">
                 开始使用 <ArrowRight size={17} />
               </Link>
               <Link href="/login" className="rounded-lg border border-white/45 bg-slate-950/25 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-950/45">
@@ -145,7 +147,7 @@ export function LandingPage() {
                   aria-label={`显示${image.label}`}
                   aria-pressed={index === activeHero}
                   onClick={() => setActiveHero(index)}
-                  className={`h-2.5 w-2.5 rounded-full border border-white transition ${index === activeHero ? "bg-white" : "bg-transparent hover:bg-white/50"}`}
+                  className={`h-2.5 w-2.5 rounded-full border transition ${index === activeHero ? "border-[#ff8a65] bg-[#e64626]" : "border-white bg-transparent hover:bg-white/50"}`}
                 />
               ))}
             </div>
@@ -156,8 +158,8 @@ export function LandingPage() {
       <section id="features" className="border-b border-slate-200 bg-white py-14 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
-            <p className="text-sm font-semibold text-slate-500">一个地方，整理每天</p>
-            <h2 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">留学生活，不必散落在十几个地方</h2>
+            <p className="text-sm font-semibold text-[#d63d20]">一个地方，整理每天</p>
+            <h2 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">留学生活，<span className="text-[#d63d20]">不必散落</span>在十几个地方</h2>
             <p className="mt-5 text-base leading-8 text-slate-600">MyAssist 把真正经常使用的工具放在一起，每个模块各司其职，同时又能在首页形成清楚的今日视图。</p>
           </div>
 
@@ -165,7 +167,7 @@ export function LandingPage() {
             {featureItems.map((item, index) => (
               <article key={item.eyebrow} className="grid items-center gap-10 py-14 lg:grid-cols-2 lg:gap-16">
                 <div className={index % 2 === 1 ? "lg:order-2" : ""}>
-                  <p className="text-sm font-semibold text-slate-500">{item.eyebrow}</p>
+                  <p className="inline-flex items-center rounded-full bg-[#fff0eb] px-3 py-1.5 text-sm font-semibold text-[#c9361b]">{item.eyebrow}</p>
                   <h3 className="mt-3 text-2xl font-bold sm:text-3xl">{item.title}</h3>
                   <p className="mt-4 max-w-xl text-base leading-8 text-slate-600">{item.description}</p>
                 </div>
@@ -180,8 +182,8 @@ export function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
             <div>
-              <p className="text-sm font-semibold text-slate-500">从注册到开始使用</p>
-              <h2 className="mt-3 text-3xl font-bold sm:text-4xl">三步建立自己的空间</h2>
+              <p className="text-sm font-semibold text-[#d63d20]">从注册到开始使用</p>
+              <h2 className="mt-3 text-3xl font-bold sm:text-4xl">三步建立自己的<span className="text-[#d63d20]">空间</span></h2>
             </div>
             <ol className="divide-y divide-slate-200 border-y border-slate-200">
               {[
@@ -190,7 +192,7 @@ export function LandingPage() {
                 ["03", "每天打开首页", "从 Today’s Schedule 开始，继续处理今天最重要的事情。"]
               ].map(([number, title, description]) => (
                 <li key={number} className="grid gap-3 py-7 sm:grid-cols-[64px_160px_1fr] sm:items-start">
-                  <span className="text-sm font-semibold text-slate-400">{number}</span>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e64626] text-sm font-bold text-white">{number}</span>
                   <strong className="text-base">{title}</strong>
                   <span className="text-sm leading-7 text-slate-600">{description}</span>
                 </li>
@@ -203,11 +205,11 @@ export function LandingPage() {
       <section className="bg-slate-950 py-16 text-white sm:py-20">
         <div className="mx-auto flex max-w-7xl flex-col gap-7 px-4 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8">
           <div className="max-w-2xl">
-            <p className="text-sm font-semibold text-slate-300">准备好开始了吗？</p>
+            <p className="text-sm font-semibold text-[#ff8a65]">准备好开始了吗？</p>
             <h2 className="mt-3 text-3xl font-bold sm:text-4xl">让下一周比这一周更清楚。</h2>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link href="/register" className="rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100">免费创建账号</Link>
+            <Link href="/register" className="rounded-lg bg-[#e64626] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#cf3b1e]">免费创建账号</Link>
             <Link href="/login" className="rounded-lg border border-slate-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">登录</Link>
           </div>
         </div>
@@ -231,16 +233,16 @@ export function LandingPage() {
 function SchedulePreview() {
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-soft">
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <span className="inline-flex items-center gap-2 text-sm font-semibold"><CalendarDays size={17} /> Today’s Schedule</span>
+      <div className="flex items-center justify-between border-b border-[#ffd6c9] bg-[#fff8f5] px-4 py-3">
+        <span className="inline-flex items-center gap-2 text-sm font-semibold"><CalendarDays size={17} className="text-[#d63d20]" /> Today’s Schedule</span>
         <span className="text-xs text-slate-400">7月16日</span>
       </div>
       <div className="grid grid-cols-[58px_1fr] px-4 py-4 text-xs">
         <div className="space-y-10 pt-1 text-slate-400"><div>09:00</div><div>10:00</div><div>11:00</div><div>12:00</div></div>
         <div className="relative min-h-[190px] border-l border-slate-200 pl-3">
-          <div className="absolute inset-x-3 top-0 rounded-md border border-red-200 bg-red-50 p-3 text-slate-800">
+          <div className="absolute inset-x-3 top-0 rounded-md border border-[#ffb39d] bg-[#fff0eb] p-3 text-slate-800">
             <div className="font-semibold">DATA1001 Workshop</div>
-            <div className="mt-1 inline-flex items-center gap-1 text-slate-500"><Clock3 size={12} /> 09:00 - 10:30</div>
+            <div className="mt-1 inline-flex items-center gap-1 font-medium text-[#b63219]"><Clock3 size={12} /> 09:00 - 10:30</div>
           </div>
           <div className="absolute inset-x-3 top-[104px] rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-800">
             <div className="font-semibold">完成本周阅读</div>
@@ -256,8 +258,8 @@ function TimetablePreview() {
   const days = ["一", "二", "三", "四", "五"];
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-soft">
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <span className="inline-flex items-center gap-2 text-sm font-semibold"><BookOpen size={17} /> 本周课表</span>
+      <div className="flex items-center justify-between border-b border-[#ffd6c9] bg-[#fff8f5] px-4 py-3">
+        <span className="inline-flex items-center gap-2 text-sm font-semibold"><BookOpen size={17} className="text-[#d63d20]" /> 本周课表</span>
         <span className="text-xs text-slate-400">悉尼时间</span>
       </div>
       <div className="grid grid-cols-5 border-b border-slate-200 bg-slate-50 text-center text-xs text-slate-500">
@@ -278,9 +280,9 @@ function TimetablePreview() {
 
 function CourseBlock({ code, room, className }: { code: string; room: string; className: string }) {
   return (
-    <div className={`absolute inset-x-1 rounded-md border border-red-200 bg-red-50 p-2 ${className}`}>
+    <div className={`absolute inset-x-1 rounded-md border border-[#ff9f85] bg-[#fff0eb] p-2 ${className}`}>
       <div className="truncate text-[11px] font-semibold">{code}</div>
-      <div className="mt-1 truncate text-[9px] text-slate-500">{room}</div>
+      <div className="mt-1 truncate text-[9px] font-medium text-[#a9341d]">{room}</div>
     </div>
   );
 }
@@ -289,12 +291,12 @@ function FinancePreview() {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
       <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-2 text-sm font-semibold"><WalletCards size={17} /> 本月收支</span>
+        <span className="inline-flex items-center gap-2 text-sm font-semibold"><WalletCards size={17} className="text-[#d63d20]" /> 本月收支</span>
         <span className="text-xs text-slate-400">按币种统计</span>
       </div>
       <div className="mt-5 grid grid-cols-2 gap-3">
-        <div className="rounded-md bg-slate-950 p-4 text-white"><div className="text-xs text-slate-300">AUD 结余</div><div className="mt-2 text-2xl font-bold">A$ 486.20</div></div>
-        <div className="rounded-md bg-slate-100 p-4"><div className="text-xs text-slate-500">CNY 结余</div><div className="mt-2 text-2xl font-bold">¥ 820.00</div></div>
+        <div className="rounded-md bg-slate-950 p-4 text-white"><div className="text-xs text-slate-300">AUD 结余</div><div className="mt-2 text-2xl font-bold text-[#ff8a65]">A$ 486.20</div></div>
+        <div className="rounded-md border border-[#ffd6c9] bg-[#fff0eb] p-4"><div className="text-xs text-[#a9341d]">CNY 结余</div><div className="mt-2 text-2xl font-bold">¥ 820.00</div></div>
       </div>
       <div className="mt-5 divide-y divide-slate-100 border-y border-slate-100">
         {[["超市购物", "今天", "-A$ 24.80"], ["兼职收入", "昨天", "+A$ 120.00"], ["交通", "7月14日", "-A$ 5.60"]].map(([title, date, value]) => (
@@ -312,19 +314,19 @@ function FilesPreview() {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-soft">
       <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-2 text-sm font-semibold"><FolderLock size={17} /> 重要文件</span>
-        <ShieldCheck size={18} className="text-emerald-700" />
+        <span className="inline-flex items-center gap-2 text-sm font-semibold"><FolderLock size={17} className="text-[#d63d20]" /> 重要文件</span>
+        <ShieldCheck size={18} className="text-[#d63d20]" />
       </div>
       <div className="mt-5 divide-y divide-slate-100 border-y border-slate-100">
         {[["签证文件", "有效期至 2027/07", "PDF"], ["租房合同", "更新于 7月12日", "PDF"], ["学生证件", "个人资料", "IMG"]].map(([title, detail, type]) => (
           <div key={title} className="flex items-center gap-3 py-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100"><FileText size={18} /></span>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#fff0eb] text-[#c9361b]"><FileText size={18} /></span>
             <span className="min-w-0 flex-1"><strong className="block truncate text-sm font-medium">{title}</strong><span className="text-xs text-slate-400">{detail}</span></span>
             <span className="text-[10px] font-semibold text-slate-400">{type}</span>
           </div>
         ))}
       </div>
-      <div className="mt-4 flex items-center gap-2 text-xs text-slate-500"><MapPin size={14} /> 仅当前账号可以访问</div>
+      <div className="mt-4 flex items-center gap-2 text-xs font-medium text-[#a9341d]"><MapPin size={14} /> 仅当前账号可以访问</div>
     </div>
   );
 }
