@@ -34,6 +34,10 @@ textarea {
   border-radius: 24px !important;
 }
 
+.quick-editor-modal [class~="border"] {
+  border-radius: 9999px !important;
+}
+
 input.rounded-lg,
 input.rounded-md,
 select.rounded-lg,
