@@ -10,7 +10,8 @@ A local-first life and study dashboard for managing daily to-dos, tasks, deadlin
 - 公开产品首页：未登录访客可先了解任务、课表、收支和文件功能，再从右上角登录或注册；私人页面仍受 Auth 保护。
 - 数据不进 Git：`.gitignore` 会排除数据库、备份和上传文件，更新代码不会覆盖个人数据。
 - 每日 To Do List：按日期管理每日清单，支持勾选、编辑和从计划页查看。
-- 今日日程：自动识别 To Do List 标题中的中英文时间段，与课程一起显示在每日时间轴。
+- 统一日程：侧边栏“日程”同时管理课程和生活安排；可粘贴活动文字或上传截图，确认日期、时间和地点后自动加入 Calendar 与当天 To Do List。
+- 自然语言时间：To Do List 标题中的中英文时间段会自动进入日程，例如“早上八点到十点 Coffee chat”。
 - 课表日历：日、周视图使用时间轴，月视图使用周一到周日的日历网格，并按悉尼时间显示每节课。
 - Task / Deadline：长期任务和明确截止事项分开管理，Deadline 支持倒计时显示。
 - 统一计数进度：任务编辑器把“待办 / 计数 / 清单”、数字和提醒排成一行；计数使用当前值/目标值，清单按完成条目数自动同步，不再要求选择进度类型或单位。
@@ -25,7 +26,8 @@ A local-first life and study dashboard for managing daily to-dos, tasks, deadlin
 - Local-first: the database and uploads live in the macOS user data directory, outside the app bundle.
 - Git-safe data: database files, backups, and uploads are ignored by Git, so code updates do not overwrite personal data.
 - Daily To Do List: date-based checklists with editing and completion tracking.
-- Daily schedule: recognizes time ranges in To Do titles and combines them with courses on a day timeline.
+- Unified schedule: combines courses and daily activities, recognizes pasted text or screenshots, and adds confirmed events to both the calendar and that day's To Do List.
+- Natural-language time: time ranges written in To Do titles automatically appear on the daily schedule.
 - Task / Deadline: regular tasks and deadline-based items are managed separately; deadlines can show countdowns.
 - Progress tracking: optional progress bars for reading pages, training sessions, percentage goals, and custom units.
 - Income and expenses: supports 21 major currencies, keeps totals separate by currency, and remembers the currency used by the latest successful entry.

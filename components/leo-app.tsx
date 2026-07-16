@@ -56,6 +56,12 @@ import { currencies } from "@/lib/currencies";
 import { deriveChecklistProgress } from "@/lib/checklist-progress";
 import { mutationRefreshScope, type MutationRefreshScope } from "@/lib/mutation-refresh";
 import { buildTimetableMonthDateKeys } from "@/lib/timetable-month";
+import {
+  parseScheduleEntry,
+  scheduleEntryTodoContent,
+  todoScheduleLocation,
+  type ParsedScheduleEntry
+} from "@/lib/schedule-entry-parser";
 
 type View = "dashboard" | "expenses" | "files" | "tasks" | "plans" | "courses" | "schedule" | "guide" | "journal" | "archive" | "settings";
 type ModalMode = "task" | "deadline" | "plan" | "todoList" | "counter" | "expense" | null;
@@ -150,7 +156,7 @@ const navItems: Array<{ view: View; href: string; label: string; icon: React.Rea
   { view: "dashboard", href: "/", label: "首页", icon: <Home size={18} /> },
   { view: "tasks", href: "/tasks", label: "任务", icon: <ListChecks size={18} /> },
   { view: "plans", href: "/plans", label: "计划", icon: <CalendarDays size={18} /> },
-  { view: "courses", href: "/courses", label: "课程", icon: <BookOpen size={18} /> },
+  { view: "schedule", href: "/schedule", label: "日程", icon: <CalendarDays size={18} /> },
   { view: "journal", href: "/journal", label: "日记", icon: <NotebookPen size={18} /> },
   { view: "expenses", href: "/expenses", label: "收支", icon: <WalletCards size={18} /> },
   { view: "files", href: "/files", label: "文件", icon: <FileText size={18} /> },
@@ -160,6 +166,7 @@ const navItems: Array<{ view: View; href: string; label: string; icon: React.Rea
 function viewFromPath(pathname: string): View {
   if (pathname === "/archive") return "tasks";
   if (pathname === "/progress" || pathname === "/progresses" || pathname === "/goals") return "tasks";
+  if (pathname === "/courses") return "courses";
   if (pathname === "/schedule") return "schedule";
   if (pathname === "/guide") return "guide";
   return navItems.find((item) => item.href === pathname)?.view || "dashboard";
@@ -1192,12 +1199,21 @@ export function LeoApp({ initialView }: { initialView: View }) {
                   onToggleTodoItem={toggleTodoItem}
                 />
               )}
-              {activeView === "courses" && <CoursesPage courses={courses} />}
-              {activeView === "schedule" && (
-                <SchedulePage
+              {(activeView === "courses" || activeView === "schedule") && (
+                <UnifiedSchedulePage
+                  initialSection={activeView === "courses" ? "courses" : "calendar"}
+                  courses={courses}
                   courseOccurrences={courseOccurrences}
                   todoLists={todoLists}
                   onToggleTodoItem={toggleTodoItem}
+                  onTodoListSaved={(saved) => {
+                    setTodoLists((current) => {
+                      const exists = current.some((item) => item.id === saved.id);
+                      return exists
+                        ? current.map((item) => item.id === saved.id ? saved : item)
+                        : [saved, ...current];
+                    });
+                  }}
                 />
               )}
               {activeView === "journal" && <JournalPage journal={journal} onSave={mutate} />}
@@ -3043,14 +3059,233 @@ function TimetableCourseSummaryCard({
   );
 }
 
+function UnifiedSchedulePage({
+  initialSection,
+  courses,
+  courseOccurrences,
+  todoLists,
+  onToggleTodoItem,
+  onTodoListSaved
+}: {
+  initialSection: "calendar" | "courses";
+  courses: Course[];
+  courseOccurrences: CourseOccurrence[];
+  todoLists: TodoList[];
+  onToggleTodoItem: (id: string, completed: boolean) => void;
+  onTodoListSaved: (todoList: TodoList) => void;
+}) {
+  const [section, setSection] = useState(initialSection);
+  const [addingSchedule, setAddingSchedule] = useState(false);
+
+  return (
+    <>
+      <PageHeader
+        title="日程"
+        subtitle="把课程、每日安排和带时间的 To Do 放进同一份 Calendar。"
+        actions={<ActionButton onClick={() => setAddingSchedule(true)} icon={<Plus size={16} />} label="添加日程" />}
+      />
+      <div className="mb-4 inline-flex rounded-full bg-slate-100 p-1">
+        <button
+          className={`rounded-full px-4 py-2 text-sm font-semibold ${section === "calendar" ? "bg-slate-900 text-white" : "text-slate-600"}`}
+          onClick={() => setSection("calendar")}
+        >
+          我的日程
+        </button>
+        <button
+          className={`rounded-full px-4 py-2 text-sm font-semibold ${section === "courses" ? "bg-slate-900 text-white" : "text-slate-600"}`}
+          onClick={() => setSection("courses")}
+        >
+          课程管理
+        </button>
+      </div>
+
+      {section === "calendar" ? (
+        <SchedulePage
+          embedded
+          courseOccurrences={courseOccurrences}
+          todoLists={todoLists}
+          onToggleTodoItem={onToggleTodoItem}
+        />
+      ) : (
+        <CoursesPage courses={courses} embedded />
+      )}
+
+      {addingSchedule && (
+        <AddScheduleDialog
+          todoLists={todoLists}
+          onClose={() => setAddingSchedule(false)}
+          onSaved={(saved) => {
+            onTodoListSaved(saved);
+            setAddingSchedule(false);
+            setSection("calendar");
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function AddScheduleDialog({
+  todoLists,
+  onClose,
+  onSaved
+}: {
+  todoLists: TodoList[];
+  onClose: () => void;
+  onSaved: (todoList: TodoList) => void;
+}) {
+  const [mode, setMode] = useState<"text" | "image">("text");
+  const [sourceText, setSourceText] = useState("");
+  const [draft, setDraft] = useState<ParsedScheduleEntry | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [error, setError] = useState("");
+  useEscapeClose(onClose);
+
+  function recognizeText(text = sourceText) {
+    if (!text.trim()) {
+      setError("请先粘贴一段活动信息，或上传活动截图。");
+      return;
+    }
+    setError("");
+    setDraft(parseScheduleEntry(text));
+  }
+
+  async function recognizeImage(file: File | null) {
+    if (!file) return;
+    setMode("image");
+    setBusy(true);
+    setError("");
+    setOcrProgress(0);
+    let worker: Awaited<ReturnType<(typeof import("tesseract.js"))["createWorker"]>> | null = null;
+    try {
+      const { createWorker } = await import("tesseract.js");
+      worker = await createWorker("eng+chi_sim", 1, {
+        logger: (message: { progress: number }) => setOcrProgress(Math.round((message.progress || 0) * 100))
+      });
+      const result = await worker.recognize(file);
+      const text = result.data.text.trim();
+      if (!text) throw new Error("没有从图片中识别到文字");
+      setSourceText(text);
+      setDraft(parseScheduleEntry(text));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "图片识别失败，请改用粘贴文字或手动填写。");
+    } finally {
+      await worker?.terminate();
+      setBusy(false);
+    }
+  }
+
+  async function saveSchedule() {
+    if (!draft?.title.trim()) return setError("请填写日程标题。");
+    if (!draft.date || !draft.startTime || !draft.endTime) return setError("请确认日期和时间。");
+    if (draft.endTime <= draft.startTime) return setError("结束时间必须晚于开始时间。");
+    setBusy(true);
+    setError("");
+    try {
+      const content = scheduleEntryTodoContent(draft);
+      const existing = todoLists.find((list) => list.date === draft.date);
+      const itemDrafts = [
+        ...(existing?.items.map((item) => ({ id: item.id, content: item.content, completed: item.completed })) ?? []),
+        { content, completed: false }
+      ];
+      const response = await fetch(existing ? `/api/todo-lists/${existing.id}` : "/api/todo-lists", {
+        method: existing ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(existing
+          ? { title: existing.title, date: existing.date, notes: existing.notes ?? null, itemDrafts }
+          : { date: draft.date, itemDrafts })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "保存日程失败");
+      onSaved(data as TodoList);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "保存日程失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/30 p-3 backdrop-blur-sm md:items-center"
+      onPointerDown={(event) => event.target === event.currentTarget && onClose()}
+    >
+      <section className="app-modal-panel max-h-[94vh] w-full max-w-2xl overflow-auto rounded-[28px] bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">添加日程</h2>
+            <p className="mt-1 text-sm text-slate-500">粘贴活动信息或上传截图，确认后会加入 Calendar 和当天 To Do。</p>
+          </div>
+          <button className="rounded-full border border-slate-200 p-2.5 text-slate-500 hover:bg-slate-50" onClick={onClose} title="关闭"><X size={18} /></button>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 rounded-full bg-slate-100 p-1">
+          <button className={`rounded-full py-2 text-sm font-semibold ${mode === "text" ? "bg-slate-900 text-white" : "text-slate-600"}`} onClick={() => setMode("text")}>粘贴文字</button>
+          <button className={`rounded-full py-2 text-sm font-semibold ${mode === "image" ? "bg-slate-900 text-white" : "text-slate-600"}`} onClick={() => setMode("image")}>上传截图</button>
+        </div>
+
+        <div className="mt-4">
+          {mode === "text" ? (
+            <textarea
+              className="min-h-32 w-full rounded-[24px] border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              value={sourceText}
+              onChange={(event) => setSourceText(event.target.value)}
+              placeholder="例如：7月20日 上午10点到11点 Coffee chat\n地点：Fisher Library"
+            />
+          ) : (
+            <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 text-center transition hover:bg-slate-100">
+              <Upload size={22} className="mb-2 text-slate-500" />
+              <span className="text-sm font-semibold">选择活动截图</span>
+              <span className="mt-1 text-xs text-slate-500">支持中文和英文图片，识别结果会先进入预览</span>
+              <input className="hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void recognizeImage(event.target.files?.[0] ?? null)} />
+            </label>
+          )}
+          {busy && mode === "image" && <div className="mt-2 text-sm text-slate-500">正在识别图片 {ocrProgress}%</div>}
+          {mode === "text" && (
+            <button className="mt-3 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" disabled={busy} onClick={() => recognizeText()}>
+              识别活动信息
+            </button>
+          )}
+        </div>
+
+        {draft && (
+          <div className="mt-5 rounded-[24px] bg-slate-50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="font-semibold">确认识别结果</h3>
+              <span className="text-xs text-slate-500">可信度 {Math.round(draft.confidence * 100)}%</span>
+            </div>
+            <div className="space-y-3">
+              <Input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="日程标题" />
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Input type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} />
+                <Input type="time" value={draft.startTime} onChange={(event) => setDraft({ ...draft, startTime: event.target.value })} />
+                <Input type="time" value={draft.endTime} onChange={(event) => setDraft({ ...draft, endTime: event.target.value })} />
+              </div>
+              <Input value={draft.location} onChange={(event) => setDraft({ ...draft, location: event.target.value })} placeholder="地点，可选" />
+            </div>
+            {draft.warnings.length > 0 && <div className="mt-3 text-xs leading-5 text-amber-700">{draft.warnings.join(" ")}</div>}
+            <button className="mt-4 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" disabled={busy} onClick={() => void saveSchedule()}>
+              {busy ? "正在保存..." : "添加到日程和 To Do"}
+            </button>
+          </div>
+        )}
+        {error && <div className="mt-3 rounded-2xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+      </section>
+    </div>
+  );
+}
+
 function SchedulePage({
   courseOccurrences,
   todoLists,
-  onToggleTodoItem
+  onToggleTodoItem,
+  embedded = false
 }: {
   courseOccurrences: CourseOccurrence[];
   todoLists: TodoList[];
   onToggleTodoItem: (id: string, completed: boolean) => void;
+  embedded?: boolean;
 }) {
   const [date, setDate] = useState(localDateKey(new Date()));
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
@@ -3072,11 +3307,12 @@ function SchedulePage({
 
   return (
     <>
-      <PageHeader
-        title="Schedule"
-        subtitle="课程和带时间的 To Do 按一天的时间轴统一显示。"
-        actions={
-          <div className="flex items-center gap-1">
+      {!embedded && (
+        <PageHeader
+          title="日程"
+          subtitle="课程和带时间的 To Do 按一天的时间轴统一显示。"
+          actions={
+            <div className="flex items-center gap-1">
             <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => moveDate(-1)} title="前一天">
               <ChevronLeft size={18} />
             </button>
@@ -3086,9 +3322,10 @@ function SchedulePage({
             <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => moveDate(1)} title="后一天">
               <ChevronRight size={18} />
             </button>
-          </div>
-        }
-      />
+            </div>
+          }
+        />
+      )}
 
       <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -3216,7 +3453,7 @@ function ScheduleEventDialog({
   );
 }
 
-function CoursesPage({ courses }: { courses: Course[] }) {
+function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedded?: boolean }) {
   const [sources, setSources] = useState<TimetableSource[]>([]);
   const [timetableCourses, setTimetableCourses] = useState<TimetableCourse[]>([]);
   const [occurrences, setOccurrences] = useState<CourseOccurrence[]>([]);
@@ -3336,7 +3573,7 @@ function CoursesPage({ courses }: { courses: Course[] }) {
 
   return (
     <>
-      <PageHeader title="课程" subtitle="导入、同步和管理完整学期课表，所有时间均按悉尼时间显示。" />
+      {!embedded && <PageHeader title="课程" subtitle="导入、同步和管理完整学期课表，所有时间均按悉尼时间显示。" />}
       <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
         <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
           {(["feed", "file", "screenshot"] as const).map((mode) => (
@@ -4142,7 +4379,7 @@ function UserGuidePage() {
       )
     },
     {
-      title: "To Do List 与今日日程",
+      title: "To Do List 与统一日程",
       content: (
         <>
           <p>To Do List 是按日期保存的每日清单，不会自动变成 Task。在首页或“计划”页面新建清单，勾选圆形按钮即可完成事项。</p>
@@ -4153,6 +4390,8 @@ function UserGuidePage() {
             <div>晚上7点到8点半 健身</div>
           </div>
           <p>单个时间点会生成 30 分钟的安排。编辑标题会重新识别，移除时间后对应日程也会消失。</p>
+          <p>侧边栏“日程”是课程和生活安排的统一入口。点击“添加日程”后，可以粘贴活动文字或上传 PNG、JPG、WebP 截图；系统会识别标题、日期、开始/结束时间与地点，并在保存前允许手动校正。</p>
+          <p>确认后的生活日程会自动写入对应日期的 To Do List，因此 Calendar、首页 Today’s Schedule 和每日清单使用同一条数据，勾选完成状态也会同步。</p>
         </>
       )
     },
@@ -4170,10 +4409,10 @@ function UserGuidePage() {
       )
     },
     {
-      title: "课程与课表",
+      title: "日程与课程管理",
       content: (
         <>
-          <p>课程页支持导入 Calendar Feed 或 ICS 文件。先预览内容，确认课程、时间和地点无误后再导入。</p>
+          <p>“日程”页面中的“课程管理”保留 Calendar Feed 和 ICS 文件导入。先预览内容，确认课程、时间和地点无误后再导入。</p>
           <p>课表中的日期、星期和时间统一按悉尼时间显示，并自动处理夏令时。日、周视图使用时间轴，月视图使用周一到周日的日历网格，学期视图按课程归纳所有上课安排。</p>
         </>
       )
@@ -5956,9 +6195,9 @@ function scheduleWallMinutes(value?: string | null) {
 }
 
 function cleanTodoScheduleTitle(item: TodoListItem) {
-  if (!item.parsedTimeText) return item.content;
-  return item.content
-    .replace(item.parsedTimeText, " ")
+  const withoutTime = item.parsedTimeText ? item.content.replace(item.parsedTimeText, " ") : item.content;
+  return withoutTime
+    .replace(/(?:^|[·\s])(?:地点|地址)\s*[:：]\s*.+$/, " ")
     .replace(/^[\s,，。:：;；\-–—]+|[\s,，。:：;；\-–—]+$/g, "")
     .replace(/\s+/g, " ")
     .trim() || item.content;
@@ -6006,6 +6245,7 @@ function buildScheduleEvents(date: string, courseOccurrences: CourseOccurrence[]
             endAt: item.scheduledEndAt!,
             startMinutes,
             endMinutes,
+            location: todoScheduleLocation(item.content),
             completed: item.completed
           };
         })

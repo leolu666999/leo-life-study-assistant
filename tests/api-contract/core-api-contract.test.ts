@@ -341,6 +341,15 @@ describe("To Do List API contract", () => {
     expect(await (await routes.tasks.GET(request("http://local.test/api/tasks", "GET"))).json()).toEqual([]);
   });
 
+  it("POST recognizes Chinese-number time ranges used by natural To Do input", async () => {
+    const { body } = await createTodoList({ date: "2026-07-11", itemDrafts: [{ content: "早上八点到十点 coffee chat" }] });
+    expect((body.items as Array<Record<string, unknown>>)[0]).toMatchObject({
+      hasScheduleTime: true,
+      scheduledStartAt: "2026-07-11T08:00:00",
+      scheduledEndAt: "2026-07-11T10:00:00"
+    });
+  });
+
   it("PATCH returns 404 for an unknown list", async () => {
     const response = await routes.todoList.PATCH(request("http://local.test", "PATCH", { title: "x" }), context("missing"));
     expect(response.status).toBe(404);
