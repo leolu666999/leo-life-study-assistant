@@ -4010,6 +4010,7 @@ function UserGuidePage() {
           <p>优先级选项目前暂时从所有任务编辑弹窗隐藏；已有任务的优先级数据会保留，新建任务使用系统默认值。</p>
           <p>新建或编辑任务时，任务类型、计数和提醒会从左到右显示在同一行。类型可选“待办、计数、清单”：待办无需计数，计数填写当前值和目标值，清单自动按条目完成数计数。</p>
           <p>进度统一使用数字记录，不再选择阅读页数、百分比、时间或自定义单位。清单当前值会自动等于已勾选条目数，目标值会自动等于有效条目总数。</p>
+          <p>快速编辑弹窗里的输入框、下拉框和功能区使用统一的胶囊圆角，与任务标题输入框保持一致。</p>
           <p>任务完成后可在“已完成”中恢复；删除前会出现确认提示。</p>
         </>
       )
@@ -4680,7 +4681,7 @@ function QuickModal({
       }}
     >
       <form
-        className="app-modal-panel max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-soft"
+        className="app-modal-panel quick-editor-modal max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-soft"
         onChangeCapture={() => setDirty(true)}
         onSubmit={async (event) => {
           event.preventDefault();
