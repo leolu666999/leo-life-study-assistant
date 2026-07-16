@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -17,14 +20,14 @@ import {
 const featureItems = [
   {
     eyebrow: "任务与日程",
-    title: "今天要做什么，一眼就知道",
-    description: "每日 To Do、长期任务和带时间的安排自动汇集。课程与生活事项按时间排列，不再来回翻找。",
+    title: "课程、活动和 To Do 汇成一条时间线",
+    description: "粘贴活动文字或上传截图，确认后即可加入日程与当天 To Do。每日清单里写下明确时间，也会自动出现在 Today’s Schedule。",
     visual: <SchedulePreview />
   },
   {
-    eyebrow: "课程与课表",
+    eyebrow: "日程与课程",
     title: "从开学第一周到整个学期",
-    description: "导入课表后，用日、周和月视图查看课程。上课时间、地点和课程类型始终放在一起。",
+    description: "导入课表后，用日、周和月视图查看课程与生活安排。上课时间、地点和课程类型始终放在一起。",
     visual: <TimetablePreview />
   },
   {
@@ -35,63 +38,116 @@ const featureItems = [
   },
   {
     eyebrow: "重要文件",
-    title: "签证、合同和小票都有自己的位置",
-    description: "文件与个人账号隔离保存，需要查看时再安全打开。手机和电脑都能继续处理自己的资料。",
+    title: "文件和文字资料都有自己的位置",
+    description: "上传签证、合同和小票，也可创建纯文档保存地址、链接与备忘。内容按个人账号隔离，需要时再安全打开。",
     visual: <FilesPreview />
   }
 ];
 
+const heroImages = [
+  {
+    src: "/images/sydney-usyd-quadrangle.webp",
+    alt: "悉尼大学主楼与草坪",
+    label: "The University of Sydney",
+    position: "center 58%"
+  },
+  {
+    src: "/images/sydney-harbour-bridge.webp",
+    alt: "黄昏中的悉尼海港大桥",
+    label: "Sydney Harbour Bridge",
+    position: "center center"
+  },
+  {
+    src: "/images/sydney-opera-house.webp",
+    alt: "蓝色夜幕下的悉尼歌剧院与海港大桥",
+    label: "Sydney Opera House",
+    position: "center 66%"
+  }
+];
+
 export function LandingPage() {
+  const [activeHero, setActiveHero] = useState(0);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => {
+      setActiveHero((current) => (current + 1) % heroImages.length);
+    }, 6500);
+    return () => window.clearInterval(timer);
+  }, []);
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-white text-slate-950">
-      <header className="relative z-20 border-b border-slate-200 bg-white">
+      <header className="absolute inset-x-0 top-0 z-20 border-b border-white/20 bg-slate-950/25 text-white backdrop-blur-md">
         <nav className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8" aria-label="首页导航">
-          <Link href="/" className="flex min-w-0 items-baseline gap-2 text-slate-950">
+          <Link href="/" className="flex min-w-0 items-baseline gap-2 text-white">
             <span className="text-xl font-bold">MyAssist</span>
-            <span className="hidden text-sm text-slate-500 sm:inline">你的留学生活助手</span>
+            <span className="hidden text-sm text-white/75 sm:inline">你的留学生活助手</span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link href="/login" className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 sm:px-4">
+            <Link href="/login" className="rounded-lg px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/15 sm:px-4">
               登录
             </Link>
-            <Link href="/register" className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">
+            <Link href="/register" className="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100">
               注册
             </Link>
           </div>
         </nav>
       </header>
 
-      <section className="relative min-h-[calc(100svh-11rem)] overflow-hidden border-b border-slate-200 sm:min-h-[calc(100svh-7.5rem)]">
-        <Image
-          src="/images/myassist-landing-hero.webp"
-          alt="学生使用电脑和手机整理课表与任务"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-[62%_center] opacity-40 sm:object-[68%_center] sm:opacity-100"
-        />
-        <div className="absolute inset-0 bg-white/35 sm:bg-white/20" aria-hidden="true" />
-        <div className="relative mx-auto flex min-h-[calc(100svh-11rem)] max-w-7xl items-center px-4 py-10 sm:min-h-[calc(100svh-7.5rem)] sm:px-6 sm:py-16 lg:px-8">
-          <div className="max-w-2xl pb-10 pt-6 sm:pb-16">
-            <p className="mb-5 text-sm font-semibold text-slate-700">为海外学习和独立生活而设计</p>
-            <h1 className="text-4xl font-bold leading-[1.05] text-slate-950 sm:text-6xl lg:text-7xl">
+      <section className="relative min-h-[calc(100svh-4rem)] overflow-hidden border-b border-slate-800 bg-slate-950 text-white">
+        {heroImages.map((image, index) => (
+          <Image
+            key={image.src}
+            src={image.src}
+            alt={image.alt}
+            fill
+            priority={index === 0}
+            quality={92}
+            sizes="100vw"
+            style={{ objectPosition: image.position }}
+            className={`object-cover transition-opacity duration-1000 ${index === activeHero ? "opacity-100" : "opacity-0"}`}
+          />
+        ))}
+        <div className="absolute inset-0 bg-slate-950/55" aria-hidden="true" />
+        <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl items-center px-4 pb-20 pt-28 sm:px-6 sm:pb-24 sm:pt-32 lg:px-8">
+          <div className="max-w-2xl">
+            <p className="mb-5 text-sm font-semibold text-white/75">为海外学习和独立生活而设计</p>
+            <h1 className="text-4xl font-bold leading-[1.05] text-white sm:text-6xl lg:text-7xl">
               MyAssist
-              <span className="mt-3 block text-2xl font-semibold text-slate-700 sm:ml-4 sm:mt-0 sm:inline sm:text-3xl lg:text-4xl">你的留学生活助手</span>
+              <span className="mt-3 block text-2xl font-semibold text-white/80 sm:ml-4 sm:mt-0 sm:inline sm:text-3xl lg:text-4xl">你的留学生活助手</span>
             </h1>
-            <p className="mt-7 max-w-xl text-base leading-8 text-slate-700 sm:text-lg">
+            <p className="mt-7 max-w-xl text-base leading-8 text-white/85 sm:text-lg">
               把课表、任务、每日安排、收支和重要文件放在一个安静清晰的空间里。无论在电脑还是手机上，打开就能继续。
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+              <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-100">
                 开始使用 <ArrowRight size={17} />
               </Link>
-              <Link href="/login" className="rounded-lg border border-slate-300 bg-white/90 px-5 py-3 text-sm font-semibold text-slate-800 transition hover:bg-white">
+              <Link href="/login" className="rounded-lg border border-white/45 bg-slate-950/25 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-950/45">
                 已有账号登录
               </Link>
             </div>
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-700">
+            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/75">
               <span className="inline-flex items-center gap-2"><ShieldCheck size={17} /> 独立账号空间</span>
               <span className="inline-flex items-center gap-2"><Smartphone size={17} /> 手机电脑都能使用</span>
+            </div>
+          </div>
+        </div>
+        <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-slate-950/35 backdrop-blur-md">
+          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+            <span className="truncate text-xs font-semibold text-white/80 sm:text-sm">{heroImages[activeHero].label}</span>
+            <div className="flex items-center gap-2" aria-label="切换悉尼背景图片">
+              {heroImages.map((image, index) => (
+                <button
+                  key={image.src}
+                  type="button"
+                  aria-label={`显示${image.label}`}
+                  aria-pressed={index === activeHero}
+                  onClick={() => setActiveHero(index)}
+                  className={`h-2.5 w-2.5 rounded-full border border-white transition ${index === activeHero ? "bg-white" : "bg-transparent hover:bg-white/50"}`}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -130,7 +186,7 @@ export function LandingPage() {
             <ol className="divide-y divide-slate-200 border-y border-slate-200">
               {[
                 ["01", "创建账号", "使用唯一用户名、邮箱和密码注册，确认邮箱后进入自己的个人空间。"],
-                ["02", "加入今天的内容", "导入课程，添加任务或 To Do，再记录第一笔收支。"],
+                ["02", "加入今天的内容", "导入课程，粘贴活动或上传截图生成日程，再添加任务与第一笔收支。"],
                 ["03", "每天打开首页", "从 Today’s Schedule 开始，继续处理今天最重要的事情。"]
               ].map(([number, title, description]) => (
                 <li key={number} className="grid gap-3 py-7 sm:grid-cols-[64px_160px_1fr] sm:items-start">
@@ -158,9 +214,14 @@ export function LandingPage() {
       </section>
 
       <footer className="border-t border-slate-800 bg-slate-950 py-7 text-slate-400">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <span>MyAssist · 你的留学生活助手</span>
-          <Link href="/contact-developer" className="transition hover:text-white">联系开发者</Link>
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 text-xs sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm">MyAssist · 你的留学生活助手</span>
+            <Link href="/contact-developer" className="text-sm transition hover:text-white">联系开发者</Link>
+          </div>
+          <p className="leading-6 text-slate-500">
+            首页照片：Jason Tong、Adam.J.W.C.、Jacques Grießmayer / Wikimedia Commons（已压缩为 WebP，原图许可见 README）
+          </p>
         </div>
       </footer>
     </main>

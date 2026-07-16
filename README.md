@@ -7,7 +7,7 @@ A local-first life and study dashboard for managing daily to-dos, tasks, deadlin
 ## 核心特点 / Highlights
 
 - 本地优先：数据库和上传文件默认保存在 macOS 用户数据目录，不进入 App 包。
-- 公开产品首页：未登录访客可先了解任务、课表、收支和文件功能，再从右上角登录或注册；私人页面仍受 Auth 保护。
+- 公开产品首页：未登录访客可在悉尼大学、悉尼海港大桥和悉尼歌剧院高清实景轮播中了解任务、日程、收支和文件功能，再从右上角登录或注册；私人页面仍受 Auth 保护。
 - 数据不进 Git：`.gitignore` 会排除数据库、备份和上传文件，更新代码不会覆盖个人数据。
 - 每日 To Do List：按日期管理每日清单，支持勾选、编辑和从计划页查看。
 - 统一日程：侧边栏“日程”同时管理课程和生活安排；可粘贴活动文字或上传截图，确认日期、时间和地点后自动加入 Calendar 与当天 To Do List。
@@ -161,9 +161,20 @@ npm run migration:preflight -- --db "/absolute/path/to/snapshot.db"
 每次新增或修改用户可见功能时，必须在同一批提交中同步更新：
 
 - 设置页中的“使用文档”；
-- GitHub `README.md`。
+- GitHub `README.md`；
+- 未登录用户看到的产品首页及其他展示功能的页面文案。
 
-Every user-facing feature change must update both the in-app guide under Settings and this README in the same change set.
+只更新与本次改动有关的说明，不把尚未完成的功能写成已经可用。功能实现、应用内说明和对外展示必须保持一致。
+
+Every user-facing feature change must update the in-app guide, this README, and any public feature-description surfaces in the same change set. Documentation must describe only functionality that is actually available.
+
+## 首页图片来源 / Landing Image Credits
+
+公开首页使用以下 Wikimedia Commons 原图，并在本地压缩为高质量 WebP 供网页加载：
+
+- [University of Sydney's Main Quadrangle](https://commons.wikimedia.org/wiki/File:University_of_Sydney%27s_Main_Quadrangle.jpg)，Jason Tong，CC BY-SA 3.0；
+- [Sydney harbour bridge new south wales](https://commons.wikimedia.org/wiki/File:Sydney_harbour_bridge_new_south_wales.jpg)，Adam.J.W.C.，CC BY 3.0；
+- [Sydney opera house 2010](https://commons.wikimedia.org/wiki/File:Sydney_opera_house_2010.jpg)，Jacques Grießmayer，CC BY 3.0。
 
 ## Vercel Preview 访问 / Preview Access
 
