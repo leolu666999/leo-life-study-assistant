@@ -42,6 +42,7 @@ import type {
   JournalEntry,
   Plan,
   ProgressItem,
+  SecureDocument,
   Subtask,
   Task,
   TaskType,
@@ -115,7 +116,7 @@ function realtimeEntityScope(entity?: string): MutationRefreshScope {
   if (["todo-lists", "todo-list-items"].includes(entity)) return "todo";
   if (entity === "plans") return "plans";
   if (entity === "journal") return "journal";
-  if (["important-files", "uploads"].includes(entity)) return "files";
+  if (["important-files", "secure-documents", "uploads"].includes(entity)) return "files";
   if (["timetable", "courses"].includes(entity)) return "timetable";
   if (entity === "settings") return "settings";
   return "all";
@@ -354,6 +355,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [importantFiles, setImportantFiles] = useState<ImportantFile[]>([]);
+  const [secureDocuments, setSecureDocuments] = useState<SecureDocument[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultAppSettings);
   const [authStatus, setAuthStatus] = useState<AuthStatus>({ authRequired: false, user: null, isAdmin: false });
   const [modal, setModal] = useState<ModalMode>(null);
@@ -488,7 +490,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
 
   async function loadAll(showLoading = true) {
     if (showLoading) setLoading(true);
-    const [taskData, archiveData, planData, todoListData, progressData, courseData, timetableData, journalData, expenseData, importantFileData, settingsData] = await Promise.all([
+    const [taskData, archiveData, planData, todoListData, progressData, courseData, timetableData, journalData, expenseData, importantFileData, secureDocumentData, settingsData] = await Promise.all([
       fetchJsonOr<Task[]>("/api/tasks", []),
       fetchJsonOr<Task[]>("/api/archive", []),
       fetchJsonOr<Plan[]>("/api/plans", []),
@@ -499,6 +501,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
       fetchJsonOr<JournalEntry[]>("/api/journal", []),
       fetchJsonOr<Expense[]>("/api/expenses", []),
       fetchJsonOr<ImportantFile[]>("/api/important-files", []),
+      fetchJsonOr<SecureDocument[]>("/api/secure-documents", []),
       fetchJsonOr<AppSettings>("/api/settings", defaultAppSettings)
     ]);
     setTasks(taskData);
@@ -511,6 +514,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
     setJournal(journalData);
     setExpenses(expenseData);
     setImportantFiles(importantFileData);
+    setSecureDocuments(secureDocumentData);
     setAppSettings(settingsData);
     if (showLoading) setLoading(false);
   }
@@ -565,7 +569,12 @@ export function LeoApp({ initialView }: { initialView: View }) {
       return;
     }
     if (scope === "files") {
-      setImportantFiles(await fetchJsonOr<ImportantFile[]>("/api/important-files", importantFiles));
+      const [fileData, documentData] = await Promise.all([
+        fetchJsonOr<ImportantFile[]>("/api/important-files", importantFiles),
+        fetchJsonOr<SecureDocument[]>("/api/secure-documents", secureDocuments)
+      ]);
+      setImportantFiles(fileData);
+      setSecureDocuments(documentData);
       return;
     }
     if (scope === "timetable") {
@@ -697,6 +706,15 @@ export function LeoApp({ initialView }: { initialView: View }) {
       else if (data && typeof data === "object" && "id" in data) {
         const saved = data as ImportantFile;
         setImportantFiles((current) => [saved, ...current.filter((file) => file.id !== saved.id)]);
+      } else return false;
+      return true;
+    }
+
+    if (path.startsWith("/api/secure-documents")) {
+      if (method === "DELETE" && id) setSecureDocuments((current) => current.filter((document) => document.id !== id));
+      else if (data && typeof data === "object" && "id" in data) {
+        const saved = data as SecureDocument;
+        setSecureDocuments((current) => [saved, ...current.filter((document) => document.id !== saved.id)]);
       } else return false;
       return true;
     }
@@ -1164,7 +1182,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
                   onSave={mutate}
                 />
               )}
-              {activeView === "files" && <ImportantFilesPage files={importantFiles} onSave={mutate} />}
+              {activeView === "files" && <ImportantFilesPage files={importantFiles} documents={secureDocuments} onSave={mutate} />}
               {activeView === "plans" && (
                 <PlansPage
                   plans={plans}
@@ -3645,38 +3663,64 @@ function ExpensesPage({
   );
 }
 
-function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave: (url: string, options?: RequestInit) => Promise<void> }) {
+function ImportantFilesPage({
+  files,
+  documents,
+  onSave
+}: {
+  files: ImportantFile[];
+  documents: SecureDocument[];
+  onSave: (url: string, options?: RequestInit) => Promise<void>;
+}) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [editingFile, setEditingFile] = useState<ImportantFile | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState<ImportantFile | null>(null);
+  const [editingDocument, setEditingDocument] = useState<SecureDocument | null>(null);
+  const [documentModalOpen, setDocumentModalOpen] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<SecureDocument | null>(null);
   useEscapeClose(() => setPreviewFile(null), Boolean(previewFile));
+  useEscapeClose(() => setPreviewDocument(null), Boolean(previewDocument));
   const filtered = files.filter((file) => {
     const text = `${file.title} ${file.originalName} ${file.notes ?? ""} ${file.tags.join(" ")}`.toLowerCase();
     return text.includes(query.toLowerCase()) && (!category || file.category === category);
+  });
+  const filteredDocuments = documents.filter((document) => {
+    const text = `${document.title} ${document.content} ${document.notes ?? ""} ${document.tags.join(" ")}`.toLowerCase();
+    return text.includes(query.toLowerCase()) && (!category || document.category === category);
   });
 
   return (
     <>
       <PageHeader
         title="重要文件"
-        subtitle="保存证件、签证、学校、住宿和出行材料，文件本体保存在本地 uploads 文件夹。"
+        subtitle="上传证件和图片，或创建纯文字文档保存地址、链接和备忘信息。"
         actions={
-          <ActionButton
-            onClick={() => {
-              setEditingFile(null);
-              setModalOpen(true);
-            }}
-            icon={<Upload size={16} />}
-            label="上传文件"
-          />
+          <div className="flex flex-wrap justify-end gap-2">
+            <ActionButton
+              onClick={() => {
+                setEditingDocument(null);
+                setDocumentModalOpen(true);
+              }}
+              icon={<NotebookPen size={16} />}
+              label="创建文档"
+            />
+            <ActionButton
+              onClick={() => {
+                setEditingFile(null);
+                setModalOpen(true);
+              }}
+              icon={<Upload size={16} />}
+              label="上传文件"
+            />
+          </div>
         }
       />
 
       <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
         <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-          <SearchBox value={query} onChange={setQuery} placeholder="搜索文件名、备注或标签" className="mb-0 h-12" />
+          <SearchBox value={query} onChange={setQuery} placeholder="搜索文件、文档、备注或标签" className="mb-0 h-12" />
           <Select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
@@ -3688,11 +3732,38 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
 
       <section className="rounded-lg bg-white p-4 shadow-soft">
         <div className="mb-3 flex items-center justify-between">
-          <SectionTitle title="文件列表" />
-          <div className="text-sm text-slate-500">{filtered.length} 个</div>
+          <SectionTitle title="文件与文档" />
+          <div className="text-sm text-slate-500">{filtered.length + filteredDocuments.length} 个</div>
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.length === 0 && <EmptyBlock text="还没有重要文件。点右上角上传一个。" />}
+          {filtered.length === 0 && filteredDocuments.length === 0 && <EmptyBlock text="还没有内容。可以上传文件，或创建一篇文档。" />}
+          {filteredDocuments.map((document) => (
+            <article key={document.id} className="min-w-0 rounded-lg border border-slate-100 p-3">
+              <button
+                className="mb-3 flex h-36 w-full flex-col items-start justify-between overflow-hidden rounded-lg border border-slate-100 bg-slate-50 p-4 text-left"
+                onClick={() => setPreviewDocument(document)}
+                title="查看文档"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm"><NotebookPen size={18} /></span>
+                <span className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-500">{document.content || "空文档"}</span>
+              </button>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="truncate font-semibold">{document.title}</h3>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <Badge>文档</Badge>
+                    <Badge>{document.category}</Badge>
+                    {document.tags.slice(0, 2).map((tag) => <span key={tag} className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600">{tag}</span>)}
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => { setEditingDocument(document); setDocumentModalOpen(true); }} title="编辑文档"><Menu size={16} /></button>
+                  <button className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" onClick={async () => { if (confirm("确定删除这篇文档吗？")) await onSave(`/api/secure-documents/${document.id}`, { method: "DELETE" }); }} title="删除文档"><Trash2 size={16} /></button>
+                </div>
+              </div>
+              {document.notes && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{document.notes}</p>}
+            </article>
+          ))}
           {filtered.map((file) => (
             <article key={file.id} className="min-w-0 rounded-lg border border-slate-100 p-3">
               <button
@@ -3761,6 +3832,10 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
         />
       )}
 
+      {documentModalOpen && (
+        <SecureDocumentModal document={editingDocument} onClose={() => setDocumentModalOpen(false)} onSaveRequest={onSave} />
+      )}
+
       {previewFile && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setPreviewFile(null)}>
           <div className="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-lg bg-white p-4 shadow-soft" onClick={(event) => event.stopPropagation()}>
@@ -3793,7 +3868,85 @@ function ImportantFilesPage({ files, onSave }: { files: ImportantFile[]; onSave:
           </div>
         </div>
       )}
+
+      {previewDocument && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setPreviewDocument(null)}>
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-[24px] bg-white p-5 shadow-soft" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-xl font-semibold">{previewDocument.title}</h2>
+                <div className="mt-1 text-sm text-slate-500">纯文字文档 · {previewDocument.category}</div>
+              </div>
+              <button className="rounded-full border border-slate-200 p-2" onClick={() => setPreviewDocument(null)} title="关闭"><X size={16} /></button>
+            </div>
+            <div className="min-h-56 whitespace-pre-wrap break-words rounded-[22px] border border-slate-100 bg-slate-50 p-4 text-sm leading-7 text-slate-800">{previewDocument.content || "这篇文档还没有内容。"}</div>
+            {previewDocument.notes && <p className="mt-3 rounded-[20px] bg-slate-50 p-3 text-sm text-slate-600">{previewDocument.notes}</p>}
+          </div>
+        </div>
+      )}
     </>
+  );
+}
+
+function SecureDocumentModal({
+  document,
+  onClose,
+  onSaveRequest
+}: {
+  document: SecureDocument | null;
+  onClose: () => void;
+  onSaveRequest: SaveRequest;
+}) {
+  const [documentTags, setDocumentTags] = useState<string[]>(document?.tags || []);
+  const [saving, setSaving] = useState(false);
+  useEscapeClose(onClose);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <form
+        className="app-modal-panel max-h-[92vh] w-full max-w-3xl overflow-auto rounded-[24px] bg-white p-5 shadow-soft"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          setSaving(true);
+          try {
+            await onSaveRequest(document ? `/api/secure-documents/${document.id}` : "/api/secure-documents", {
+              method: document ? "PATCH" : "POST",
+              body: JSON.stringify({
+                title: form.get("title"), content: form.get("content"), category: form.get("category"),
+                tags: documentTags, notes: form.get("notes") || null
+              })
+            });
+            onClose();
+          } finally {
+            setSaving(false);
+          }
+        }}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">{document ? "编辑文档" : "创建文档"}</h2>
+          <button type="button" className="rounded-full border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>关闭</button>
+        </div>
+        <div className="grid gap-3">
+          <Input name="title" required placeholder="文档名称" defaultValue={document?.title || ""} />
+          <textarea
+            name="content"
+            required
+            maxLength={200000}
+            className="min-h-[280px] rounded-[24px] border border-slate-200 p-4 text-sm leading-7 outline-none focus:border-slate-400"
+            placeholder="输入地址、链接、备忘信息或其他纯文字内容"
+            defaultValue={document?.content || ""}
+          />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Select name="category" defaultValue={document?.category || "其他"} options={importantFileCategories.map((item) => [item, item] as [string, string])} />
+            <TagEditor tags={documentTags} onChange={setDocumentTags} />
+          </div>
+          <textarea name="notes" className="min-h-[88px] rounded-[22px] border border-slate-200 p-3 text-sm outline-none focus:border-slate-400" placeholder="备注，可选" defaultValue={document?.notes || ""} />
+          <div className="rounded-[20px] bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">文档会按账号隔离保存，但不是端到端加密的密码保险箱。主密码、助记词和恢复码仍建议使用专业密码管理器保存。</div>
+        </div>
+        <button className="mt-5 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60" disabled={saving}>{saving ? "保存中..." : "保存"}</button>
+      </form>
+    </div>
   );
 }
 
@@ -4064,7 +4217,8 @@ function UserGuidePage() {
       title: "重要文件",
       content: (
         <>
-          <p>文件页用于保存签证、学校、住宿、保险等资料。上传后可设置分类、标签、备注和到期日。</p>
+          <p>文件页有“上传文件”和“创建文档”两个入口。上传适合签证、学校、住宿和保险资料；纯文档适合保存地址、链接和备忘信息。两者都可设置分类、标签和备注。</p>
+          <p>纯文档会按当前账号隔离，普通用户无法读取其他人的文档。它不是端到端加密的密码保险箱，主密码、助记词和恢复码仍建议放在专业密码管理器中。</p>
           <p>本地模式的文件本体保存在电脑 uploads 目录；Cloud 测试模式使用当前账号私有的 Supabase Storage。具体本地路径可在“设置 → 本地存储”查看。</p>
           <p>Cloud 模式下图片缩略图和预览通过 MyAssist 独立的私有文件接口加载。服务端会读取当前登录 Session、核对当前账号是否为文件所有者，并强制禁止缓存，不会把文件变成公开文件。</p>
           <p>其他私人数据接口同样不会使用共享缓存，因此在同一台设备切换账号时，不会复用上一个账号的任务、收支或文件响应。</p>

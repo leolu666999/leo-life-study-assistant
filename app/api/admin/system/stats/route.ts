@@ -4,7 +4,7 @@ import { assertAdminRequest, createSupabaseAdminClient } from "@/lib/supabase/se
 
 export const runtime = "nodejs";
 
-const countedTables = ["tasks", "todo_lists", "expenses", "journal_entries", "important_files"] as const;
+const countedTables = ["tasks", "todo_lists", "expenses", "journal_entries", "important_files", "secure_documents"] as const;
 
 export async function GET(request: Request) {
   try {

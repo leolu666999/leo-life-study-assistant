@@ -278,3 +278,14 @@ export type ImportantFile = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type SecureDocument = {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  tags: string[];
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};

@@ -18,7 +18,7 @@ export function mutationRefreshScope(url: string): MutationRefreshScope {
   if (path.startsWith("/api/todo-lists") || path.startsWith("/api/todo-list-items")) return "todo";
   if (path.startsWith("/api/plans")) return "plans";
   if (path.startsWith("/api/journal")) return "journal";
-  if (path.startsWith("/api/important-files")) return "files";
+  if (path.startsWith("/api/important-files") || path.startsWith("/api/secure-documents")) return "files";
   if (path === "/api/upload" || path.startsWith("/api/private-files") || path.startsWith("/api/uploads")) return "none";
   if (path.startsWith("/api/timetable") || path.startsWith("/api/courses")) return "timetable";
   if (path.startsWith("/api/settings")) return "settings";

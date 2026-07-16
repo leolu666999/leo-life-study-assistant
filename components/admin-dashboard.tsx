@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 type UserRow = { id: string; email: string | null; username: string | null; createdAt: string; lastSignInAt: string | null };
 type MessageRow = { id: string; user_id: string | null; username: string | null; email: string | null; message: string; status: string; created_at: string };
-const dataTabs = [["tasks", "Task / Deadline"], ["todo", "To Do"], ["expenses", "Expense"], ["journal", "Journal"], ["timetable", "Course / Timetable"], ["importantFiles", "Important Files"], ["files", "上传文件"]] as const;
+const dataTabs = [["tasks", "Task / Deadline"], ["todo", "To Do"], ["expenses", "Expense"], ["journal", "Journal"], ["timetable", "Course / Timetable"], ["importantFiles", "Important Files"], ["files", "上传文件"], ["documents", "纯文档"]] as const;
 
 export function AdminDashboard() {
   const [stats, setStats] = useState<Record<string, unknown>>({});

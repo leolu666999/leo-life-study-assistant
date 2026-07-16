@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { ImportantFile } from "@/lib/types";
+import type { ImportantFile, SecureDocument } from "@/lib/types";
 import { cloudUploadBucket, sanitizeStorageName, validateCloudUpload } from "@/lib/storage/file-security";
-import type { FileRepository, ImportantFileInput, UploadedFileRecord } from "../file-repository";
+import type { FileRepository, ImportantFileInput, SecureDocumentInput, UploadedFileRecord } from "../file-repository";
 import type { RepositoryContext } from "../repository-context";
 import { requireSupabaseContext } from "../request-context";
 
@@ -28,6 +28,25 @@ function important(row: Row, file: Row): ImportantFile {
     notes: row.notes ? String(row.notes) : null, fileId: String(row.fileId), originalName: String(file.originalName),
     mimeType: String(file.mimeType), size: Number(file.size), expiryDate: row.expiryDate ? String(row.expiryDate) : null,
     createdAt: String(row.createdAt), updatedAt: String(row.updatedAt)
+  };
+}
+
+function secureDocument(row: Row): SecureDocument {
+  return {
+    id: String(row.id), title: String(row.title), content: String(row.content ?? ""),
+    category: String(row.category ?? "其他"), tags: tags(row.tags_json), notes: row.notes ? String(row.notes) : null,
+    createdAt: String(row.createdAt), updatedAt: String(row.updatedAt)
+  };
+}
+
+function secureDocumentPayload(input: SecureDocumentInput) {
+  return {
+    title: String(input.title ?? "未命名文档").trim() || "未命名文档",
+    content: String(input.content ?? ""),
+    category: input.category ?? "其他",
+    tags_json: tags(input.tags),
+    notes: input.notes ?? null,
+    updatedAt: new Date().toISOString()
   };
 }
 
@@ -182,5 +201,46 @@ export const supabaseFileRepository: FileRepository = {
     if (!result.deleted) return 0;
     await removePendingCloudObject(result, context);
     return 1;
+  },
+
+  async listSecureDocuments(context) {
+    const { client, userId } = requireSupabaseContext(context);
+    const { data, error } = await client.from("secure_documents").select("*").eq("user_id", userId).order("updatedAt", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => secureDocument(row as Row));
+  },
+
+  async createSecureDocument(input, context) {
+    const { client, userId } = requireSupabaseContext(context);
+    const id = randomUUID();
+    const { data, error } = await client.from("secure_documents")
+      .insert({ id, user_id: userId, ...secureDocumentPayload(input) }).select("*").single();
+    if (error) throw error;
+    return secureDocument(data as Row);
+  },
+
+  async updateSecureDocument(id, input, context) {
+    const { client, userId } = requireSupabaseContext(context);
+    const { data: current, error: currentError } = await client.from("secure_documents").select("*")
+      .eq("user_id", userId).eq("id", id).maybeSingle();
+    if (currentError) throw currentError;
+    if (!current) return null;
+    const payload = secureDocumentPayload({
+      ...secureDocument(current as Row),
+      ...input,
+      tags: input.tags === undefined ? tags(current.tags_json) : input.tags
+    });
+    const { data, error } = await client.from("secure_documents").update(payload)
+      .eq("user_id", userId).eq("id", id).select("*").maybeSingle();
+    if (error) throw error;
+    return data ? secureDocument(data as Row) : null;
+  },
+
+  async deleteSecureDocument(id, context) {
+    const { client, userId } = requireSupabaseContext(context);
+    const { data, error } = await client.from("secure_documents").delete()
+      .eq("user_id", userId).eq("id", id).select("id");
+    if (error) throw error;
+    return data?.length ?? 0;
   }
 };

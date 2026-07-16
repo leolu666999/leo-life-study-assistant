@@ -23,6 +23,7 @@ describe("mutation refresh scope", () => {
     expect(mutationRefreshScope("/api/plans/plan-id")).toBe("plans");
     expect(mutationRefreshScope("/api/journal")).toBe("journal");
     expect(mutationRefreshScope("/api/important-files/file-id")).toBe("files");
+    expect(mutationRefreshScope("/api/secure-documents/document-id")).toBe("files");
     expect(mutationRefreshScope("/api/timetable/occurrences/occurrence-id")).toBe("timetable");
     expect(mutationRefreshScope("/api/settings")).toBe("settings");
   });

@@ -3,11 +3,15 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import {
   createImportantFile,
+  createSecureDocument,
   createUploadedFile,
   deleteImportantFile,
+  deleteSecureDocument,
   getUploadedFile,
   listImportantFiles,
+  listSecureDocuments,
   updateImportantFile,
+  updateSecureDocument,
   uploadsDir
 } from "@/lib/db";
 import type { FileRepository, UploadedFileRecord } from "../file-repository";
@@ -60,5 +64,9 @@ export const sqliteFileRepository: FileRepository = {
   listImportantFiles,
   createImportantFile,
   updateImportantFile,
-  deleteImportantFile
+  deleteImportantFile,
+  listSecureDocuments,
+  createSecureDocument,
+  updateSecureDocument,
+  deleteSecureDocument
 };

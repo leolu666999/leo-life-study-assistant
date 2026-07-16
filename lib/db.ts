@@ -12,6 +12,7 @@ import type {
   JournalEntry,
   Plan,
   ProgressItem,
+  SecureDocument,
   Subtask,
   Task,
   TaskProgressEntry,
@@ -39,6 +40,7 @@ type SubtaskDraftInput = string | { id?: string; title?: string; completed?: boo
 type TaskInput = Omit<Partial<Task>, "subtasks"> & { subtasks?: SubtaskDraftInput[] };
 type ExpenseInput = Partial<Omit<Expense, "amount">> & { amount?: number | string | null };
 type ImportantFileInput = Partial<Omit<ImportantFile, "tags">> & { tags?: string[] | string };
+type SecureDocumentInput = Partial<Omit<SecureDocument, "tags">> & { tags?: string[] | string };
 type PlanInput = Partial<Plan> & {
   taskIds?: string[];
   itemTitles?: string[];
@@ -335,6 +337,17 @@ function migrate(db: DatabaseLike) {
       notes TEXT,
       expiryDate TEXT,
       fileId TEXT NOT NULL REFERENCES uploaded_files(id) ON DELETE CASCADE,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS secure_documents (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT '其他',
+      tags_json TEXT NOT NULL DEFAULT '[]',
+      notes TEXT,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL
     );
@@ -1904,6 +1917,77 @@ export function deleteImportantFile(id: string) {
   return changes;
 }
 
+function rowToSecureDocument(row: Record<string, unknown>): SecureDocument {
+  return {
+    id: String(row.id),
+    title: String(row.title),
+    content: String(row.content ?? ""),
+    category: String(row.category ?? "其他"),
+    tags: parseJsonArray(row.tags_json),
+    notes: row.notes ? String(row.notes) : null,
+    createdAt: String(row.createdAt),
+    updatedAt: String(row.updatedAt)
+  };
+}
+
+export function listSecureDocuments() {
+  return getDb().prepare("SELECT * FROM secure_documents ORDER BY updatedAt DESC, createdAt DESC").all().map(rowToSecureDocument);
+}
+
+export function getSecureDocument(id: string, db = getDb()) {
+  const row = db.prepare("SELECT * FROM secure_documents WHERE id = ?").get(id);
+  return row ? rowToSecureDocument(row) : null;
+}
+
+export function createSecureDocument(input: SecureDocumentInput) {
+  const db = getDb();
+  const timestamp = now();
+  const id = randomUUID();
+  const tags = Array.isArray(input.tags) ? input.tags : String(input.tags ?? "").split(/[，,\n]/);
+  db.prepare(
+    `INSERT INTO secure_documents (id, title, content, category, tags_json, notes, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    String(input.title ?? "未命名文档").trim() || "未命名文档",
+    String(input.content ?? ""),
+    input.category ?? "其他",
+    JSON.stringify(tags.map((tag) => String(tag).trim()).filter(Boolean)),
+    input.notes ?? null,
+    timestamp,
+    timestamp
+  );
+  return getSecureDocument(id, db)!;
+}
+
+export function updateSecureDocument(id: string, input: SecureDocumentInput) {
+  const db = getDb();
+  const current = getSecureDocument(id, db);
+  if (!current) return null;
+  const tags = input.tags === undefined
+    ? current.tags
+    : Array.isArray(input.tags)
+      ? input.tags
+      : String(input.tags ?? "").split(/[，,\n]/);
+  const next = { ...current, ...input, tags: tags.map((tag) => String(tag).trim()).filter(Boolean) };
+  db.prepare(
+    `UPDATE secure_documents SET title = ?, content = ?, category = ?, tags_json = ?, notes = ?, updatedAt = ? WHERE id = ?`
+  ).run(
+    String(next.title ?? "未命名文档").trim() || "未命名文档",
+    String(next.content ?? ""),
+    next.category ?? "其他",
+    JSON.stringify(next.tags),
+    next.notes ?? null,
+    now(),
+    id
+  );
+  return getSecureDocument(id, db);
+}
+
+export function deleteSecureDocument(id: string) {
+  return getDb().prepare("DELETE FROM secure_documents WHERE id = ?").run(id).changes;
+}
+
 export function createUploadedFile(input: {
   originalName: string;
   storedName: string;
@@ -1957,6 +2041,7 @@ export function exportBackup() {
     journalEntries: listJournal(),
     expenses: listExpenses(),
     importantFiles: listImportantFiles(),
+    secureDocuments: listSecureDocuments(),
     uploadedFiles: db.prepare("SELECT * FROM uploaded_files ORDER BY createdAt DESC").all(),
     settings: db.prepare("SELECT * FROM settings").all()
   };

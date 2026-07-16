@@ -18,7 +18,7 @@ process.env.LEO_DB_PATH = dbPath;
 
 const businessTables = [
   "assignments", "class_sessions", "course_occurrences", "courses", "expenses", "important_files",
-  "journal_entries", "plan_items", "plans", "progress_items", "settings", "subtasks", "tags",
+  "journal_entries", "plan_items", "plans", "progress_items", "secure_documents", "settings", "subtasks", "tags",
   "task_progress_entries", "task_tags", "tasks", "timetable_courses", "timetable_sources",
   "todo_list_items", "todo_lists", "uploaded_files"
 ];
@@ -54,6 +54,8 @@ async function loadRoutes() {
     uploadedFile: await import("@/app/api/uploads/[id]/route"),
     importantFiles: await import("@/app/api/important-files/route"),
     importantFile: await import("@/app/api/important-files/[id]/route"),
+    secureDocuments: await import("@/app/api/secure-documents/route"),
+    secureDocument: await import("@/app/api/secure-documents/[id]/route"),
     syncPush: await import("@/app/api/sync/push/route")
   };
 }
@@ -558,6 +560,27 @@ describe("Files API contract", () => {
     const missing = await routes.importantFile.PATCH(request("http://local.test", "PATCH", { title: "x" }), context("missing"));
     expect(missing.status).toBe(404);
     expect(await missing.json()).toEqual({ error: "Important file not found" });
+  });
+
+  it("Secure document GET/POST/PATCH/DELETE preserves private text content", async () => {
+    expect(await (await routes.secureDocuments.GET(request("http://local.test/api/secure-documents", "GET"))).json()).toEqual([]);
+    const createdResponse = await routes.secureDocuments.POST(request("http://local.test/api/secure-documents", "POST", {
+      title: "悉尼地址", content: "1 Example Street", category: "住宿", tags: ["地址"]
+    }));
+    expect(createdResponse.status).toBe(201);
+    const created = await json(createdResponse);
+    expect(created).toMatchObject({ title: "悉尼地址", content: "1 Example Street", category: "住宿", tags: ["地址"] });
+    const updated = await routes.secureDocument.PATCH(request("http://local.test", "PATCH", { content: "2 Example Street" }), context(String(created.id)));
+    expect(await updated.json()).toMatchObject({ id: created.id, content: "2 Example Street" });
+    const deleted = await routes.secureDocument.DELETE(request("http://local.test", "DELETE"), context(String(created.id)));
+    expect(await deleted.json()).toEqual({ ok: true });
+  });
+
+  it("Secure document rejects an empty title and overlong content", async () => {
+    const missingTitle = await routes.secureDocuments.POST(request("http://local.test", "POST", { title: "", content: "x" }));
+    expect(missingTitle.status).toBe(400);
+    const overlong = await routes.secureDocuments.POST(request("http://local.test", "POST", { title: "x", content: "a".repeat(200001) }));
+    expect(overlong.status).toBe(400);
   });
 });
 
