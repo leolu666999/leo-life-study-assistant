@@ -7,6 +7,7 @@ A local-first life and study dashboard for managing daily to-dos, tasks, deadlin
 ## 核心特点 / Highlights
 
 - 本地优先：数据库和上传文件默认保存在 macOS 用户数据目录，不进入 App 包。
+- 公开产品首页：未登录访客可先了解任务、课表、收支和文件功能，再从右上角登录或注册；私人页面仍受 Auth 保护。
 - 数据不进 Git：`.gitignore` 会排除数据库、备份和上传文件，更新代码不会覆盖个人数据。
 - 每日 To Do List：按日期管理每日清单，支持勾选、编辑和从计划页查看。
 - 今日日程：自动识别 To Do List 标题中的中英文时间段，与课程一起显示在每日时间轴。

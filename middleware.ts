@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { authRuntimeSafetyError } from "@/lib/auth/runtime-guard";
 
-const publicAuthPaths = new Set(["/login", "/register", "/forgot-password", "/reset-password", "/contact-developer", "/api/developer-contact", "/api/auth/login"]);
+const publicAuthPaths = new Set(["/", "/login", "/register", "/forgot-password", "/reset-password", "/contact-developer", "/api/developer-contact", "/api/auth/login"]);
 
 function protectPrivateApiResponse(response: NextResponse, path: string) {
   if (!path.startsWith("/api/")) return response;

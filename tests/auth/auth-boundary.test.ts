@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
 import { authRuntimeSafetyError } from "@/lib/auth/runtime-guard";
 import { buildAuthCallbackUrl } from "@/lib/auth/callback-url";
 import { safeRedirectPath } from "@/lib/auth/redirect";
@@ -87,5 +88,17 @@ describe("Auth redirect safety", () => {
 
   it("does not redirect back into the login loop", () => {
     expect(safeRedirectPath("/login")).toBe("/");
+  });
+});
+
+describe("Public landing boundary", () => {
+  it("keeps only the product root public while private pages stay protected", () => {
+    const middlewareSource = fs.readFileSync("middleware.ts", "utf8");
+    const pageSource = fs.readFileSync("app/page.tsx", "utf8");
+    expect(middlewareSource).toContain('new Set(["/", "/login", "/register"');
+    expect(pageSource).toContain("if (!user) return <LandingPage />");
+    expect(pageSource).toContain('return <LeoApp initialView="dashboard" />');
+    expect(fs.existsSync("components/landing-page.tsx")).toBe(true);
+    expect(fs.existsSync("public/images/myassist-landing-hero.webp")).toBe(true);
   });
 });
