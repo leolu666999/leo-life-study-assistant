@@ -38,6 +38,14 @@ textarea {
   border-radius: 9999px !important;
 }
 
+.quick-editor-modal .reminder-rule-modal {
+  border-radius: 24px !important;
+}
+
+.quick-editor-modal .reminder-rule-modal [class~="border"] {
+  border-radius: 16px !important;
+}
+
 input.rounded-lg,
 input.rounded-md,
 select.rounded-lg,

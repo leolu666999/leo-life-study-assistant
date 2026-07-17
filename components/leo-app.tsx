@@ -5575,7 +5575,7 @@ function ReminderRuleEditor({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section className="w-full max-w-4xl rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.25)]">
+      <section className="reminder-rule-modal w-full max-w-4xl rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.25)]">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="text-lg font-semibold text-slate-950">提醒设置</div>
