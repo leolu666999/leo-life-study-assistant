@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -65,6 +65,67 @@ const heroImages = [
   }
 ];
 
+type RevealDirection = "up" | "down" | "left" | "right";
+
+const revealDirectionClasses: Record<RevealDirection, string> = {
+  up: "translate-y-7",
+  down: "-translate-y-7",
+  left: "-translate-x-7",
+  right: "translate-x-7"
+};
+
+function Reveal({
+  children,
+  className = "",
+  delay = 0,
+  direction = "up"
+}: {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+  direction?: RevealDirection;
+}) {
+  const elementRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (reduceMotion.matches || !("IntersectionObserver" in window)) {
+      setIsVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setIsVisible(true);
+        observer.unobserve(entry.target);
+      },
+      { rootMargin: "0px 0px -8% 0px", threshold: 0.14 }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={elementRef}
+      style={{ transitionDelay: isVisible ? `${delay}ms` : "0ms" }}
+      className={`${className} transition-[opacity,transform] duration-700 ease-out motion-reduce:transform-none motion-reduce:opacity-100 motion-reduce:transition-none ${
+        isVisible
+          ? "translate-x-0 translate-y-0 opacity-100"
+          : `${revealDirectionClasses[direction]} opacity-0 will-change-transform`
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function LandingPage() {
   const [activeHero, setActiveHero] = useState(0);
 
@@ -111,7 +172,7 @@ export function LandingPage() {
         ))}
         <div className="absolute inset-0 bg-slate-950/55" aria-hidden="true" />
         <div className="relative mx-auto flex min-h-[calc(100svh-4rem)] max-w-7xl items-center px-4 pb-20 pt-28 sm:px-6 sm:pb-24 sm:pt-32 lg:px-8">
-          <div className="max-w-2xl">
+          <Reveal className="max-w-2xl" direction="up" delay={100}>
             <p className="mb-5 inline-flex items-center rounded-full border border-[#ff8a65]/60 bg-[#e64626]/85 px-3 py-1.5 text-sm font-semibold text-white">
               为海外学习和独立生活而设计
             </p>
@@ -134,7 +195,7 @@ export function LandingPage() {
               <span className="inline-flex items-center gap-2"><ShieldCheck size={17} /> 独立账号空间</span>
               <span className="inline-flex items-center gap-2"><Smartphone size={17} /> 手机电脑都能使用</span>
             </div>
-          </div>
+          </Reveal>
         </div>
         <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/20 bg-slate-950/35 backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
@@ -157,21 +218,21 @@ export function LandingPage() {
 
       <section id="features" className="border-b border-slate-200 bg-white py-14 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl">
+          <Reveal className="max-w-3xl" direction="up">
             <p className="text-sm font-semibold text-[#d63d20]">一个地方，整理每天</p>
             <h2 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">留学生活，<span className="text-[#d63d20]">不必散落</span>在十几个地方</h2>
             <p className="mt-5 text-base leading-8 text-slate-600">MyAssist 把真正经常使用的工具放在一起，每个模块各司其职，同时又能在首页形成清楚的今日视图。</p>
-          </div>
+          </Reveal>
 
           <div className="mt-16 divide-y divide-slate-200 border-y border-slate-200">
             {featureItems.map((item, index) => (
               <article key={item.eyebrow} className="grid items-center gap-10 py-14 lg:grid-cols-2 lg:gap-16">
-                <div className={index % 2 === 1 ? "lg:order-2" : ""}>
+                <Reveal className={index % 2 === 1 ? "lg:order-2" : ""} direction={index % 2 === 0 ? "left" : "right"}>
                   <p className="inline-flex items-center rounded-full bg-[#fff0eb] px-3 py-1.5 text-sm font-semibold text-[#c9361b]">{item.eyebrow}</p>
                   <h3 className="mt-3 text-2xl font-bold sm:text-3xl">{item.title}</h3>
                   <p className="mt-4 max-w-xl text-base leading-8 text-slate-600">{item.description}</p>
-                </div>
-                <div className={index % 2 === 1 ? "lg:order-1" : ""}>{item.visual}</div>
+                </Reveal>
+                <Reveal className={index % 2 === 1 ? "lg:order-1" : ""} direction="up" delay={120}>{item.visual}</Reveal>
               </article>
             ))}
           </div>
@@ -181,37 +242,39 @@ export function LandingPage() {
       <section className="border-b border-slate-200 bg-slate-50 py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-            <div>
+            <Reveal direction="left">
               <p className="text-sm font-semibold text-[#d63d20]">从注册到开始使用</p>
               <h2 className="mt-3 text-3xl font-bold sm:text-4xl">三步建立自己的<span className="text-[#d63d20]">空间</span></h2>
-            </div>
-            <ol className="divide-y divide-slate-200 border-y border-slate-200">
-              {[
-                ["01", "创建账号", "使用唯一用户名、邮箱和密码注册，确认邮箱后进入自己的个人空间。"],
-                ["02", "加入今天的内容", "导入课程，粘贴活动或上传截图生成日程，再添加任务与第一笔收支。"],
-                ["03", "每天打开首页", "从 Today’s Schedule 开始，继续处理今天最重要的事情。"]
-              ].map(([number, title, description]) => (
-                <li key={number} className="grid gap-3 py-7 sm:grid-cols-[64px_160px_1fr] sm:items-start">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e64626] text-sm font-bold text-white">{number}</span>
-                  <strong className="text-base">{title}</strong>
-                  <span className="text-sm leading-7 text-slate-600">{description}</span>
-                </li>
-              ))}
-            </ol>
+            </Reveal>
+            <Reveal direction="right" delay={100}>
+              <ol className="divide-y divide-slate-200 border-y border-slate-200">
+                {[
+                  ["01", "创建账号", "使用唯一用户名、邮箱和密码注册，确认邮箱后进入自己的个人空间。"],
+                  ["02", "加入今天的内容", "导入课程，粘贴活动或上传截图生成日程，再添加任务与第一笔收支。"],
+                  ["03", "每天打开首页", "从 Today’s Schedule 开始，继续处理今天最重要的事情。"]
+                ].map(([number, title, description]) => (
+                  <li key={number} className="grid gap-3 py-7 sm:grid-cols-[64px_160px_1fr] sm:items-start">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e64626] text-sm font-bold text-white">{number}</span>
+                    <strong className="text-base">{title}</strong>
+                    <span className="text-sm leading-7 text-slate-600">{description}</span>
+                  </li>
+                ))}
+              </ol>
+            </Reveal>
           </div>
         </div>
       </section>
 
       <section className="bg-slate-950 py-16 text-white sm:py-20">
         <div className="mx-auto flex max-w-7xl flex-col gap-7 px-4 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8">
-          <div className="max-w-2xl">
+          <Reveal className="max-w-2xl" direction="left">
             <p className="text-sm font-semibold text-[#ff8a65]">准备好开始了吗？</p>
             <h2 className="mt-3 text-3xl font-bold sm:text-4xl">让你的生活更有秩序。</h2>
-          </div>
-          <div className="flex flex-wrap gap-3">
+          </Reveal>
+          <Reveal className="flex flex-wrap gap-3" direction="right" delay={100}>
             <Link href="/register" className="rounded-lg bg-[#e64626] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#cf3b1e]">免费创建账号</Link>
             <Link href="/login" className="rounded-lg border border-slate-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-900">登录</Link>
-          </div>
+          </Reveal>
         </div>
       </section>
 
