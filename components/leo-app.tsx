@@ -16,9 +16,11 @@ import {
   Download,
   Eye,
   FileText,
+  Hash,
   Home,
   ImageIcon,
   ListChecks,
+  MapPin,
   Menu,
   MessageSquareText,
   NotebookPen,
@@ -56,6 +58,7 @@ import { currencies } from "@/lib/currencies";
 import { deriveChecklistProgress } from "@/lib/checklist-progress";
 import { mutationRefreshScope, type MutationRefreshScope } from "@/lib/mutation-refresh";
 import { buildTimetableMonthDateKeys } from "@/lib/timetable-month";
+import { courseOccurrenceSequence } from "@/lib/timetable-occurrence";
 import {
   parseScheduleEntry,
   scheduleEntryTodoContent,
@@ -2684,12 +2687,14 @@ function TimetableCalendarView({
   occurrences,
   view,
   anchorDate,
+  onOpen,
   onEdit,
   onCancel
 }: {
   occurrences: CourseOccurrence[];
   view: "day" | "week";
   anchorDate: string;
+  onOpen: (occurrence: CourseOccurrence) => void;
   onEdit: (occurrence: CourseOccurrence) => void;
   onCancel: (occurrence: CourseOccurrence) => void;
 }) {
@@ -2770,6 +2775,7 @@ function TimetableCalendarView({
                         width={width}
                         left={left}
                         compact={view === "week"}
+                        onOpen={() => onOpen(occurrence)}
                         onEdit={() => onEdit(occurrence)}
                         onCancel={() => onCancel(occurrence)}
                       />
@@ -2792,6 +2798,7 @@ function TimetableCalendarEvent({
   width,
   left,
   compact,
+  onOpen,
   onEdit,
   onCancel
 }: {
@@ -2801,6 +2808,7 @@ function TimetableCalendarEvent({
   width: string;
   left: string;
   compact: boolean;
+  onOpen: () => void;
   onEdit: () => void;
   onCancel: () => void;
 }) {
@@ -2809,7 +2817,7 @@ function TimetableCalendarEvent({
   const background = usydCourseBackground(course?.courseCode);
   return (
     <article
-      className="absolute overflow-hidden rounded-md border border-l-4 p-2 text-left shadow-sm transition hover:z-20 hover:shadow-md"
+      className="group absolute overflow-hidden rounded-md border border-l-4 p-2 text-left shadow-sm transition hover:z-20 hover:shadow-md"
       style={{
         top,
         height,
@@ -2821,12 +2829,18 @@ function TimetableCalendarEvent({
       }}
       title={`${course?.courseCode ?? "COURSE"} ${course?.activityType ?? ""} ${formatCalendarTimeRange(occurrence)}`}
     >
-      <div className="flex items-start justify-between gap-1">
+      <button
+        className="absolute inset-0 z-0 cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-700"
+        type="button"
+        onClick={onOpen}
+        aria-label={`查看 ${course?.courseCode ?? "课程"} ${formatCalendarTimeRange(occurrence)} 详情`}
+      />
+      <div className="pointer-events-none relative z-10 flex items-start justify-between gap-1">
         <div className="min-w-0">
           <div className="truncate text-[13px] font-semibold leading-tight">{course?.courseCode ?? "COURSE"}</div>
           <div className="truncate text-[11px] font-medium leading-tight text-slate-700">{course?.activityType ?? "课程"}</div>
         </div>
-        <div className="flex shrink-0 gap-1 opacity-0 transition hover:opacity-100 focus-within:opacity-100">
+        <div className="pointer-events-auto flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
           <button className="rounded bg-white/80 p-1 text-slate-600 shadow-sm hover:bg-white" onClick={onEdit} title="编辑地点">
             <Settings size={12} />
           </button>
@@ -2835,9 +2849,9 @@ function TimetableCalendarEvent({
           </button>
         </div>
       </div>
-      <div className="mt-1 truncate text-[11px] leading-tight text-slate-700">{formatCalendarTimeRange(occurrence)}</div>
-      {!compact && <div className="mt-1 line-clamp-2 text-[11px] leading-tight text-slate-600">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>}
-      {compact && height > 72 && <div className="mt-1 line-clamp-2 text-[11px] leading-tight text-slate-600">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>}
+      <div className="pointer-events-none relative z-10 mt-1 truncate text-[11px] leading-tight text-slate-700">{formatCalendarTimeRange(occurrence)}</div>
+      {!compact && <div className="pointer-events-none relative z-10 mt-1 line-clamp-2 text-[11px] leading-tight text-slate-600">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>}
+      {compact && height > 72 && <div className="pointer-events-none relative z-10 mt-1 line-clamp-2 text-[11px] leading-tight text-slate-600">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>}
     </article>
   );
 }
@@ -2845,12 +2859,12 @@ function TimetableCalendarEvent({
 function TimetableMonthView({
   occurrences,
   anchorDate,
-  onEdit,
+  onOpen,
   onCancel
 }: {
   occurrences: CourseOccurrence[];
   anchorDate: string;
-  onEdit: (occurrence: CourseOccurrence) => void;
+  onOpen: (occurrence: CourseOccurrence) => void;
   onCancel: (occurrence: CourseOccurrence) => void;
 }) {
   const days = buildTimetableMonthDateKeys(anchorDate).map((dateKey) => new Date(`${dateKey}T00:00:00`));
@@ -2904,7 +2918,7 @@ function TimetableMonthView({
                       <TimetableMonthEvent
                         key={occurrence.id}
                         occurrence={occurrence}
-                        onEdit={() => onEdit(occurrence)}
+                        onOpen={() => onOpen(occurrence)}
                         onCancel={() => onCancel(occurrence)}
                       />
                     ))}
@@ -2921,11 +2935,11 @@ function TimetableMonthView({
 
 function TimetableMonthEvent({
   occurrence,
-  onEdit,
+  onOpen,
   onCancel
 }: {
   occurrence: CourseOccurrence;
-  onEdit: () => void;
+  onOpen: () => void;
   onCancel: () => void;
 }) {
   const course = occurrence.course;
@@ -2938,7 +2952,7 @@ function TimetableMonthEvent({
       style={{ borderColor: color, background }}
       title={`${title} · ${formatCalendarTimeRange(occurrence)} · ${occurrence.location || course?.defaultLocation || "地点待确认"}`}
     >
-      <button className="block w-full pr-5 text-left" type="button" onClick={onEdit} title="编辑课程">
+      <button className="block w-full pr-5 text-left" type="button" onClick={onOpen} title="查看课程详情">
         <div className="truncate text-[11px] font-semibold leading-tight text-slate-900">{course?.courseCode ?? "COURSE"}</div>
         <div className="mt-0.5 truncate text-[10px] font-medium leading-tight text-slate-600">{formatCalendarTimeRange(occurrence)}</div>
         <div className="mt-0.5 truncate text-[10px] leading-tight text-slate-500">{course?.activityType ?? "课程"}</div>
@@ -2952,6 +2966,125 @@ function TimetableMonthEvent({
         <X size={11} />
       </button>
     </article>
+  );
+}
+
+function formatCourseDuration(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours === 0) return `${remainingMinutes} 分钟`;
+  if (remainingMinutes === 0) return `${hours} 小时`;
+  return `${hours} 小时 ${remainingMinutes} 分钟`;
+}
+
+function TimetableOccurrenceDetailDialog({
+  occurrence,
+  occurrences,
+  onClose
+}: {
+  occurrence: CourseOccurrence;
+  occurrences: CourseOccurrence[];
+  onClose: () => void;
+}) {
+  useEscapeClose(onClose);
+  const course = occurrence.course;
+  const sequence = courseOccurrenceSequence(occurrence, occurrences);
+  const start = new Date(occurrence.startAt);
+  const end = new Date(occurrence.endAt);
+  const durationMinutes = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60_000));
+  const dateLabel = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: timetableTimeZone,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "long"
+  }).format(start);
+  const location = occurrence.location || course?.defaultLocation || "地点待确认";
+  const statusLabel = occurrence.status === "completed" ? "已完成" : occurrence.status === "cancelled" ? "已取消" : "已排期";
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="app-modal-panel w-full max-w-xl rounded-[28px] bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="course-occurrence-title">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <Badge>{course?.courseCode || "课程"}</Badge>
+              <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-[#e64626]">{course?.activityType || "课程"}</span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{statusLabel}</span>
+            </div>
+            <h2 id="course-occurrence-title" className="text-xl font-semibold text-slate-950">
+              {course?.courseName || course?.activityName || course?.courseCode || "课程详情"}
+            </h2>
+            {course?.activityName && course.activityName !== course.courseName && (
+              <p className="mt-1 text-sm text-slate-500">{course.activityName}</p>
+            )}
+          </div>
+          <button className="shrink-0 rounded-full border border-slate-200 p-2.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900" onClick={onClose} title="关闭" aria-label="关闭课程详情">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+            <div className="flex items-start gap-3">
+              <CalendarDays className="mt-0.5 shrink-0 text-[#e64626]" size={19} />
+              <div>
+                <div className="text-xs font-medium text-slate-500">日期与时间（悉尼时间）</div>
+                <div className="mt-1 font-semibold text-slate-950">{dateLabel}</div>
+                <div className="mt-1 text-sm text-slate-600">{formatCalendarTimeRange(occurrence)} · {formatCourseDuration(durationMinutes)}</div>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-[22px] border border-slate-200 p-4">
+            <div className="flex items-start gap-3">
+              <Hash className="mt-0.5 shrink-0 text-[#e64626]" size={18} />
+              <div>
+                <div className="text-xs font-medium text-slate-500">课次</div>
+                <div className="mt-1 font-semibold text-slate-950">
+                  {sequence.number ? `第 ${sequence.number} 次课` : "单次课程"}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">该课程活动系列共 {sequence.total} 次</div>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-[22px] border border-slate-200 p-4">
+            <div className="flex items-start gap-3">
+              <MapPin className="mt-0.5 shrink-0 text-[#e64626]" size={18} />
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-slate-500">地点</div>
+                <div className="mt-1 break-words font-semibold text-slate-950">{location}</div>
+                {(occurrence.campus || course?.campus) && <div className="mt-1 text-xs text-slate-500">{occurrence.campus || course?.campus}</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-[22px] border border-slate-200 p-4">
+          <div className="flex items-start gap-3">
+            <BookOpen className="mt-0.5 shrink-0 text-[#e64626]" size={18} />
+            <div className="grid min-w-0 flex-1 gap-3 text-sm sm:grid-cols-2">
+              <div><span className="text-slate-500">学期</span><div className="mt-1 font-medium text-slate-900">{course?.semester || "未设置"} {course?.academicYear || ""}</div></div>
+              <div><span className="text-slate-500">课程类型</span><div className="mt-1 font-medium text-slate-900">{course?.activityType || "课程"}</div></div>
+            </div>
+          </div>
+        </div>
+
+        {(occurrence.notes || course?.notes) && (
+          <div className="mt-3 rounded-[22px] bg-slate-50 p-4">
+            <div className="text-xs font-medium text-slate-500">备注</div>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700">{occurrence.notes || course?.notes}</p>
+          </div>
+        )}
+        <button className="mt-5 w-full rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800" onClick={onClose}>
+          完成
+        </button>
+      </section>
+    </div>
   );
 }
 
@@ -3455,6 +3588,7 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
   const [anchorDate, setAnchorDate] = useState(timetableDateKey(new Date()));
   const [importMessage, setImportMessage] = useState("");
   const [expandedCourseKey, setExpandedCourseKey] = useState<string | null>(null);
+  const [selectedOccurrence, setSelectedOccurrence] = useState<CourseOccurrence | null>(null);
 
   useEffect(() => {
     void loadTimetable();
@@ -3657,6 +3791,7 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
               occurrences={visibleOccurrences}
               view={view}
               anchorDate={anchorDate}
+              onOpen={setSelectedOccurrence}
               onEdit={(occurrence) => void updateOccurrence(occurrence)}
               onCancel={(occurrence) => void cancelOccurrence(occurrence)}
             />
@@ -3665,7 +3800,7 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
           <TimetableMonthView
             occurrences={visibleOccurrences}
             anchorDate={anchorDate}
-            onEdit={(occurrence) => void updateOccurrence(occurrence)}
+            onOpen={setSelectedOccurrence}
             onCancel={(occurrence) => void cancelOccurrence(occurrence)}
           />
         ) : view === "semester" ? (
@@ -3694,6 +3829,13 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
             ))}
           </div>
         </section>
+      )}
+      {selectedOccurrence && (
+        <TimetableOccurrenceDetailDialog
+          occurrence={selectedOccurrence}
+          occurrences={occurrences}
+          onClose={() => setSelectedOccurrence(null)}
+        />
       )}
     </>
   );
@@ -4405,6 +4547,7 @@ function UserGuidePage() {
         <>
           <p>“日程”页面中的“课程管理”保留 Calendar Feed 和 ICS 文件导入。先预览内容，确认课程、时间和地点无误后再导入。</p>
           <p>课表中的日期、星期和时间统一按悉尼时间显示，并自动处理夏令时。日、周视图使用时间轴，月视图使用周一到周日的日历网格，学期视图按课程归纳所有上课安排。</p>
+          <p>日、周和月视图中的单次课程卡片可以点击查看详情，包括悉尼日期时间、课程活动类型、第几次课、地点、校区、学期和备注。</p>
         </>
       )
     },

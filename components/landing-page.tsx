@@ -27,7 +27,7 @@ const featureItems = [
   {
     eyebrow: "日程与课程",
     title: "从开学第一周到整个学期",
-    description: "导入课表后，用日、周和月视图查看课程与生活安排。上课时间、地点和课程类型始终放在一起。",
+    description: "导入课表后，用日、周和月视图查看课程与生活安排。点击单次课程，即可查看时间、地点、课次和课程类型。",
     visual: <TimetablePreview />
   },
   {
