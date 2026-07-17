@@ -206,7 +206,7 @@ export function LandingPage() {
         <div className="mx-auto flex max-w-7xl flex-col gap-7 px-4 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8">
           <div className="max-w-2xl">
             <p className="text-sm font-semibold text-[#ff8a65]">准备好开始了吗？</p>
-            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">让下一周比这一周更清楚。</h2>
+            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">让你的生活更有秩序。</h2>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/register" className="rounded-lg bg-[#e64626] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#cf3b1e]">免费创建账号</Link>
