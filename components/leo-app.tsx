@@ -6266,7 +6266,19 @@ function SearchBox({
 
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const { className = "", ...rest } = props;
-  return <input className={`rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 ${className}`} {...rest} />;
+  const isDateInput = rest.type === "date";
+  const inputClassName = isDateInput
+    ? `date-input min-h-14 rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-[15px] font-medium tabular-nums text-slate-800 shadow-sm outline-none transition hover:border-slate-300 focus:border-slate-500 focus:ring-4 focus:ring-slate-100 ${className}`
+    : `rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 ${className}`;
+
+  return (
+    <input
+      className={inputClassName}
+      inputMode={isDateInput ? "numeric" : rest.inputMode}
+      title={isDateInput && !rest.title ? "可点击年、月、日后直接用键盘输入，也可打开日历选择" : rest.title}
+      {...rest}
+    />
+  );
 }
 
 function Select(props: React.SelectHTMLAttributes<HTMLSelectElement> & { options: Array<[string, string]> }) {

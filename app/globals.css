@@ -78,6 +78,46 @@ select:not([multiple]) {
   padding-right: 2.5rem;
 }
 
+.date-input {
+  width: 100%;
+  min-width: 0;
+  color-scheme: light;
+  cursor: text;
+}
+
+.date-input::-webkit-datetime-edit {
+  min-width: 0;
+  padding: 0;
+}
+
+.date-input::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+}
+
+.date-input::-webkit-datetime-edit-year-field,
+.date-input::-webkit-datetime-edit-month-field,
+.date-input::-webkit-datetime-edit-day-field {
+  border-radius: 6px;
+  padding: 2px 3px;
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 0.5rem;
+  padding: 0.4rem;
+  border-radius: 10px;
+  cursor: pointer;
+  opacity: 0.68;
+  transition: background-color 160ms ease, opacity 160ms ease;
+}
+
+.date-input:hover::-webkit-calendar-picker-indicator,
+.date-input:focus::-webkit-calendar-picker-indicator {
+  background-color: #f1f5f9;
+  opacity: 1;
+}
+
 .expense-amount-input::-webkit-inner-spin-button,
 .expense-amount-input::-webkit-outer-spin-button {
   margin: 0;
@@ -324,5 +364,10 @@ select.task-type-select:not([multiple]) {
   select,
   textarea {
     font-size: 16px;
+  }
+
+  .date-input {
+    min-height: 54px;
+    padding-inline: 14px;
   }
 }
