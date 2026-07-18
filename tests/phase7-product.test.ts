@@ -100,4 +100,14 @@ describe("Phase 7 production account and contact contracts", () => {
     expect(landing).toContain("To Do");
     expect(landing).toContain("Task");
   });
+
+  it("renders plans as a searchable single-view workspace with four-column Daily previews", () => {
+    const source = read("components/leo-app.tsx");
+    expect(source).toContain('useState<PlanType>("daily")');
+    expect(source).toContain('(["daily", "weekly", "monthly"] as PlanType[])');
+    expect(source).toContain("matchesTodoListSearch");
+    expect(source).toContain("matchesPlanSearch");
+    expect(source).toContain("xl:grid-cols-4");
+    expect(source).toContain("md:hover:overflow-y-auto");
+  });
 });
