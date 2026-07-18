@@ -43,6 +43,7 @@ import type {
   ImportantFile,
   JournalEntry,
   Plan,
+  PlanType,
   ProgressItem,
   SecureDocument,
   Subtask,
@@ -57,6 +58,7 @@ import type {
 import { currencies } from "@/lib/currencies";
 import { deriveChecklistProgress } from "@/lib/checklist-progress";
 import { mutationRefreshScope, type MutationRefreshScope } from "@/lib/mutation-refresh";
+import { matchesPlanSearch, matchesTodoListSearch } from "@/lib/plan-search";
 import { buildTimetableMonthDateKeys } from "@/lib/timetable-month";
 import { courseOccurrenceSequence } from "@/lib/timetable-occurrence";
 import { UI_LANGUAGE_STORAGE_KEY, type UiLanguage } from "@/lib/ui-language";
@@ -2159,7 +2161,17 @@ function PlansPage({
   onSave: (url: string, options?: RequestInit) => Promise<void>;
   onToggleTodoItem: (id: string, completed: boolean) => Promise<void> | void;
 }) {
+  const [activePlanView, setActivePlanView] = useState<PlanType>("daily");
+  const [searchQuery, setSearchQuery] = useState("");
   const weeklyMonthlyPlans = plans.filter((plan) => plan.type !== "daily");
+  const filteredTodoLists = useMemo(
+    () => todoLists.filter((todoList) => matchesTodoListSearch(todoList, searchQuery)),
+    [searchQuery, todoLists]
+  );
+  const filteredPlans = useMemo(
+    () => weeklyMonthlyPlans.filter((plan) => plan.type === activePlanView && matchesPlanSearch(plan, searchQuery)),
+    [activePlanView, searchQuery, weeklyMonthlyPlans]
+  );
 
   async function createPlanByType(type: "weekly" | "monthly") {
     const today = new Date().toISOString().slice(0, 10);
@@ -2174,19 +2186,69 @@ function PlansPage({
     });
   }
 
+  const headerAction = activePlanView === "daily"
+    ? <ActionButton onClick={() => onOpenModal("todoList")} icon={<Plus size={16} />} label="新建每日 To Do List" />
+    : (
+      <ActionButton
+        onClick={() => void createPlanByType(activePlanView)}
+        icon={<Plus size={16} />}
+        label={activePlanView === "weekly" ? "新增周计划" : "新增月计划"}
+      />
+    );
+
   return (
     <>
       <PageHeader
         title="计划"
         subtitle="Daily 是 To Do List；Weekly / Monthly 保留为计划。"
-        actions={<ActionButton onClick={() => onOpenModal("todoList")} icon={<Plus size={16} />} label="新建每日 To Do List" />}
+        actions={headerAction}
       />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <section className="mb-4 rounded-lg bg-white p-3 shadow-soft">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="inline-flex w-full shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:w-auto">
+            {(["daily", "weekly", "monthly"] as PlanType[]).map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={`min-w-0 flex-1 px-5 py-2.5 text-sm font-semibold transition sm:flex-none ${
+                  activePlanView === type
+                    ? "bg-slate-900 text-white"
+                    : "border-l border-slate-200 text-slate-600 first:border-l-0 hover:bg-white hover:text-slate-900"
+                }`}
+                onClick={() => setActivePlanView(type)}
+              >
+                {type === "daily" ? "Daily" : type === "weekly" ? "Weekly" : "Monthly"}
+              </button>
+            ))}
+          </div>
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 focus-within:border-slate-400">
+            <Search size={17} className="shrink-0 text-slate-400" />
+            <input
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={activePlanView === "daily" ? "搜索待办内容或日期，如 7月19日、7.19、2026.7.19" : "搜索计划标题、内容或日期"}
+            />
+            {searchQuery && (
+              <button type="button" className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={() => setSearchQuery("")} title="清空搜索">
+                <X size={15} />
+              </button>
+            )}
+          </label>
+        </div>
+      </section>
+
+      {activePlanView === "daily" ? (
         <section className="rounded-lg bg-white p-4 shadow-soft">
-          <SectionTitle title="Daily" />
-          <div className="space-y-3">
-            {todoLists.length === 0 && <EmptyLine text="还没有 To Do List。" />}
-            {todoLists.map((todoList) => (
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <SectionTitle title="Daily" />
+            <span className="text-xs text-slate-500">{filteredTodoLists.length} 个 To Do List</span>
+          </div>
+          {filteredTodoLists.length === 0 ? (
+            <EmptyLine text={searchQuery ? "没有找到匹配的 To Do List。" : "还没有 To Do List。"} />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {filteredTodoLists.map((todoList) => (
               <TodoListCard
                 key={todoList.id}
                 todoList={todoList}
@@ -2195,30 +2257,26 @@ function PlansPage({
                 onToggleTodoItem={onToggleTodoItem}
               />
             ))}
-          </div>
-        </section>
-        {(["weekly", "monthly"] as const).map((type) => (
-          <section key={type} className="rounded-lg bg-white p-4 shadow-soft">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <SectionTitle title={type === "weekly" ? "Weekly" : "Monthly"} />
-              <button
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                onClick={() => void createPlanByType(type)}
-              >
-                {type === "weekly" ? "新增周计划" : "新增月计划"}
-              </button>
             </div>
-            <div className="space-y-3">
-              {weeklyMonthlyPlans.filter((plan) => plan.type === type).length === 0 && (
-                <EmptyLine text={type === "weekly" ? "还没有周计划。" : "还没有月计划。"} />
-              )}
-              {weeklyMonthlyPlans.filter((plan) => plan.type === type).map((plan) => (
+          )}
+        </section>
+      ) : (
+        <section className="rounded-lg bg-white p-4 shadow-soft">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <SectionTitle title={activePlanView === "weekly" ? "Weekly" : "Monthly"} />
+            <span className="text-xs text-slate-500">{filteredPlans.length} 个计划</span>
+          </div>
+          {filteredPlans.length === 0 ? (
+            <EmptyLine text={searchQuery ? "没有找到匹配的计划。" : activePlanView === "weekly" ? "还没有周计划。" : "还没有月计划。"} />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {filteredPlans.map((plan) => (
                 <PlanCard key={plan.id} plan={plan} onSave={onSave} />
               ))}
             </div>
-          </section>
-        ))}
-      </div>
+          )}
+        </section>
+      )}
     </>
   );
 }
@@ -2253,13 +2311,18 @@ function TodoListCard({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 p-3">
-      <div className="font-semibold">{todoList.title}</div>
-      <div className="mb-3 text-xs text-slate-500">{todoList.date}</div>
-      <div className="space-y-2">
+    <div className="flex h-[350px] min-w-0 flex-col rounded-lg border border-slate-200 p-3">
+      <div className="min-w-0">
+        <div className="truncate font-semibold" title={todoList.title}>{todoList.title}</div>
+        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-500">
+          <span>{todoList.date}</span>
+          <span className="shrink-0">{todoList.items.filter((item) => item.completed).length}/{todoList.items.length}</span>
+        </div>
+      </div>
+      <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 md:overflow-hidden md:hover:overflow-y-auto">
         {todoList.items.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">还没有待办条目。</div>}
         {todoList.items.map((item) => (
-          <label key={item.id} className="flex items-center gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700">
+          <div key={item.id} className="flex min-w-0 items-start gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700">
             <button
               type="button"
               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
@@ -2270,17 +2333,12 @@ function TodoListCard({
             >
               <Check size={13} />
             </button>
-            <span className="min-w-0 flex-1 truncate">{item.content}</span>
-          </label>
+            <span className={`min-w-0 flex-1 break-words ${item.completed ? "text-slate-400 line-through" : ""}`}>{item.content}</span>
+          </div>
         ))}
-        <textarea
-          className="min-h-[70px] w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          placeholder="随手小记"
-        />
       </div>
-      <button className="mt-3 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => setEditorOpen(true)}>
+      {note && <div className="mt-2 line-clamp-2 min-h-[38px] break-words rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">{note}</div>}
+      <button className="mt-3 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => setEditorOpen(true)}>
         编辑
       </button>
       {editorOpen && (
@@ -4518,6 +4576,7 @@ function UserGuidePage() {
       content: (
         <>
           <p>To Do List 是按日期保存的每日清单，不会自动变成 Task。在首页或“计划”页面新建清单，勾选圆形按钮即可完成事项。</p>
+          <p>“计划”页面使用 Daily、Weekly、Monthly 三段切换，一次只显示一种计划。Daily 在桌面端每行预览四张清单，较长的待办只在卡片内部滚动；搜索框可以查标题、备注、待办内容，也支持 7月19日、7.19、2026.7.19 等日期写法。</p>
           <p>标题中写入明确时间，系统会自动加入 Today’s Schedule，例如：</p>
           <div className="space-y-1 font-mono text-xs text-slate-600">
             <div>13:00-15:00 写作业</div>
