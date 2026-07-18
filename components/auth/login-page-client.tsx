@@ -29,8 +29,8 @@ export function LoginPageClient({ nextPath }: { nextPath: string }) {
   const [language, setLanguage] = useState<UiLanguage>("zh-CN");
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(UI_LANGUAGE_STORAGE_KEY);
-    setLanguage(saved === "en" ? "en" : "zh-CN");
+    setLanguage("zh-CN");
+    document.documentElement.lang = "zh-CN";
   }, []);
 
   function selectLanguage(next: UiLanguage) {

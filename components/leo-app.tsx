@@ -4507,6 +4507,7 @@ function UserGuidePage() {
           <p>Cloud 文件只接受 PDF、JPEG、PNG 和 WebP，单个最大 10MB。文件链接会短期失效，删除失败会保留可重试状态，不会静默隐藏孤儿文件。</p>
           <p>Vercel Preview 公网链接会直接进入 MyAssist 自己的登录/注册页面，不再要求先登录 Vercel；账号隔离仍由 MyAssist Auth、RLS 和受保护 Admin API 负责。</p>
           <p>未登录访客打开公网根地址时，会先看到 MyAssist 产品首页，可从右上角登录或注册。登录后打开根地址仍直接进入个人 Dashboard，其他私人页面不会因首页公开而放开。</p>
+          <p>公开产品首页右上角提供“中 / EN”切换，登录页每次打开默认显示中文。切换语言时，MyAssist、Today’s Schedule、Task、Deadline 和 To Do List 等既有英文产品词段保持不变。</p>
           <p>公开首页使用悉尼大学主楼、悉尼海港大桥和悉尼歌剧院的高清实景轮播，页面上的功能说明会与当前可用功能同步更新。</p>
           <p>现有本地数据不会自动上云，也不会自动绑定到个人账号或管理员账号。默认本地模式仍不要求登录。</p>
         </>

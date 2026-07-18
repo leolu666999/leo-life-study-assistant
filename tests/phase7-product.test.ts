@@ -86,4 +86,18 @@ describe("Phase 7 production account and contact contracts", () => {
     expect(source).not.toContain('archiveTasks.filter((task) => task.status === "completed")');
     expect(source).toContain('statusFilter === "completed" && isCompletedGroup');
   });
+
+  it("defaults login to Chinese and keeps bilingual landing product terms stable", () => {
+    const login = read("components/auth/login-page-client.tsx");
+    const landing = read("components/landing-page.tsx");
+    expect(login).toContain('useState<UiLanguage>("zh-CN")');
+    expect(login).toContain('setLanguage("zh-CN")');
+    expect(login).not.toContain('saved === "en" ? "en" : "zh-CN"');
+    expect(landing).toContain('type LandingLanguage = "zh-CN" | "en"');
+    expect(landing).toContain('onClick={() => selectLanguage("zh-CN")}');
+    expect(landing).toContain('onClick={() => selectLanguage("en")}');
+    expect(landing).toContain("Today’s Schedule");
+    expect(landing).toContain("To Do");
+    expect(landing).toContain("Task");
+  });
 });
