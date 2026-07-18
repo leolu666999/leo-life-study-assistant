@@ -59,6 +59,7 @@ import { deriveChecklistProgress } from "@/lib/checklist-progress";
 import { mutationRefreshScope, type MutationRefreshScope } from "@/lib/mutation-refresh";
 import { buildTimetableMonthDateKeys } from "@/lib/timetable-month";
 import { courseOccurrenceSequence } from "@/lib/timetable-occurrence";
+import { UI_LANGUAGE_STORAGE_KEY, type UiLanguage } from "@/lib/ui-language";
 import {
   parseScheduleEntry,
   scheduleEntryTodoContent,
@@ -152,7 +153,8 @@ type ScheduleEvent = {
 const defaultAppSettings: AppSettings = {
   lastUsedCurrency: null,
   homeTitle: "MyAssist",
-  showHomeTitle: true
+  showHomeTitle: true,
+  language: "zh-CN"
 };
 
 const navItems: Array<{ view: View; href: string; label: string; icon: React.ReactNode }> = [
@@ -4570,6 +4572,7 @@ function UserGuidePage() {
           <p>Cloud 版本注册时，用户名必须为 3 至 24 位，只能使用英文字母、数字和下划线；用户名全局唯一且不区分大小写。密码至少 8 个字符并区分大小写，建议混合字母、数字和符号。</p>
           <p>每个邮箱只能注册一个账号。提交注册时如果邮箱已经被使用，页面会明确提示用户直接登录或使用“找回密码”，不会继续显示注册确认成功。</p>
           <p>登录时可输入用户名或邮箱。用户名不区分大小写，密码区分大小写。忘记密码可从登录页进入“找回密码”，通过注册邮箱接收重置链接。</p>
+          <p>登录页右上角的“中 / EN”可即时切换中文和英文。登录后可在“设置 → 界面语言”选择简体中文、繁體中文或 English，语言偏好会保存在本地或当前云端账号中。</p>
           <p>邮件确认和密码重置会回到当前使用的 MyAssist 地址：本地开发为 localhost:3011，公网测试为 Vercel HTTPS 域名。旧邮件如果提示 otp_expired，需要重新发送。</p>
           <p>登录页可以显示/隐藏密码，也可以选择是否在这台电脑保持登录；不勾选时登录状态随浏览器会话结束。</p>
           <p>设置页的“联系开发者”可提交问题或建议。未登录时也可从找回密码页进入留言板；开发者联系方式未配置时会显示“暂未配置”。</p>
@@ -4690,13 +4693,15 @@ function SettingsPage({
 }: {
   appSettings: AppSettings;
   authStatus: AuthStatus;
-  onSaveSettings: (patch: Pick<AppSettings, "homeTitle" | "showHomeTitle">) => Promise<void>;
+  onSaveSettings: (patch: Partial<AppSettings>) => Promise<void>;
   syncState: SyncState;
   onManualSync: () => void;
   onCheckSync: () => void;
 }) {
   const [homeTitleDraft, setHomeTitleDraft] = useState(appSettings.homeTitle);
   const [showHomeTitleDraft, setShowHomeTitleDraft] = useState(appSettings.showHomeTitle);
+  const [languageDraft, setLanguageDraft] = useState<UiLanguage>(appSettings.language);
+  const [languageMessage, setLanguageMessage] = useState("");
   const [savingHomeSettings, setSavingHomeSettings] = useState(false);
   const [homeSettingsMessage, setHomeSettingsMessage] = useState("");
   const [phoneUrl, setPhoneUrl] = useState("");
@@ -4741,7 +4746,29 @@ function SettingsPage({
   useEffect(() => {
     setHomeTitleDraft(appSettings.homeTitle);
     setShowHomeTitleDraft(appSettings.showHomeTitle);
-  }, [appSettings.homeTitle, appSettings.showHomeTitle]);
+    setLanguageDraft(appSettings.language);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, appSettings.language);
+      document.documentElement.lang = appSettings.language;
+    }
+  }, [appSettings.homeTitle, appSettings.showHomeTitle, appSettings.language]);
+
+  async function selectLanguage(language: UiLanguage) {
+    const previous = languageDraft;
+    setLanguageDraft(language);
+    setLanguageMessage("");
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, language);
+    document.documentElement.lang = language;
+    try {
+      await onSaveSettings({ language });
+      setLanguageMessage(language === "en" ? "Language preference saved." : language === "zh-TW" ? "語言偏好已儲存。" : "语言偏好已保存。");
+    } catch {
+      setLanguageDraft(previous);
+      window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, previous);
+      document.documentElement.lang = previous;
+      setLanguageMessage(previous === "en" ? "Unable to save the language preference." : previous === "zh-TW" ? "語言偏好儲存失敗。" : "语言偏好保存失败。");
+    }
+  }
 
   async function saveHomeSettings() {
     setSavingHomeSettings(true);
@@ -4802,6 +4829,34 @@ function SettingsPage({
             </form>
           </section>
         )}
+        <section className="rounded-lg bg-white p-4 shadow-soft lg:col-span-2">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+            <div>
+              <SectionTitle title={languageDraft === "en" ? "Interface language" : languageDraft === "zh-TW" ? "介面語言" : "界面语言"} />
+              <p className="mt-1 text-sm text-slate-500">
+                {languageDraft === "en" ? "Choose the language used by MyAssist." : languageDraft === "zh-TW" ? "選擇 MyAssist 使用的顯示語言。" : "选择 MyAssist 使用的显示语言。"}
+              </p>
+            </div>
+            <div className="grid w-full grid-cols-3 rounded-lg bg-slate-100 p-1 md:w-auto" role="group" aria-label="Interface language">
+              {([
+                ["zh-CN", "简体中文"],
+                ["zh-TW", "繁體中文"],
+                ["en", "English"]
+              ] as Array<[UiLanguage, string]>).map(([language, label]) => (
+                <button
+                  key={language}
+                  type="button"
+                  aria-pressed={languageDraft === language}
+                  className={`min-h-10 rounded-md px-3 text-sm font-medium transition ${languageDraft === language ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-white hover:text-slate-950"}`}
+                  onClick={() => void selectLanguage(language)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {languageMessage && <p className="mt-3 text-sm text-slate-500" role="status">{languageMessage}</p>}
+        </section>
         <section className="rounded-lg bg-white p-4 shadow-soft lg:col-span-2">
           <SectionTitle title="首页个性化" />
           <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">

@@ -120,7 +120,7 @@ describe.sequential("Wave 1 cloud Settings Repository", () => {
   it("1. User A reads the existing API settings shape", async () => {
     const response = await getSettings(request("/api/settings", userA));
     expect(response.status).toBe(200);
-    expect(await json(response)).toEqual({ lastUsedCurrency: null, homeTitle: "MyAssist", showHomeTitle: true });
+    expect(await json(response)).toEqual({ lastUsedCurrency: null, homeTitle: "MyAssist", showHomeTitle: true, language: "zh-CN" });
   });
 
   it("2. User A updates its home title without affecting User B", async () => {

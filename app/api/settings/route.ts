@@ -17,6 +17,7 @@ export async function PATCH(request: Request) {
       ? body.lastUsedCurrency
       : undefined,
     homeTitle: typeof body.homeTitle === "string" ? body.homeTitle : undefined,
-    showHomeTitle: typeof body.showHomeTitle === "boolean" ? body.showHomeTitle : undefined
+    showHomeTitle: typeof body.showHomeTitle === "boolean" ? body.showHomeTitle : undefined,
+    language: body.language === "zh-CN" || body.language === "zh-TW" || body.language === "en" ? body.language : undefined
   }, context), 200, "settings", "update");
 }

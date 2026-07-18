@@ -6,10 +6,44 @@ import { Eye, EyeOff } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { buildAuthCallbackUrl } from "@/lib/auth/callback-url";
 import { safeRedirectPath } from "@/lib/auth/redirect";
+import type { UiLanguage } from "@/lib/ui-language";
 
 type AuthFormMode = "login" | "register" | "forgot" | "reset";
 
-export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPath?: string }) {
+const loginCopy = {
+  "zh-CN": {
+    identifier: "用户名或邮箱",
+    identifierHelp: "可输入注册邮箱或用户名；用户名不区分大小写。",
+    password: "密码",
+    passwordHelp: "密码区分大小写，请输入注册时设置的完整密码。",
+    remember: "在这台电脑保持登录",
+    forgot: "找回密码",
+    hidePassword: "隐藏密码",
+    showPassword: "显示密码",
+    submitting: "处理中...",
+    submit: "登录",
+    failed: "登录失败。",
+    genericError: "操作失败，请稍后重试。"
+  },
+  en: {
+    identifier: "Username or email",
+    identifierHelp: "Enter your registered email or username. Usernames are not case-sensitive.",
+    password: "Password",
+    passwordHelp: "Passwords are case-sensitive. Enter the complete password you registered with.",
+    remember: "Keep me signed in on this computer",
+    forgot: "Forgot password?",
+    hidePassword: "Hide password",
+    showPassword: "Show password",
+    submitting: "Signing in...",
+    submit: "Sign in",
+    failed: "Unable to sign in.",
+    genericError: "Something went wrong. Please try again."
+  }
+} as const;
+
+export function AuthForm({ mode, nextPath = "/", language = "zh-CN" }: { mode: AuthFormMode; nextPath?: string; language?: UiLanguage }) {
+  const loginLanguage = language === "en" ? "en" : "zh-CN";
+  const loginText = loginCopy[loginLanguage];
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,7 +73,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
           body: JSON.stringify({ identifier: email.trim(), password, rememberMe })
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "登录失败。");
+        if (!response.ok) throw new Error(result.error || loginText.failed);
         window.location.assign(safeRedirectPath(nextPath));
         return;
       }
@@ -90,7 +124,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
         setMessage("密码已更新，现在可以返回 MyAssist。");
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "操作失败，请稍后重试。");
+      setErrorMessage(error instanceof Error ? error.message : mode === "login" ? loginText.genericError : "操作失败，请稍后重试。");
     } finally {
       setSubmitting(false);
     }
@@ -112,7 +146,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
       )}
       {needsEmail && (
         <label className="grid gap-2 text-sm font-medium text-slate-700">
-          {mode === "login" ? "用户名或邮箱" : "邮箱"}
+          {mode === "login" ? loginText.identifier : "邮箱"}
           <input
             required
             type={mode === "login" ? "text" : "email"}
@@ -123,7 +157,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
           />
           {mode === "login" && (
             <span className="text-xs font-normal leading-5 text-slate-500">
-              可输入注册邮箱或用户名；用户名不区分大小写。
+              {loginText.identifierHelp}
             </span>
           )}
           {mode === "register" && (
@@ -135,7 +169,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
       )}
       {needsPassword && (
         <label className="grid gap-2 text-sm font-medium text-slate-700">
-          {mode === "reset" ? "新密码" : "密码"}
+          {mode === "login" ? loginText.password : mode === "reset" ? "新密码" : "密码"}
           <span className="relative block">
             <input
               required
@@ -150,7 +184,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
               type="button"
               className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 rounded-md p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
               onClick={() => setShowPassword((value) => !value)}
-              aria-label={showPassword ? "隐藏密码" : "显示密码"}
+              aria-label={showPassword ? loginText.hidePassword : loginText.showPassword}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
@@ -159,7 +193,7 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
             <span className="text-xs font-normal leading-5 text-slate-500">
               {mode === "register"
                 ? "至少 8 个字符，密码区分大小写；建议混合字母、数字和符号。"
-                : "密码区分大小写，请输入注册时设置的完整密码。"}
+                : loginText.passwordHelp}
             </span>
           )}
         </label>
@@ -196,14 +230,14 @@ export function AuthForm({ mode, nextPath = "/" }: { mode: AuthFormMode; nextPat
             onChange={(event) => setRememberMe(event.target.checked)}
             className="h-4 w-4 rounded border-slate-300"
           />
-          在这台电脑保持登录
+          {loginText.remember}
         </label>
       )}
-      {mode === "login" && <div className="text-right"><Link href="/forgot-password" className="text-sm text-slate-600 hover:text-slate-950">找回密码</Link></div>}
+      {mode === "login" && <div className="text-right"><Link href="/forgot-password" className="text-sm text-slate-600 hover:text-slate-950">{loginText.forgot}</Link></div>}
       {errorMessage && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>}
       {message && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p>}
       <button disabled={submitting} className="h-11 w-full rounded-lg bg-slate-900 px-4 text-sm font-medium text-white disabled:opacity-50">
-        {submitting ? "处理中..." : mode === "login" ? "登录" : mode === "register" ? "注册" : mode === "forgot" ? "发送重置邮件" : "更新密码"}
+        {submitting ? (mode === "login" ? loginText.submitting : "处理中...") : mode === "login" ? loginText.submit : mode === "register" ? "注册" : mode === "forgot" ? "发送重置邮件" : "更新密码"}
       </button>
     </form>
   );

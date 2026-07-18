@@ -409,15 +409,16 @@ function writeSetting(db: DatabaseLike, key: string, value: string) {
 }
 
 export function getAppSettings(db = getDb()): AppSettings {
-  const rows = db.prepare("SELECT key, value FROM settings WHERE key IN (?, ?, ?)")
-    .all("lastUsedCurrency", "homeTitle", "showHomeTitle");
+  const rows = db.prepare("SELECT key, value FROM settings WHERE key IN (?, ?, ?, ?)")
+    .all("lastUsedCurrency", "homeTitle", "showHomeTitle", "language");
   const values = new Map(rows.map((row) => [String(row.key), String(row.value)]));
   const lastUsedCurrency = values.get("lastUsedCurrency");
   const storedHomeTitle = values.get("homeTitle")?.trim();
   return {
     lastUsedCurrency: isSupportedCurrencyCode(lastUsedCurrency) ? lastUsedCurrency : null,
     homeTitle: !storedHomeTitle || storedHomeTitle === "Leo的生活学习助手" ? "MyAssist" : storedHomeTitle,
-    showHomeTitle: values.get("showHomeTitle") !== "0"
+    showHomeTitle: values.get("showHomeTitle") !== "0",
+    language: values.get("language") === "zh-TW" || values.get("language") === "en" ? values.get("language") as "zh-TW" | "en" : "zh-CN"
   };
 }
 
@@ -432,6 +433,9 @@ export function updateAppSettings(input: Partial<AppSettings>) {
   }
   if (input.showHomeTitle !== undefined) {
     writeSetting(db, "showHomeTitle", input.showHomeTitle ? "1" : "0");
+  }
+  if (input.language === "zh-CN" || input.language === "zh-TW" || input.language === "en") {
+    writeSetting(db, "language", input.language);
   }
   return getAppSettings(db);
 }
