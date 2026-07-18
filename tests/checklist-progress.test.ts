@@ -50,11 +50,14 @@ describe("checklist progress", () => {
     expect(source).not.toContain("progressUnitValue");
   });
 
-  it("uses the title field pill radius across quick editor controls", () => {
+  it("keeps quick editor text inside normally rounded controls", () => {
     const componentSource = fs.readFileSync(path.join(process.cwd(), "components/leo-app.tsx"), "utf8");
     const cssSource = fs.readFileSync(path.join(process.cwd(), "app/globals.css"), "utf8");
     expect(componentSource).toContain("app-modal-panel quick-editor-modal");
-    expect(cssSource).toContain('.quick-editor-modal [class~="border"]');
-    expect(cssSource).toContain("border-radius: 9999px !important");
+    expect(componentSource).toContain("w-0 min-w-0 flex-1 bg-transparent");
+    expect(componentSource).toContain("min-w-0 overflow-hidden rounded-2xl");
+    expect(cssSource).toContain(".app-modal-panel :where(h1, h2, h3, h4, p, label, span, strong, button, a, li)");
+    expect(cssSource).toContain("overflow-wrap: anywhere");
+    expect(cssSource).not.toContain('.quick-editor-modal [class~="border"]');
   });
 });

@@ -31,13 +31,21 @@ textarea {
 }
 
 .app-modal-panel {
+  min-width: 0;
   border-radius: 24px !important;
+  overflow-wrap: anywhere;
 }
 
-@media (min-width: 768px) {
-  .quick-editor-modal [class~="border"] {
-    border-radius: 9999px !important;
-  }
+.app-modal-panel :where(h1, h2, h3, h4, p, label, span, strong, button, a, li) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.app-modal-panel :where(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .quick-editor-modal .reminder-rule-modal {
@@ -299,8 +307,7 @@ select.task-type-select:not([multiple]) {
   }
 
   .quick-editor-modal,
-  .quick-editor-modal label,
-  .quick-editor-modal [class~="border"] {
+  .quick-editor-modal label {
     min-width: 0;
     max-width: 100%;
     overflow-wrap: anywhere;
