@@ -34,8 +34,10 @@ textarea {
   border-radius: 24px !important;
 }
 
-.quick-editor-modal [class~="border"] {
-  border-radius: 9999px !important;
+@media (min-width: 768px) {
+  .quick-editor-modal [class~="border"] {
+    border-radius: 9999px !important;
+  }
 }
 
 .quick-editor-modal .reminder-rule-modal {
@@ -294,6 +296,21 @@ select.task-type-select:not([multiple]) {
     width: calc(100vw - 16px) !important;
     border-radius: 24px !important;
     padding: 16px !important;
+  }
+
+  .quick-editor-modal,
+  .quick-editor-modal label,
+  .quick-editor-modal [class~="border"] {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .quick-editor-modal input,
+  .quick-editor-modal select,
+  .quick-editor-modal textarea {
+    min-width: 0;
+    max-width: 100%;
   }
 
   input,
