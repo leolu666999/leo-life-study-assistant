@@ -202,6 +202,15 @@ function useEscapeClose(onClose: () => void, enabled = true) {
   }, [enabled, onClose]);
 }
 
+function closeFromModalBackdrop(
+  event: React.PointerEvent<HTMLDivElement>,
+  onClose: () => void
+) {
+  if (event.target !== event.currentTarget) return;
+  event.preventDefault();
+  onClose();
+}
+
 const typeLabels: Record<TaskType, string> = {
   todo: "待办",
   deadline: "截止",
@@ -1605,9 +1614,8 @@ function TodayOverviewDialog({ summary, onClose }: { summary: TodayOverviewSumma
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      data-modal-backdrop
+      onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="app-modal-panel w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -2409,9 +2417,8 @@ function TodoListEditDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      data-modal-backdrop
+      onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="app-modal-panel w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -3065,9 +3072,8 @@ function TimetableOccurrenceDetailDialog({
   return (
     <div
       className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      data-modal-backdrop
+      onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="app-modal-panel w-full max-w-xl rounded-[28px] bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="course-occurrence-title">
         <div className="flex items-start justify-between gap-4">
@@ -3391,7 +3397,8 @@ function AddScheduleDialog({
   return (
     <div
       className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/30 p-3 backdrop-blur-sm md:items-center"
-      onPointerDown={(event) => event.target === event.currentTarget && onClose()}
+      data-modal-backdrop
+      onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="app-modal-panel max-h-[94vh] w-full max-w-2xl overflow-auto rounded-[28px] bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
@@ -3602,9 +3609,8 @@ function ScheduleEventDialog({
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
-      onPointerDown={(pointerEvent) => {
-        if (pointerEvent.target === pointerEvent.currentTarget) onClose();
-      }}
+      data-modal-backdrop
+      onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="app-modal-panel w-full max-w-lg rounded-lg bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
@@ -4076,7 +4082,11 @@ function ExpensesPage({
       </section>
 
       {previewFileId && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setPreviewFileId(null)}>
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
+          data-modal-backdrop
+          onPointerDown={(event) => closeFromModalBackdrop(event, () => setPreviewFileId(null))}
+        >
           <div className="max-h-[90vh] max-w-4xl overflow-auto rounded-lg bg-white p-3 shadow-soft" onClick={(event) => event.stopPropagation()}>
             <div className="mb-2 flex justify-end">
               <button className="rounded-lg border border-slate-200 p-2" onClick={() => setPreviewFileId(null)} title="关闭">
@@ -4265,7 +4275,11 @@ function ImportantFilesPage({
       )}
 
       {previewFile && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setPreviewFile(null)}>
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
+          data-modal-backdrop
+          onPointerDown={(event) => closeFromModalBackdrop(event, () => setPreviewFile(null))}
+        >
           <div className="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-lg bg-white p-4 shadow-soft" onClick={(event) => event.stopPropagation()}>
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -4298,7 +4312,11 @@ function ImportantFilesPage({
       )}
 
       {previewDocument && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setPreviewDocument(null)}>
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
+          data-modal-backdrop
+          onPointerDown={(event) => closeFromModalBackdrop(event, () => setPreviewDocument(null))}
+        >
           <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-[24px] bg-white p-5 shadow-soft" onClick={(event) => event.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -4330,7 +4348,11 @@ function SecureDocumentModal({
   useEscapeClose(onClose);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      data-modal-backdrop
+      onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
+    >
       <form
         className="app-modal-panel max-h-[92vh] w-full max-w-3xl overflow-auto rounded-[24px] bg-white p-5 shadow-soft"
         onSubmit={async (event) => {
@@ -4407,9 +4429,8 @@ function ImportantFileModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      data-modal-backdrop
+      onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <form
         className="app-modal-panel max-h-[90vh] w-full max-w-2xl overflow-auto rounded-[24px] bg-white p-5 shadow-soft"
@@ -5032,9 +5053,8 @@ function ExpenseModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      data-modal-backdrop
+      onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <form
         className="app-modal-panel max-h-[96vh] w-full max-w-3xl overflow-auto rounded-[24px] bg-white p-4 shadow-soft"
@@ -5319,9 +5339,8 @@ function QuickModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      data-modal-backdrop
+      onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <form
         className="app-modal-panel quick-editor-modal max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-soft"
@@ -5686,9 +5705,8 @@ function ReminderRuleEditor({
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      data-modal-backdrop
+      onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="reminder-rule-modal w-full max-w-4xl rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.25)]">
         <div className="mb-4 flex items-start justify-between gap-3">

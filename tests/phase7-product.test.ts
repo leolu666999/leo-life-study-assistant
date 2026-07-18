@@ -120,4 +120,15 @@ describe("Phase 7 production account and contact contracts", () => {
     expect(styles).toContain(".date-input::-webkit-calendar-picker-indicator");
     expect(styles).toContain("min-height: 54px");
   });
+
+  it("lets every custom editor, upload and preview dialog close from the empty backdrop", () => {
+    const source = read("components/leo-app.tsx");
+    const modalBackdropCount = source.match(/data-modal-backdrop/g)?.length ?? 0;
+    const fullScreenDialogCount = source.match(/className="fixed inset-0/g)?.length ?? 0;
+
+    expect(source).toContain("function closeFromModalBackdrop");
+    expect(source).toContain("event.target !== event.currentTarget");
+    expect(modalBackdropCount).toBe(fullScreenDialogCount);
+    expect(modalBackdropCount).toBeGreaterThanOrEqual(13);
+  });
 });
