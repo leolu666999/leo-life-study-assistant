@@ -121,14 +121,23 @@ describe("Phase 7 production account and contact contracts", () => {
     expect(styles).toContain("min-height: 54px");
   });
 
-  it("lets every custom editor, upload and preview dialog close from the empty backdrop", () => {
+  it("closes clean dialogs from the backdrop but protects dialogs after an edit", () => {
     const source = read("components/leo-app.tsx");
     const modalBackdropCount = source.match(/data-modal-backdrop/g)?.length ?? 0;
     const fullScreenDialogCount = source.match(/className="fixed inset-0/g)?.length ?? 0;
+    const dirtyInputCaptureCount = source.match(/onInputCapture=\{markModalDirty\}/g)?.length ?? 0;
+    const dirtyChangeCaptureCount = source.match(/onChangeCapture=\{markModalDirty\}/g)?.length ?? 0;
+    const dirtyClickCaptureCount = source.match(/onClickCapture=\{markModalDirty\}/g)?.length ?? 0;
 
     expect(source).toContain("function closeFromModalBackdrop");
+    expect(source).toContain("function markModalDirty");
     expect(source).toContain("event.target !== event.currentTarget");
+    expect(source).toContain('event.currentTarget.dataset.modalDirty === "true"');
+    expect(source).toContain('event.currentTarget.dataset.modalDirty = "true"');
     expect(modalBackdropCount).toBe(fullScreenDialogCount);
     expect(modalBackdropCount).toBeGreaterThanOrEqual(13);
+    expect(dirtyInputCaptureCount).toBe(modalBackdropCount);
+    expect(dirtyChangeCaptureCount).toBe(modalBackdropCount);
+    expect(dirtyClickCaptureCount).toBe(modalBackdropCount);
   });
 });
