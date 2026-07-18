@@ -1,4 +1,5 @@
 import type { CurrencyCode } from "./currencies";
+import type { UiLanguage } from "./ui-language";
 
 export type TaskType =
   | "todo"
@@ -19,6 +20,7 @@ export type AppSettings = {
   lastUsedCurrency: ExpenseCurrency | null;
   homeTitle: string;
   showHomeTitle: boolean;
+  language: UiLanguage;
 };
 
 export type Task = {

@@ -126,7 +126,8 @@ describe("Settings API contract", () => {
     expect(await response.json()).toEqual({
       lastUsedCurrency: null,
       homeTitle: "MyAssist",
-      showHomeTitle: true
+      showHomeTitle: true,
+      language: "zh-CN"
     });
   });
 
@@ -134,18 +135,21 @@ describe("Settings API contract", () => {
     const response = await routes.settings.PATCH(request("http://local.test/api/settings", "PATCH", {
       homeTitle: "测试助手",
       showHomeTitle: false,
+      language: "zh-TW",
       lastUsedCurrency: "USD"
     }));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       lastUsedCurrency: null,
       homeTitle: "测试助手",
-      showHomeTitle: false
+      showHomeTitle: false,
+      language: "zh-TW"
     });
     expect(await (await routes.settings.GET(request("http://local.test/api/settings", "GET"))).json()).toEqual({
       lastUsedCurrency: null,
       homeTitle: "测试助手",
-      showHomeTitle: false
+      showHomeTitle: false,
+      language: "zh-TW"
     });
   });
 });
