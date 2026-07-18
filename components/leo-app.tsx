@@ -207,8 +207,16 @@ function closeFromModalBackdrop(
   onClose: () => void
 ) {
   if (event.target !== event.currentTarget) return;
+  if (event.currentTarget.dataset.modalDirty === "true") return;
   event.preventDefault();
   onClose();
+}
+
+function markModalDirty(event: React.SyntheticEvent<HTMLDivElement>) {
+  if (!(event.target instanceof Element)) return;
+  const field = event.target.closest("input, textarea, select, button, [contenteditable='true']");
+  if (!field || field.hasAttribute("data-modal-ignore-dirty")) return;
+  event.currentTarget.dataset.modalDirty = "true";
 }
 
 const typeLabels: Record<TaskType, string> = {
@@ -1615,6 +1623,9 @@ function TodayOverviewDialog({ summary, onClose }: { summary: TodayOverviewSumma
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm"
       data-modal-backdrop
+      onInputCapture={markModalDirty}
+      onChangeCapture={markModalDirty}
+      onClickCapture={markModalDirty}
       onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="app-modal-panel w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl">
@@ -2418,6 +2429,9 @@ function TodoListEditDialog({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-sm"
       data-modal-backdrop
+      onInputCapture={markModalDirty}
+      onChangeCapture={markModalDirty}
+      onClickCapture={markModalDirty}
       onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="app-modal-panel w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl">
@@ -3073,6 +3087,9 @@ function TimetableOccurrenceDetailDialog({
     <div
       className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
       data-modal-backdrop
+      onInputCapture={markModalDirty}
+      onChangeCapture={markModalDirty}
+      onClickCapture={markModalDirty}
       onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="app-modal-panel w-full max-w-xl rounded-[28px] bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="course-occurrence-title">
@@ -3398,6 +3415,9 @@ function AddScheduleDialog({
     <div
       className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/30 p-3 backdrop-blur-sm md:items-center"
       data-modal-backdrop
+      onInputCapture={markModalDirty}
+      onChangeCapture={markModalDirty}
+      onClickCapture={markModalDirty}
       onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="app-modal-panel max-h-[94vh] w-full max-w-2xl overflow-auto rounded-[28px] bg-white p-5 shadow-2xl">
@@ -3610,6 +3630,9 @@ function ScheduleEventDialog({
     <div
       className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
       data-modal-backdrop
+      onInputCapture={markModalDirty}
+      onChangeCapture={markModalDirty}
+      onClickCapture={markModalDirty}
       onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="app-modal-panel w-full max-w-lg rounded-lg bg-white p-5 shadow-2xl">
@@ -4085,6 +4108,9 @@ function ExpensesPage({
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
           data-modal-backdrop
+          onInputCapture={markModalDirty}
+          onChangeCapture={markModalDirty}
+          onClickCapture={markModalDirty}
           onPointerDown={(event) => closeFromModalBackdrop(event, () => setPreviewFileId(null))}
         >
           <div className="max-h-[90vh] max-w-4xl overflow-auto rounded-lg bg-white p-3 shadow-soft" onClick={(event) => event.stopPropagation()}>
@@ -4278,6 +4304,9 @@ function ImportantFilesPage({
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
           data-modal-backdrop
+          onInputCapture={markModalDirty}
+          onChangeCapture={markModalDirty}
+          onClickCapture={markModalDirty}
           onPointerDown={(event) => closeFromModalBackdrop(event, () => setPreviewFile(null))}
         >
           <div className="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-lg bg-white p-4 shadow-soft" onClick={(event) => event.stopPropagation()}>
@@ -4315,6 +4344,9 @@ function ImportantFilesPage({
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
           data-modal-backdrop
+          onInputCapture={markModalDirty}
+          onChangeCapture={markModalDirty}
+          onClickCapture={markModalDirty}
           onPointerDown={(event) => closeFromModalBackdrop(event, () => setPreviewDocument(null))}
         >
           <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-[24px] bg-white p-5 shadow-soft" onClick={(event) => event.stopPropagation()}>
@@ -4351,6 +4383,9 @@ function SecureDocumentModal({
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
       data-modal-backdrop
+      onInputCapture={markModalDirty}
+      onChangeCapture={markModalDirty}
+      onClickCapture={markModalDirty}
       onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <form
@@ -4430,6 +4465,9 @@ function ImportantFileModal({
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
       data-modal-backdrop
+      onInputCapture={markModalDirty}
+      onChangeCapture={markModalDirty}
+      onClickCapture={markModalDirty}
       onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <form
@@ -5054,6 +5092,9 @@ function ExpenseModal({
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
       data-modal-backdrop
+      onInputCapture={markModalDirty}
+      onChangeCapture={markModalDirty}
+      onClickCapture={markModalDirty}
       onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <form
@@ -5340,6 +5381,9 @@ function QuickModal({
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
       data-modal-backdrop
+      onInputCapture={markModalDirty}
+      onChangeCapture={markModalDirty}
+      onClickCapture={markModalDirty}
       onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <form
@@ -5706,6 +5750,9 @@ function ReminderRuleEditor({
     <div
       className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
       data-modal-backdrop
+      onInputCapture={markModalDirty}
+      onChangeCapture={markModalDirty}
+      onClickCapture={markModalDirty}
       onPointerDown={(event) => closeFromModalBackdrop(event, onClose)}
     >
       <section className="reminder-rule-modal w-full max-w-4xl rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.25)]">
