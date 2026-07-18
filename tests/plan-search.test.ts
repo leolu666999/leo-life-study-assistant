@@ -15,6 +15,7 @@ const todoList: TodoList = {
       todoListId: "todo-list-1",
       content: "购买域名",
       completed: false,
+      hasScheduleTime: false,
       order: 0,
       createdAt: "2026-07-19T00:00:00.000Z",
       updatedAt: "2026-07-19T00:00:00.000Z"
