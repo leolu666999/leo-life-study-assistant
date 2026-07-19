@@ -114,7 +114,7 @@ describe("Phase 7 production account and contact contracts", () => {
   it("keeps every date picker large, keyboard-editable and calendar-enabled", () => {
     const app = read("components/leo-app.tsx");
     const styles = read("app/globals.css");
-    expect(app).toContain('const isDateInput = rest.type === "date"');
+    expect(app).toContain('const isDateInput = type === "date"');
     expect(app).toContain('inputMode={isDateInput ? "numeric" : rest.inputMode}');
     expect(app).toContain("可点击年、月、日后直接用键盘输入");
     expect(styles).toContain(".date-input::-webkit-calendar-picker-indicator");

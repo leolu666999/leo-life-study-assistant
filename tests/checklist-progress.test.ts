@@ -41,11 +41,11 @@ describe("checklist progress", () => {
   it("keeps the task editor on one unified type, count and reminder row", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "components/leo-app.tsx"), "utf8");
     expect(source).toContain("grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)_minmax(0,1fr)]");
-    expect(source).toContain('["todo", "待办"]');
-    expect(source).toContain('["counter", "计数"]');
-    expect(source).toContain('["checklist", "清单"]');
-    expect(source).toContain('aria-label="当前值"');
-    expect(source).toContain('aria-label="目标值"');
+    expect(source).toContain('["todo", t("待办")]');
+    expect(source).toContain('["counter", t("计数")]');
+    expect(source).toContain('["checklist", t("清单")]');
+    expect(source).toContain('aria-label={t("当前值")}');
+    expect(source).toContain('aria-label={t("目标值")}');
     expect(source).not.toContain("setProgressType");
     expect(source).not.toContain("progressUnitValue");
   });

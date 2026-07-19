@@ -1130,8 +1130,8 @@ export function LeoApp({ initialView }: { initialView: View }) {
               <button
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                 onClick={() => setCollapsed((value) => !value)}
-                title={collapsed ? "展开侧边栏" : "折叠侧边栏"}
-                aria-label={collapsed ? "展开侧边栏" : "折叠侧边栏"}
+                title={translateUiText(appSettings.language, collapsed ? "展开侧边栏" : "折叠侧边栏")}
+                aria-label={translateUiText(appSettings.language, collapsed ? "展开侧边栏" : "折叠侧边栏")}
               >
                 <PanelLeft size={24} strokeWidth={1.75} />
               </button>
@@ -1203,7 +1203,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
                   }}
                   onSave={mutate}
                   onDelete={async (id) => {
-                    if (confirm("确定永久删除这条任务吗？")) await mutate(`/api/tasks/${id}`, { method: "DELETE" });
+                    if (confirm(translateUiText(appSettings.language, "确定永久删除这条任务吗？"))) await mutate(`/api/tasks/${id}`, { method: "DELETE" });
                   }}
                   onProgressUpdate={updateTaskProgressSmooth}
                   onToggleSubtask={toggleTaskSubtask}
@@ -1347,7 +1347,7 @@ async function fetchJsonOr<T>(url: string, fallback: T): Promise<T> {
 }
 
 function SyncStatusPill({ state }: { state: SyncState }) {
-  const { t } = useUiText();
+  const { language, t } = useUiText();
   const tone =
     state.connection === "online" && state.pendingCount === 0 && state.failedCount === 0
       ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
@@ -1371,6 +1371,7 @@ function SyncStatusPill({ state }: { state: SyncState }) {
 }
 
 function MobileSyncStatus({ state, onSync }: { state: SyncState; onSync: () => void }) {
+  const { language, t } = useUiText();
   const shouldShow =
     state.connection !== "online" ||
     state.pendingCount > 0 ||
@@ -1386,9 +1387,9 @@ function MobileSyncStatus({ state, onSync }: { state: SyncState; onSync: () => v
       type="button"
       className="fixed right-3 top-[calc(env(safe-area-inset-top)+5.2rem)] z-40 rounded-full border border-slate-200 bg-white/95 px-3 py-2 text-xs font-medium text-slate-700 shadow-soft backdrop-blur md:hidden"
       onClick={onSync}
-      title="同步手机暂存内容"
+      title={t("同步手机暂存内容")}
     >
-      {state.saveStatus === "syncing" ? "同步中..." : state.pendingCount > 0 ? `${state.pendingCount} 条待同步` : state.message}
+      {t(state.saveStatus === "syncing" ? "同步中..." : state.pendingCount > 0 ? `${state.pendingCount} 条待同步` : state.message)}
     </button>
   );
 }
@@ -1406,6 +1407,7 @@ function PageHeader({
   onTitleDoubleClick?: () => void;
   showTitle?: boolean;
 }) {
+  const { t } = useUiText();
   return (
     <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-end">
       <div>
@@ -1414,10 +1416,10 @@ function PageHeader({
             className={`text-2xl font-semibold tracking-normal md:text-3xl ${onTitleDoubleClick ? "cursor-default select-none" : ""}`}
             onDoubleClick={onTitleDoubleClick}
           >
-            {title}
+            {t(title)}
           </h1>
         )}
-        <p className={`${showTitle ? "mt-1" : ""} text-sm text-slate-500`}>{subtitle}</p>
+        <p className={`${showTitle ? "mt-1" : ""} text-sm text-slate-500`}>{t(subtitle)}</p>
       </div>
       {actions && <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">{actions}</div>}
     </div>
@@ -1547,9 +1549,9 @@ function Dashboard({
         <TodoListPreviewCard items={todoPreviewItems} onToggle={onToggleTodoItem} />
         <section className="relative h-[300px] overflow-hidden rounded-lg bg-white p-4 shadow-soft">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">Today’s Schedule</h2>
+            <h2 className="text-base font-semibold">{t("Today’s Schedule")}</h2>
             <Link href="/schedule" className="text-sm font-medium text-slate-500 transition hover:text-slate-950">
-              View all
+              {t("View all")}
             </Link>
           </div>
           <Link href="/schedule" className="block space-y-2">
@@ -1580,7 +1582,7 @@ function Dashboard({
       <section className="relative mt-4">
         <div ref={taskFilterAreaRef}>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <SectionTitle title="Task Card" />
+            <SectionTitle title={t("Task Card")} />
             <button
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
               onClick={() => setTaskFilterOpen((value) => !value)}
@@ -1595,12 +1597,12 @@ function Dashboard({
               type="datetime-local"
               value={taskFilterDueBeforeDraft}
               onChange={(event) => setTaskFilterDueBeforeDraft(event.target.value)}
-              placeholder="截止时间早于"
+              placeholder={t("截止时间早于")}
             />
             <Input
               value={taskFilterTagDraft}
               onChange={(event) => setTaskFilterTagDraft(event.target.value)}
-              placeholder="按标签筛选"
+              placeholder={t("按标签筛选")}
             />
             <button
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
@@ -1610,7 +1612,7 @@ function Dashboard({
                 setTaskFilterOpen(false);
               }}
             >
-              应用
+              {t("应用")}
             </button>
             </div>
           )}
@@ -1636,6 +1638,7 @@ type TodayOverviewSummary = {
 };
 
 function TodayOverviewDialog({ summary, onClose }: { summary: TodayOverviewSummary; onClose: () => void }) {
+  const { t } = useUiText();
   useEscapeClose(onClose);
 
   return (
@@ -1650,14 +1653,14 @@ function TodayOverviewDialog({ summary, onClose }: { summary: TodayOverviewSumma
       <section className="app-modal-panel w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">今日总览</h2>
-            <p className="mt-1 text-sm text-slate-500">今天要面对的事情，先一眼看清。</p>
+            <h2 className="text-xl font-semibold">{t("今日总览")}</h2>
+            <p className="mt-1 text-sm text-slate-500">{t("今天要面对的事情，先一眼看清。")}</p>
           </div>
           <button
             className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
             onClick={onClose}
-            aria-label="关闭今日总览"
-            title="关闭"
+            aria-label={t("关闭今日总览")}
+            title={t("关闭")}
           >
             <X size={18} />
           </button>
@@ -1669,10 +1672,11 @@ function TodayOverviewDialog({ summary, onClose }: { summary: TodayOverviewSumma
 }
 
 function TodayOverviewStats({ summary, large = false }: { summary: TodayOverviewSummary; large?: boolean }) {
+  const { t } = useUiText();
   const stats = [
-    { label: "To Do", value: `${summary.todoCompleted}/${summary.todoTotal}`, hint: "已完成/总数" },
-    { label: "Deadline", value: `${summary.deadlineCount}`, hint: "今日截止" },
-    { label: "课程", value: `${summary.courseCount}`, hint: "今日课程" }
+    { label: "To Do", value: `${summary.todoCompleted}/${summary.todoTotal}`, hint: t("已完成/总数") },
+    { label: "Deadline", value: `${summary.deadlineCount}`, hint: t("今日截止") },
+    { label: t("课程"), value: `${summary.courseCount}`, hint: t("今日课程") }
   ];
 
   return (
@@ -1862,7 +1866,7 @@ function TodoListPreviewCard({ items, onToggle }: { items: TodoListItem[]; onTog
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">To Do List</h2>
         <Link href="/plans" className="rounded-lg px-2 py-1 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900">
-          View all
+          {t("View all")}
         </Link>
       </div>
 
@@ -1923,7 +1927,8 @@ function TaskGrid({
   onProgressUpdate: (taskId: string, nextValue: number) => Promise<void>;
   onToggleSubtask: (taskId: string, subtaskId: string, completed: boolean) => void;
 }) {
-  if (tasks.length === 0) return <EmptyBlock text="没有符合条件的任务。" />;
+  const { t } = useUiText();
+  if (tasks.length === 0) return <EmptyBlock text={t("没有符合条件的任务。")} />;
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {tasks.map((task) => (
@@ -1968,6 +1973,7 @@ function TaskCard({
   onProgressUpdate: (taskId: string, nextValue: number) => Promise<void>;
   onToggleSubtask: (taskId: string, subtaskId: string, completed: boolean) => void;
 }) {
+  const { language, t } = useUiText();
   const completedOrArchived = task.status === "completed" || task.status === "archived";
   const urgent = !completedOrArchived && isDueWithin24HoursOrOverdue(task.dueDate);
   const hasProgress = Boolean(task.progressEnabled || task.progressTarget);
@@ -2030,7 +2036,7 @@ function TaskCard({
           </div>
         </div>
         {!completedOrArchived && (
-          <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-white" onClick={() => onEdit(task)} title="编辑">
+          <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-white" onClick={() => onEdit(task)} title={t("编辑")}>
             <Menu size={16} />
           </button>
         )}
@@ -2038,7 +2044,7 @@ function TaskCard({
       {task.description && <p className="mb-3 line-clamp-3 text-sm text-slate-600">{task.description}</p>}
       {task.dueDate && (
         <div className={`mb-3 text-sm ${urgent ? "font-semibold text-red-700" : "text-slate-600"}`}>
-          {task.type === "deadline" ? `${formatTaskDateTime(task.dueDate)} · ${countdownText(task.dueDate)}` : formatTaskDateTime(task.dueDate)}
+          {task.type === "deadline" ? `${formatTaskDateTime(task.dueDate, language)} · ${countdownText(task.dueDate, language)}` : formatTaskDateTime(task.dueDate, language)}
         </div>
       )}
       {hasProgress ? (
@@ -2049,7 +2055,7 @@ function TaskCard({
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100"
               onClick={() => setProgressEditorOpen((value) => !value)}
             >
-              更新
+              {t("更新")}
             </button>
           </div>
           {progressEditorOpen && (
@@ -2058,28 +2064,28 @@ function TaskCard({
                 inputMode="decimal"
                 value={progressDeltaDraft}
                 onChange={(event) => setProgressDeltaDraft(event.target.value)}
-                placeholder={`本次完成量${task.progressUnit ? `（${task.progressUnit}）` : ""}`}
+                placeholder={`${t("本次完成量")}${task.progressUnit ? ` (${task.progressUnit})` : ""}`}
               />
               <Input
                 inputMode="decimal"
                 value={progressCurrentDraft}
                 onChange={(event) => setProgressCurrentDraft(event.target.value)}
-                placeholder={`更新后当前值${task.progressUnit ? `（${task.progressUnit}）` : ""}`}
+                placeholder={`${t("更新后当前值")}${task.progressUnit ? ` (${task.progressUnit})` : ""}`}
               />
               <Input
                 inputMode="decimal"
                 value={progressDurationDraft}
                 onChange={(event) => setProgressDurationDraft(event.target.value)}
-                placeholder="本次用时（分钟）"
+                placeholder={t("本次用时（分钟）")}
               />
               <textarea
                 className="min-h-[64px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
                 value={progressNoteDraft}
                 onChange={(event) => setProgressNoteDraft(event.target.value)}
-                placeholder="备注"
+                placeholder={t("备注")}
               />
               <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={saveProgressUpdate}>
-                保存
+                {t("保存")}
               </button>
             </div>
           )}
@@ -2087,11 +2093,11 @@ function TaskCard({
             <div className="mt-3 max-h-28 space-y-1 overflow-hidden border-t border-slate-200 pt-2 text-xs text-slate-500">
               {task.progressEntries.slice(-4).reverse().map((entry) => (
                 <div key={entry.id} className="flex justify-between gap-2">
-                  <span>{formatTaskDateTime(entry.createdAt)}</span>
+                  <span>{formatTaskDateTime(entry.createdAt, language)}</span>
                   <span>
                     {entry.amountDelta !== null && entry.amountDelta !== undefined ? `+${entry.amountDelta}` : ""}
-                    {entry.currentValueAfter !== null && entry.currentValueAfter !== undefined ? ` 到 ${entry.currentValueAfter}` : ""}
-                    {entry.durationMinutes ? ` · ${entry.durationMinutes} 分钟` : ""}
+                    {entry.currentValueAfter !== null && entry.currentValueAfter !== undefined ? language === "en" ? ` to ${entry.currentValueAfter}` : ` ${language === "zh-TW" ? "到" : "到"} ${entry.currentValueAfter}` : ""}
+                    {entry.durationMinutes ? language === "en" ? ` · ${entry.durationMinutes} min` : ` · ${entry.durationMinutes} ${language === "zh-TW" ? "分鐘" : "分钟"}` : ""}
                   </span>
                 </div>
               ))}
@@ -2111,7 +2117,7 @@ function TaskCard({
                     : "border-slate-300 bg-white text-transparent hover:border-slate-400"
                 }`}
                 onClick={() => onToggleSubtask(task.id, subtask.id, !subtask.completed)}
-                title={subtask.completed ? "取消完成" : "标记完成"}
+                title={t(subtask.completed ? "取消完成" : "标记完成")}
               >
                 <Check size={13} />
               </button>
@@ -2125,15 +2131,15 @@ function TaskCard({
           <div className="grid grid-cols-[1fr_auto] gap-2">
             {onRestore ? (
               <button className="flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50" onClick={() => onRestore(task.id)}>
-                <RotateCcw size={15} /> 恢复
+                <RotateCcw size={15} /> {t("恢复")}
               </button>
             ) : (
               <button className="flex cursor-default items-center justify-center gap-2 rounded-lg bg-slate-200 px-3 py-2 text-sm font-medium text-slate-500" disabled>
-                <Check size={15} /> 已完成
+                <Check size={15} /> {t("已完成")}
               </button>
             )}
             {onDelete && (
-              <button className="flex items-center justify-center rounded-lg border border-red-200 px-3 py-2 text-red-600 hover:bg-red-50" onClick={() => onDelete(task.id)} title="永久删除">
+              <button className="flex items-center justify-center rounded-lg border border-red-200 px-3 py-2 text-red-600 hover:bg-red-50" onClick={() => onDelete(task.id)} title={t("永久删除")}>
                 <Trash2 size={15} />
               </button>
             )}
@@ -2141,13 +2147,13 @@ function TaskCard({
         ) : (
           <div className={onDelete ? "grid grid-cols-[1fr_auto_auto] gap-2" : "grid grid-cols-[1fr_auto] gap-2"}>
             <button className="flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => onComplete(task.id)}>
-              <Check size={15} /> 完成
+              <Check size={15} /> {t("完成")}
             </button>
-            <button className="flex items-center justify-center rounded-lg border border-slate-200 px-3 py-2 text-slate-600 hover:bg-slate-50" onClick={() => onSave(`/api/tasks/${task.id}/archive`, { method: "POST" })} title="归档">
+            <button className="flex items-center justify-center rounded-lg border border-slate-200 px-3 py-2 text-slate-600 hover:bg-slate-50" onClick={() => onSave(`/api/tasks/${task.id}/archive`, { method: "POST" })} title={t("归档")}>
               <Archive size={15} />
             </button>
             {onDelete && (
-              <button className="flex items-center justify-center rounded-lg border border-red-200 px-3 py-2 text-red-600 hover:bg-red-50" onClick={() => onDelete(task.id)} title="永久删除">
+              <button className="flex items-center justify-center rounded-lg border border-red-200 px-3 py-2 text-red-600 hover:bg-red-50" onClick={() => onDelete(task.id)} title={t("永久删除")}>
                 <Trash2 size={15} />
               </button>
             )}
@@ -2159,6 +2165,7 @@ function TaskCard({
 }
 
 function ReminderStack({ alerts, onDismiss }: { alerts: ReminderAlert[]; onDismiss: (key: string) => void }) {
+  const { t } = useUiText();
   if (alerts.length === 0) return null;
   return (
     <div className="fixed right-4 top-4 z-[60] flex w-[calc(100vw-32px)] max-w-md flex-col gap-3">
@@ -2172,14 +2179,14 @@ function ReminderStack({ alerts, onDismiss }: { alerts: ReminderAlert[]; onDismi
             <button
               className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
               onClick={() => onDismiss(alert.key)}
-              title="关闭提醒"
+              title={t("关闭提醒")}
             >
               <X size={16} />
             </button>
           </div>
           <div className="space-y-1 text-sm text-slate-600">
-            <div>{typeLabels[alert.task.type]} · {statusLabel(alert.task.status)}</div>
-            <div>{alert.detail}</div>
+            <div>{t(typeLabels[alert.task.type])} · {t(statusLabel(alert.task.status))}</div>
+            <div>{t(alert.detail)}</div>
             {alert.task.description && <div className="line-clamp-2 pt-1 text-slate-500">{alert.task.description}</div>}
           </div>
         </section>
@@ -2333,6 +2340,7 @@ function TodoListCard({
   onSave: (url: string, options?: RequestInit) => Promise<void>;
   onToggleTodoItem: (id: string, completed: boolean) => Promise<void> | void;
 }) {
+  const { t } = useUiText();
   const [note, setNote] = useState(todoList.notes || "");
   const [editorOpen, setEditorOpen] = useState(false);
 
@@ -2361,7 +2369,7 @@ function TodoListCard({
         </div>
       </div>
       <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 md:overflow-hidden md:hover:overflow-y-auto">
-        {todoList.items.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">还没有待办条目。</div>}
+        {todoList.items.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">{t("还没有待办条目。")}</div>}
         {todoList.items.map((item) => (
           <div key={item.id} className="flex min-w-0 items-start gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm text-slate-700">
             <button
@@ -2370,7 +2378,7 @@ function TodoListCard({
                 item.completed ? "border-yellow-500 bg-yellow-500 text-white" : "border-slate-300 bg-white text-transparent hover:border-slate-400"
               }`}
               onClick={() => void onToggleTodoItem(item.id, !item.completed)}
-              title={item.completed ? "取消完成" : "标记完成"}
+              title={t(item.completed ? "取消完成" : "标记完成")}
             >
               <Check size={13} />
             </button>
@@ -2380,7 +2388,7 @@ function TodoListCard({
       </div>
       {note && <div className="mt-2 line-clamp-2 min-h-[38px] break-words rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">{note}</div>}
       <button className="mt-3 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => setEditorOpen(true)}>
-        编辑
+        {t("编辑")}
       </button>
       {editorOpen && (
         <TodoListEditDialog
@@ -2411,6 +2419,7 @@ function TodoListEditDialog({
   onClose: () => void;
   onSave: (itemDrafts: Array<{ id?: string; content: string; completed: boolean }>) => Promise<void>;
 }) {
+  const { t } = useUiText();
   const [items, setItems] = useState<TodoListEditItem[]>(() => todoList.items.map((item) => ({ id: item.id, content: item.content, completed: item.completed })));
   const [newItem, setNewItem] = useState("");
   const [hoveredItemIndex, setHoveredItemIndex] = useState<number | null>(null);
@@ -2459,14 +2468,14 @@ function TodoListEditDialog({
       <section className="app-modal-panel w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">编辑 To Do List</h2>
+            <h2 className="text-xl font-semibold">{t("编辑 To Do List")}</h2>
             <p className="mt-1 text-sm text-slate-500">{todoList.title}</p>
           </div>
           <button
             className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
             onClick={onClose}
-            aria-label="关闭编辑"
-            title="关闭"
+            aria-label={t("关闭编辑")}
+            title={t("关闭")}
           >
             <X size={18} />
           </button>
@@ -2478,8 +2487,8 @@ function TodoListEditDialog({
           onClick={importYesterdayIncomplete}
           disabled={importableYesterdayItems.length === 0}
         >
-          <span>一键导入昨天未完成</span>
-          <span>{importableYesterdayItems.length} 条</span>
+          <span>{t("一键导入昨天未完成")}</span>
+          <span>{t(`${importableYesterdayItems.length} 条`)}</span>
         </button>
 
         <div
@@ -2490,7 +2499,7 @@ function TodoListEditDialog({
           }}
           onMouseLeave={() => setHoveredItemIndex(null)}
         >
-          {items.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">还没有待办条目。</div>}
+          {items.length === 0 && <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">{t("还没有待办条目。")}</div>}
           {items.map((item, index) => (
             <div
               key={item.id || `new-${index}`}
@@ -2505,7 +2514,7 @@ function TodoListEditDialog({
                 onClick={() =>
                   setItems((current) => current.map((currentItem, currentIndex) => (currentIndex === index ? { ...currentItem, completed: !currentItem.completed } : currentItem)))
                 }
-                title={item.completed ? "取消完成" : "标记完成"}
+                title={t(item.completed ? "取消完成" : "标记完成")}
               >
                 <Check size={13} />
               </button>
@@ -2529,7 +2538,7 @@ function TodoListEditDialog({
                       setItems((current) => current.filter((_, currentIndex) => currentIndex !== index));
                       setHoveredItemIndex(null);
                     }}
-                    title="删除"
+                    title={t("删除")}
                   >
                     <X size={14} />
                   </button>
@@ -2550,10 +2559,10 @@ function TodoListEditDialog({
                 addItem();
               }
             }}
-            placeholder="新增待办条目"
+            placeholder={t("新增待办条目")}
           />
           <button className="ml-auto rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={addItem}>
-            添加
+            {t("添加")}
           </button>
         </div>
 
@@ -2561,11 +2570,11 @@ function TodoListEditDialog({
           className="mt-3 min-h-[70px] w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400"
           value={note}
           onChange={(event) => onNoteChange(event.target.value)}
-          placeholder="随手小记"
+          placeholder={t("随手小记")}
         />
 
         <button className="mt-4 w-full rounded-lg bg-slate-900 px-3 py-3 text-sm font-medium text-white" onClick={() => void onSave(items)}>
-          保存
+          {t("保存")}
         </button>
       </section>
     </div>
@@ -2573,6 +2582,7 @@ function TodoListEditDialog({
 }
 
 function PlanCard({ plan, onSave }: { plan: Plan; onSave: (url: string, options?: RequestInit) => Promise<void> }) {
+  const { t } = useUiText();
   const [title, setTitle] = useState(plan.title);
   const [startDate, setStartDate] = useState(plan.startDate);
   const [endDate, setEndDate] = useState(plan.endDate);
@@ -2591,7 +2601,7 @@ function PlanCard({ plan, onSave }: { plan: Plan; onSave: (url: string, options?
   }
 
   async function deleteCurrentPlan() {
-    if (!confirm("确定删除这个计划吗？")) return;
+    if (!confirm(t("确定删除这个计划吗？"))) return;
     await onSave(`/api/plans/${plan.id}`, { method: "DELETE" });
   }
 
@@ -2601,7 +2611,7 @@ function PlanCard({ plan, onSave }: { plan: Plan; onSave: (url: string, options?
         className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold outline-none focus:border-slate-400"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
-        placeholder={plan.type === "weekly" ? "周计划标题" : "月计划标题"}
+        placeholder={t(plan.type === "weekly" ? "周计划标题" : "月计划标题")}
       />
       <div className="grid gap-2 sm:grid-cols-2">
         <input
@@ -2621,17 +2631,17 @@ function PlanCard({ plan, onSave }: { plan: Plan; onSave: (url: string, options?
         className="min-h-[96px] w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400"
         value={note}
         onChange={(event) => setNote(event.target.value)}
-        placeholder="计划内容 / 备注"
+        placeholder={t("计划内容 / 备注")}
       />
       <div className="flex gap-2">
         <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={savePlan}>
-          保存计划
+          {t("保存计划")}
         </button>
         <button
           className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
           onClick={deleteCurrentPlan}
         >
-          删除
+          {t("删除")}
         </button>
       </div>
     </div>
@@ -2738,12 +2748,13 @@ function promptScope(message = "修改范围：single / week / month / future / 
 }
 
 function TimetableOccurrenceRow({ occurrence }: { occurrence: CourseOccurrence }) {
+  const { language, t } = useUiText();
   const course = occurrence.course;
   return (
     <div className="grid gap-2 rounded-lg border border-slate-100 px-3 py-2 text-sm md:grid-cols-[1.2fr_1fr_1fr]">
-      <div className="font-medium text-slate-900">{course?.courseCode ?? "COURSE"} · {course?.courseName ?? "未命名课程"}</div>
-      <div className="text-slate-600">{formatTimetableDateTime(occurrence.startAt)} - {formatTimetableDateTime(occurrence.endAt)}</div>
-      <div className="text-slate-500">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>
+      <div className="font-medium text-slate-900">{course?.courseCode ?? "COURSE"} · {course?.courseName ?? t("未命名课程")}</div>
+      <div className="text-slate-600">{formatTimetableDateTime(occurrence.startAt, language)} - {formatTimetableDateTime(occurrence.endAt, language)}</div>
+      <div className="text-slate-500">{occurrence.location || course?.defaultLocation || t("地点待确认")}</div>
     </div>
   );
 }
@@ -2757,6 +2768,7 @@ function TimetableOccurrenceCard({
   onEdit: () => void;
   onCancel: () => void;
 }) {
+  const { language, t } = useUiText();
   const course = occurrence.course;
   return (
     <article className="rounded-lg border border-slate-100 bg-white p-4 shadow-soft">
@@ -2764,22 +2776,22 @@ function TimetableOccurrenceCard({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-slate-950">{course?.courseCode ?? "COURSE"}</span>
-            <Badge>{course?.activityType ?? "课程"}</Badge>
+            <Badge>{course?.activityType ?? t("课程")}</Badge>
           </div>
-          <div className="mt-1 text-sm font-medium text-slate-700">{course?.courseName ?? course?.activityName ?? "未命名课程"}</div>
+          <div className="mt-1 text-sm font-medium text-slate-700">{course?.courseName ?? course?.activityName ?? t("未命名课程")}</div>
         </div>
         <div className="flex gap-2">
-          <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={onEdit} title="编辑地点">
+          <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={onEdit} title={t("编辑地点")}>
             <Settings size={16} />
           </button>
-          <button className="rounded-lg border border-red-200 p-2 text-red-500 hover:bg-red-50" onClick={onCancel} title="取消课程">
+          <button className="rounded-lg border border-red-200 p-2 text-red-500 hover:bg-red-50" onClick={onCancel} title={t("取消课程")}>
             <X size={16} />
           </button>
         </div>
       </div>
       <div className="space-y-2 text-sm text-slate-600">
-        <div>{formatTimetableDateTime(occurrence.startAt)} - {formatTimetableDateTime(occurrence.endAt)}</div>
-        <div>{occurrence.location || course?.defaultLocation || "地点待确认"}</div>
+        <div>{formatTimetableDateTime(occurrence.startAt, language)} - {formatTimetableDateTime(occurrence.endAt, language)}</div>
+        <div>{occurrence.location || course?.defaultLocation || t("地点待确认")}</div>
         {occurrence.notes && <div className="line-clamp-2 text-slate-500">{occurrence.notes}</div>}
       </div>
     </article>
@@ -2801,6 +2813,7 @@ function TimetableCalendarView({
   onEdit: (occurrence: CourseOccurrence) => void;
   onCancel: (occurrence: CourseOccurrence) => void;
 }) {
+  const { language, t } = useUiText();
   const days = getTimetableDays(view, anchorDate);
   const dayKeys = days.map((day) => localDateKey(day));
   const visibleOccurrences = occurrences.filter((occurrence) => dayKeys.includes(timetableDateKey(occurrence.startAt)));
@@ -2821,10 +2834,10 @@ function TimetableCalendarView({
             className="grid border-b border-slate-200 bg-slate-50"
             style={{ gridTemplateColumns: `${timeColumnWidth}px repeat(${days.length}, minmax(96px, 1fr))` }}
           >
-            <div className="border-r border-slate-200 px-2 py-3 text-xs font-medium text-slate-400">时间</div>
+            <div className="border-r border-slate-200 px-2 py-3 text-xs font-medium text-slate-400">{t("时间")}</div>
             {days.map((day) => (
               <div key={day.toISOString()} className="border-r border-slate-200 px-3 py-2 last:border-r-0">
-                <div className="text-xs font-medium text-slate-500">{weekdayLabel(day)}</div>
+                <div className="text-xs font-medium text-slate-500">{weekdayLabel(day, language)}</div>
                 <div className="mt-0.5 text-sm font-semibold text-slate-950">{monthDayLabel(day)}</div>
               </div>
             ))}
@@ -2878,6 +2891,7 @@ function TimetableCalendarView({
                         width={width}
                         left={left}
                         compact={view === "week"}
+                        language={language}
                         onOpen={() => onOpen(occurrence)}
                         onEdit={() => onEdit(occurrence)}
                         onCancel={() => onCancel(occurrence)}
@@ -2901,6 +2915,7 @@ function TimetableCalendarEvent({
   width,
   left,
   compact,
+  language,
   onOpen,
   onEdit,
   onCancel
@@ -2911,10 +2926,12 @@ function TimetableCalendarEvent({
   width: string;
   left: string;
   compact: boolean;
+  language: UiLanguage;
   onOpen: () => void;
   onEdit: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useUiText();
   const course = occurrence.course;
   const color = usydCourseAccent(course?.courseCode);
   const background = usydCourseBackground(course?.courseCode);
@@ -2930,31 +2947,31 @@ function TimetableCalendarEvent({
         background,
         color: "#0f172a"
       }}
-      title={`${course?.courseCode ?? "COURSE"} ${course?.activityType ?? ""} ${formatCalendarTimeRange(occurrence)}`}
+      title={`${course?.courseCode ?? "COURSE"} ${course?.activityType ?? ""} ${formatCalendarTimeRange(occurrence, language)}`}
     >
       <button
         className="absolute inset-0 z-0 cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-700"
         type="button"
         onClick={onOpen}
-        aria-label={`查看 ${course?.courseCode ?? "课程"} ${formatCalendarTimeRange(occurrence)} 详情`}
+        aria-label={`${course?.courseCode ?? "COURSE"} ${formatCalendarTimeRange(occurrence, language)}`}
       />
       <div className="pointer-events-none relative z-10 flex items-start justify-between gap-1">
         <div className="min-w-0">
           <div className="truncate text-[13px] font-semibold leading-tight">{course?.courseCode ?? "COURSE"}</div>
-          <div className="truncate text-[11px] font-medium leading-tight text-slate-700">{course?.activityType ?? "课程"}</div>
+          <div className="truncate text-[11px] font-medium leading-tight text-slate-700">{course?.activityType ?? t("课程")}</div>
         </div>
         <div className="pointer-events-auto flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
-          <button className="rounded bg-white/80 p-1 text-slate-600 shadow-sm hover:bg-white" onClick={onEdit} title="编辑地点">
+          <button className="rounded bg-white/80 p-1 text-slate-600 shadow-sm hover:bg-white" onClick={onEdit} title={t("编辑地点")}>
             <Settings size={12} />
           </button>
-          <button className="rounded bg-white/80 p-1 text-red-500 shadow-sm hover:bg-white" onClick={onCancel} title="取消课程">
+          <button className="rounded bg-white/80 p-1 text-red-500 shadow-sm hover:bg-white" onClick={onCancel} title={t("取消课程")}>
             <X size={12} />
           </button>
         </div>
       </div>
-      <div className="pointer-events-none relative z-10 mt-1 truncate text-[11px] leading-tight text-slate-700">{formatCalendarTimeRange(occurrence)}</div>
-      {!compact && <div className="pointer-events-none relative z-10 mt-1 line-clamp-2 text-[11px] leading-tight text-slate-600">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>}
-      {compact && height > 72 && <div className="pointer-events-none relative z-10 mt-1 line-clamp-2 text-[11px] leading-tight text-slate-600">{occurrence.location || course?.defaultLocation || "地点待确认"}</div>}
+      <div className="pointer-events-none relative z-10 mt-1 truncate text-[11px] leading-tight text-slate-700">{formatCalendarTimeRange(occurrence, language)}</div>
+      {!compact && <div className="pointer-events-none relative z-10 mt-1 line-clamp-2 text-[11px] leading-tight text-slate-600">{occurrence.location || course?.defaultLocation || t("地点待确认")}</div>}
+      {compact && height > 72 && <div className="pointer-events-none relative z-10 mt-1 line-clamp-2 text-[11px] leading-tight text-slate-600">{occurrence.location || course?.defaultLocation || t("地点待确认")}</div>}
     </article>
   );
 }
@@ -2970,6 +2987,7 @@ function TimetableMonthView({
   onOpen: (occurrence: CourseOccurrence) => void;
   onCancel: (occurrence: CourseOccurrence) => void;
 }) {
+  const { language, t } = useUiText();
   const days = buildTimetableMonthDateKeys(anchorDate).map((dateKey) => new Date(`${dateKey}T00:00:00`));
   const monthKey = anchorDate.slice(0, 7);
   const todayKey = localDateKey(new Date());
@@ -2987,7 +3005,7 @@ function TimetableMonthView({
           <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
             {["周一", "周二", "周三", "周四", "周五", "周六", "周日"].map((label) => (
               <div key={label} className="border-r border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-500 last:border-r-0">
-                {label}
+                {t(label)}
               </div>
             ))}
           </div>
@@ -3014,13 +3032,14 @@ function TimetableMonthView({
                     >
                       {day.getDate()}
                     </span>
-                    {dayOccurrences.length > 0 && <span className="text-[10px] font-medium text-slate-400">{dayOccurrences.length} 节</span>}
+                    {dayOccurrences.length > 0 && <span className="text-[10px] font-medium text-slate-400">{language === "en" ? `${dayOccurrences.length} classes` : language === "zh-TW" ? `${dayOccurrences.length} 節` : `${dayOccurrences.length} 节`}</span>}
                   </div>
                   <div className="space-y-1.5">
                     {dayOccurrences.map((occurrence) => (
                       <TimetableMonthEvent
                         key={occurrence.id}
                         occurrence={occurrence}
+                        language={language}
                         onOpen={() => onOpen(occurrence)}
                         onCancel={() => onCancel(occurrence)}
                       />
@@ -3038,33 +3057,36 @@ function TimetableMonthView({
 
 function TimetableMonthEvent({
   occurrence,
+  language,
   onOpen,
   onCancel
 }: {
   occurrence: CourseOccurrence;
+  language: UiLanguage;
   onOpen: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useUiText();
   const course = occurrence.course;
   const color = usydCourseAccent(course?.courseCode);
   const background = usydCourseBackground(course?.courseCode);
-  const title = `${course?.courseCode ?? "COURSE"} · ${course?.activityType ?? "课程"}`;
+  const title = `${course?.courseCode ?? "COURSE"} · ${course?.activityType ?? t("课程")}`;
   return (
     <article
       className="group relative overflow-hidden rounded-md border border-l-[3px] px-2 py-1.5 text-left shadow-sm transition hover:shadow-md"
       style={{ borderColor: color, background }}
-      title={`${title} · ${formatCalendarTimeRange(occurrence)} · ${occurrence.location || course?.defaultLocation || "地点待确认"}`}
+      title={`${title} · ${formatCalendarTimeRange(occurrence, language)} · ${occurrence.location || course?.defaultLocation || t("地点待确认")}`}
     >
-      <button className="block w-full pr-5 text-left" type="button" onClick={onOpen} title="查看课程详情">
+      <button className="block w-full pr-5 text-left" type="button" onClick={onOpen} title={t("查看课程详情")}>
         <div className="truncate text-[11px] font-semibold leading-tight text-slate-900">{course?.courseCode ?? "COURSE"}</div>
-        <div className="mt-0.5 truncate text-[10px] font-medium leading-tight text-slate-600">{formatCalendarTimeRange(occurrence)}</div>
-        <div className="mt-0.5 truncate text-[10px] leading-tight text-slate-500">{course?.activityType ?? "课程"}</div>
+        <div className="mt-0.5 truncate text-[10px] font-medium leading-tight text-slate-600">{formatCalendarTimeRange(occurrence, language)}</div>
+        <div className="mt-0.5 truncate text-[10px] leading-tight text-slate-500">{course?.activityType ?? t("课程")}</div>
       </button>
       <button
         className="absolute right-1 top-1 rounded bg-white/90 p-0.5 text-red-500 opacity-0 shadow-sm transition hover:bg-white group-hover:opacity-100 focus:opacity-100"
         type="button"
         onClick={onCancel}
-        title="取消课程"
+        title={t("取消课程")}
       >
         <X size={11} />
       </button>
@@ -3072,12 +3094,19 @@ function TimetableMonthEvent({
   );
 }
 
-function formatCourseDuration(minutes: number) {
+function formatCourseDuration(minutes: number, language: UiLanguage = "zh-CN") {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  if (hours === 0) return `${remainingMinutes} 分钟`;
-  if (remainingMinutes === 0) return `${hours} 小时`;
-  return `${hours} 小时 ${remainingMinutes} 分钟`;
+  if (language === "en") {
+    if (hours === 0) return `${remainingMinutes} minutes`;
+    if (remainingMinutes === 0) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+    return `${hours} ${hours === 1 ? "hour" : "hours"} ${remainingMinutes} minutes`;
+  }
+  const minuteLabel = language === "zh-TW" ? "分鐘" : "分钟";
+  const hourLabel = language === "zh-TW" ? "小時" : "小时";
+  if (hours === 0) return `${remainingMinutes} ${minuteLabel}`;
+  if (remainingMinutes === 0) return `${hours} ${hourLabel}`;
+  return `${hours} ${hourLabel} ${remainingMinutes} ${minuteLabel}`;
 }
 
 function TimetableOccurrenceDetailDialog({
@@ -3089,21 +3118,22 @@ function TimetableOccurrenceDetailDialog({
   occurrences: CourseOccurrence[];
   onClose: () => void;
 }) {
+  const { language, t } = useUiText();
   useEscapeClose(onClose);
   const course = occurrence.course;
   const sequence = courseOccurrenceSequence(occurrence, occurrences);
   const start = new Date(occurrence.startAt);
   const end = new Date(occurrence.endAt);
   const durationMinutes = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60_000));
-  const dateLabel = new Intl.DateTimeFormat("zh-CN", {
+  const dateLabel = new Intl.DateTimeFormat(uiLanguageLocale(language), {
     timeZone: timetableTimeZone,
     year: "numeric",
     month: "long",
     day: "numeric",
     weekday: "long"
   }).format(start);
-  const location = occurrence.location || course?.defaultLocation || "地点待确认";
-  const statusLabel = occurrence.status === "completed" ? "已完成" : occurrence.status === "cancelled" ? "已取消" : "已排期";
+  const location = occurrence.location || course?.defaultLocation || t("地点待确认");
+  const statusLabel = t(occurrence.status === "completed" ? "已完成" : occurrence.status === "cancelled" ? "已取消" : "已排期");
 
   return (
     <div
@@ -3118,18 +3148,18 @@ function TimetableOccurrenceDetailDialog({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <Badge>{course?.courseCode || "课程"}</Badge>
-              <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-[#e64626]">{course?.activityType || "课程"}</span>
+              <Badge>{course?.courseCode || t("课程")}</Badge>
+              <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-[#e64626]">{course?.activityType || t("课程")}</span>
               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{statusLabel}</span>
             </div>
             <h2 id="course-occurrence-title" className="text-xl font-semibold text-slate-950">
-              {course?.courseName || course?.activityName || course?.courseCode || "课程详情"}
+              {course?.courseName || course?.activityName || course?.courseCode || t("课程详情")}
             </h2>
             {course?.activityName && course.activityName !== course.courseName && (
               <p className="mt-1 text-sm text-slate-500">{course.activityName}</p>
             )}
           </div>
-          <button className="shrink-0 rounded-full border border-slate-200 p-2.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900" onClick={onClose} title="关闭" aria-label="关闭课程详情">
+          <button className="shrink-0 rounded-full border border-slate-200 p-2.5 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900" onClick={onClose} title={t("关闭")} aria-label={t("关闭")}>
             <X size={18} />
           </button>
         </div>
@@ -3139,9 +3169,9 @@ function TimetableOccurrenceDetailDialog({
             <div className="flex items-start gap-3">
               <CalendarDays className="mt-0.5 shrink-0 text-[#e64626]" size={19} />
               <div>
-                <div className="text-xs font-medium text-slate-500">日期与时间（悉尼时间）</div>
+                <div className="text-xs font-medium text-slate-500">{t("日期与时间（悉尼时间）")}</div>
                 <div className="mt-1 font-semibold text-slate-950">{dateLabel}</div>
-                <div className="mt-1 text-sm text-slate-600">{formatCalendarTimeRange(occurrence)} · {formatCourseDuration(durationMinutes)}</div>
+                <div className="mt-1 text-sm text-slate-600">{formatCalendarTimeRange(occurrence, language)} · {formatCourseDuration(durationMinutes, language)}</div>
               </div>
             </div>
           </div>
@@ -3149,11 +3179,11 @@ function TimetableOccurrenceDetailDialog({
             <div className="flex items-start gap-3">
               <Hash className="mt-0.5 shrink-0 text-[#e64626]" size={18} />
               <div>
-                <div className="text-xs font-medium text-slate-500">课次</div>
+                <div className="text-xs font-medium text-slate-500">{t("课次")}</div>
                 <div className="mt-1 font-semibold text-slate-950">
-                  {sequence.number ? `第 ${sequence.number} 次课` : "单次课程"}
+                  {sequence.number ? (language === "en" ? `Class ${sequence.number}` : language === "zh-TW" ? `第 ${sequence.number} 次課` : `第 ${sequence.number} 次课`) : t("单次课程")}
                 </div>
-                <div className="mt-1 text-xs text-slate-500">该课程活动系列共 {sequence.total} 次</div>
+                <div className="mt-1 text-xs text-slate-500">{language === "en" ? `${sequence.total} classes in this activity series` : language === "zh-TW" ? `此課程活動系列共 ${sequence.total} 次` : `该课程活动系列共 ${sequence.total} 次`}</div>
               </div>
             </div>
           </div>
@@ -3161,7 +3191,7 @@ function TimetableOccurrenceDetailDialog({
             <div className="flex items-start gap-3">
               <MapPin className="mt-0.5 shrink-0 text-[#e64626]" size={18} />
               <div className="min-w-0">
-                <div className="text-xs font-medium text-slate-500">地点</div>
+                <div className="text-xs font-medium text-slate-500">{t("地点")}</div>
                 <div className="mt-1 break-words font-semibold text-slate-950">{location}</div>
                 {(occurrence.campus || course?.campus) && <div className="mt-1 text-xs text-slate-500">{occurrence.campus || course?.campus}</div>}
               </div>
@@ -3173,20 +3203,20 @@ function TimetableOccurrenceDetailDialog({
           <div className="flex items-start gap-3">
             <BookOpen className="mt-0.5 shrink-0 text-[#e64626]" size={18} />
             <div className="grid min-w-0 flex-1 gap-3 text-sm sm:grid-cols-2">
-              <div><span className="text-slate-500">学期</span><div className="mt-1 font-medium text-slate-900">{course?.semester || "未设置"} {course?.academicYear || ""}</div></div>
-              <div><span className="text-slate-500">课程类型</span><div className="mt-1 font-medium text-slate-900">{course?.activityType || "课程"}</div></div>
+              <div><span className="text-slate-500">{t("学期")}</span><div className="mt-1 font-medium text-slate-900">{course?.semester || t("未设置")} {course?.academicYear || ""}</div></div>
+              <div><span className="text-slate-500">{t("课程类型")}</span><div className="mt-1 font-medium text-slate-900">{course?.activityType || t("课程")}</div></div>
             </div>
           </div>
         </div>
 
         {(occurrence.notes || course?.notes) && (
           <div className="mt-3 rounded-[22px] bg-slate-50 p-4">
-            <div className="text-xs font-medium text-slate-500">备注</div>
+            <div className="text-xs font-medium text-slate-500">{t("备注")}</div>
             <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700">{occurrence.notes || course?.notes}</p>
           </div>
         )}
         <button className="mt-5 w-full rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800" onClick={onClose}>
-          完成
+          {t("完成")}
         </button>
       </section>
     </div>
@@ -3362,6 +3392,7 @@ function AddScheduleDialog({
   onClose: () => void;
   onSaved: (todoList: TodoList) => void;
 }) {
+  const { t } = useUiText();
   const [mode, setMode] = useState<"text" | "image">("text");
   const [sourceText, setSourceText] = useState("");
   const [draft, setDraft] = useState<ParsedScheduleEntry | null>(null);
@@ -3372,7 +3403,7 @@ function AddScheduleDialog({
 
   function recognizeText(text = sourceText) {
     if (!text.trim()) {
-      setError("请先粘贴一段活动信息，或上传活动截图。");
+      setError(t("请先粘贴一段活动信息，或上传活动截图。"));
       return;
     }
     setError("");
@@ -3393,11 +3424,11 @@ function AddScheduleDialog({
       });
       const result = await worker.recognize(file);
       const text = result.data.text.trim();
-      if (!text) throw new Error("没有从图片中识别到文字");
+      if (!text) throw new Error(t("没有从图片中识别到文字"));
       setSourceText(text);
       setDraft(parseScheduleEntry(text));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "图片识别失败，请改用粘贴文字或手动填写。");
+      setError(cause instanceof Error ? cause.message : t("图片识别失败，请改用粘贴文字或手动填写。"));
     } finally {
       await worker?.terminate();
       setBusy(false);
@@ -3405,9 +3436,9 @@ function AddScheduleDialog({
   }
 
   async function saveSchedule() {
-    if (!draft?.title.trim()) return setError("请填写日程标题。");
-    if (!draft.date || !draft.startTime || !draft.endTime) return setError("请确认日期和时间。");
-    if (draft.endTime <= draft.startTime) return setError("结束时间必须晚于开始时间。");
+    if (!draft?.title.trim()) return setError(t("请填写日程标题。"));
+    if (!draft.date || !draft.startTime || !draft.endTime) return setError(t("请确认日期和时间。"));
+    if (draft.endTime <= draft.startTime) return setError(t("结束时间必须晚于开始时间。"));
     setBusy(true);
     setError("");
     try {
@@ -3425,7 +3456,7 @@ function AddScheduleDialog({
           : { date: draft.date, itemDrafts })
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "保存日程失败");
+      if (!response.ok) throw new Error(data.error || t("保存日程失败"));
       onSaved(data as TodoList);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "保存日程失败");
@@ -3446,15 +3477,15 @@ function AddScheduleDialog({
       <section className="app-modal-panel max-h-[94vh] w-full max-w-2xl overflow-auto rounded-[28px] bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">添加日程</h2>
-            <p className="mt-1 text-sm text-slate-500">粘贴活动信息或上传截图，确认后会加入 Calendar 和当天 To Do。</p>
+            <h2 className="text-xl font-semibold">{t("添加日程")}</h2>
+            <p className="mt-1 text-sm text-slate-500">{t("粘贴活动信息或上传截图，确认后会加入 Calendar 和当天 To Do。")}</p>
           </div>
-          <button className="rounded-full border border-slate-200 p-2.5 text-slate-500 hover:bg-slate-50" onClick={onClose} title="关闭"><X size={18} /></button>
+          <button className="rounded-full border border-slate-200 p-2.5 text-slate-500 hover:bg-slate-50" onClick={onClose} title={t("关闭")}><X size={18} /></button>
         </div>
 
         <div className="mt-5 grid grid-cols-2 rounded-full bg-slate-100 p-1">
-          <button className={`rounded-full py-2 text-sm font-semibold ${mode === "text" ? "bg-slate-900 text-white" : "text-slate-600"}`} onClick={() => setMode("text")}>粘贴文字</button>
-          <button className={`rounded-full py-2 text-sm font-semibold ${mode === "image" ? "bg-slate-900 text-white" : "text-slate-600"}`} onClick={() => setMode("image")}>上传截图</button>
+          <button className={`rounded-full py-2 text-sm font-semibold ${mode === "text" ? "bg-slate-900 text-white" : "text-slate-600"}`} onClick={() => setMode("text")}>{t("粘贴文字")}</button>
+          <button className={`rounded-full py-2 text-sm font-semibold ${mode === "image" ? "bg-slate-900 text-white" : "text-slate-600"}`} onClick={() => setMode("image")}>{t("上传截图")}</button>
         </div>
 
         <div className="mt-4">
@@ -3463,20 +3494,20 @@ function AddScheduleDialog({
               className="min-h-32 w-full rounded-[24px] border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400"
               value={sourceText}
               onChange={(event) => setSourceText(event.target.value)}
-              placeholder="例如：7月20日 上午10点到11点 Coffee chat\n地点：Fisher Library"
+              placeholder={t("例如：7月20日 上午10点到11点 Coffee chat\n地点：Fisher Library")}
             />
           ) : (
             <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 text-center transition hover:bg-slate-100">
               <Upload size={22} className="mb-2 text-slate-500" />
-              <span className="text-sm font-semibold">选择活动截图</span>
-              <span className="mt-1 text-xs text-slate-500">支持中文和英文图片，识别结果会先进入预览</span>
+              <span className="text-sm font-semibold">{t("选择活动截图")}</span>
+              <span className="mt-1 text-xs text-slate-500">{t("支持中文和英文图片，识别结果会先进入预览")}</span>
               <input className="hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void recognizeImage(event.target.files?.[0] ?? null)} />
             </label>
           )}
-          {busy && mode === "image" && <div className="mt-2 text-sm text-slate-500">正在识别图片 {ocrProgress}%</div>}
+          {busy && mode === "image" && <div className="mt-2 text-sm text-slate-500">{t("正在识别图片")} {ocrProgress}%</div>}
           {mode === "text" && (
             <button className="mt-3 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" disabled={busy} onClick={() => recognizeText()}>
-              识别活动信息
+              {t("识别活动信息")}
             </button>
           )}
         </div>
@@ -3484,8 +3515,8 @@ function AddScheduleDialog({
         {draft && (
           <div className="mt-5 rounded-[24px] bg-slate-50 p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="font-semibold">确认识别结果</h3>
-              <span className="text-xs text-slate-500">可信度 {Math.round(draft.confidence * 100)}%</span>
+              <h3 className="font-semibold">{t("确认识别结果")}</h3>
+              <span className="text-xs text-slate-500">{t("可信度")} {Math.round(draft.confidence * 100)}%</span>
             </div>
             <div className="space-y-3">
               <Input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="日程标题" />
@@ -3498,7 +3529,7 @@ function AddScheduleDialog({
             </div>
             {draft.warnings.length > 0 && <div className="mt-3 text-xs leading-5 text-amber-700">{draft.warnings.join(" ")}</div>}
             <button className="mt-4 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" disabled={busy} onClick={() => void saveSchedule()}>
-              {busy ? "正在保存..." : "添加到日程和 To Do"}
+              {t(busy ? "正在保存..." : "添加到日程和 To Do")}
             </button>
           </div>
         )}
@@ -3546,13 +3577,13 @@ function SchedulePage({
           subtitle={t("课程和带时间的 To Do 按一天的时间轴统一显示。")}
           actions={
             <div className="flex items-center gap-1">
-            <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => moveDate(-1)} title="前一天">
+            <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => moveDate(-1)} title={t("前一天")}>
               <ChevronLeft size={18} />
             </button>
             <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={() => setDate(localDateKey(new Date()))}>
-              今天
+              {t("今天")}
             </button>
-            <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => moveDate(1)} title="后一天">
+            <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => moveDate(1)} title={t("后一天")}>
               <ChevronRight size={18} />
             </button>
             </div>
@@ -3564,7 +3595,7 @@ function SchedulePage({
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <Input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="md:max-w-[220px]" />
           <div className="text-sm text-slate-500">
-            {events.filter((event) => event.sourceType === "course").length} 节课程 · {events.filter((event) => event.sourceType === "todo").length} 项 To Do
+            {t(`${events.filter((event) => event.sourceType === "course").length} 节课程 · ${events.filter((event) => event.sourceType === "todo").length} 项 To Do`)}
           </div>
         </div>
       </section>
@@ -3649,6 +3680,7 @@ function ScheduleEventDialog({
   onClose: () => void;
   onToggleTodoItem: (id: string, completed: boolean) => void;
 }) {
+  const { t } = useUiText();
   useEscapeClose(onClose);
   return (
     <div
@@ -3665,7 +3697,7 @@ function ScheduleEventDialog({
             <Badge>{event.sourceType === "course" ? "课程" : "To Do"}</Badge>
             <h2 className={`mt-3 text-xl font-semibold ${event.completed ? "line-through text-slate-500" : ""}`}>{event.title}</h2>
           </div>
-          <button className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50" onClick={onClose} title="关闭">
+          <button className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50" onClick={onClose} title={t("关闭")}>
             <X size={18} />
           </button>
         </div>
@@ -3680,7 +3712,7 @@ function ScheduleEventDialog({
             onClick={() => onToggleTodoItem(event.originalId, !event.completed)}
           >
             <Check size={16} />
-            {event.completed ? "恢复未完成" : "标记完成"}
+            {t(event.completed ? "恢复未完成" : "标记完成")}
           </button>
         )}
       </section>
@@ -3689,7 +3721,7 @@ function ScheduleEventDialog({
 }
 
 function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedded?: boolean }) {
-  const { t } = useUiText();
+  const { language, t } = useUiText();
   const [sources, setSources] = useState<TimetableSource[]>([]);
   const [timetableCourses, setTimetableCourses] = useState<TimetableCourse[]>([]);
   const [occurrences, setOccurrences] = useState<CourseOccurrence[]>([]);
@@ -3722,7 +3754,7 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
   }
 
   async function previewFeed() {
-    setImportMessage("正在读取课表...");
+    setImportMessage(t("正在读取课表..."));
     const response = await fetch("/api/timetable/import/preview", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -3735,16 +3767,16 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
     });
     const data = await response.json();
     if (!response.ok) {
-      setImportMessage(data.error || "读取失败");
+      setImportMessage(data.error ? t(String(data.error)) : t("读取失败"));
       return;
     }
     setPreview(data);
-    setImportMessage("已生成导入预览，请检查后确认。");
+    setImportMessage(t("已生成导入预览，请检查后确认。"));
   }
 
   async function previewFile(file: File | null) {
     if (!file) return;
-    setImportMessage("正在解析 ICS 文件...");
+    setImportMessage(t("正在解析 ICS 文件..."));
     const form = new FormData();
     form.append("file", file);
     form.append("semester", semester);
@@ -3753,11 +3785,11 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
     const response = await fetch("/api/timetable/import/preview", { method: "POST", body: form });
     const data = await response.json();
     if (!response.ok) {
-      setImportMessage(data.error || "解析失败");
+      setImportMessage(data.error ? t(String(data.error)) : t("解析失败"));
       return;
     }
     setPreview(data);
-    setImportMessage("已生成导入预览，请检查后确认。");
+    setImportMessage(t("已生成导入预览，请检查后确认。"));
   }
 
   async function confirmImport() {
@@ -3769,36 +3801,36 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
     });
     const data = await response.json();
     if (!response.ok) {
-      setImportMessage(data.error || "保存失败");
+      setImportMessage(data.error ? t(String(data.error)) : t("保存失败"));
       return;
     }
-    setImportMessage(`导入完成：新增 ${data.created}，更新 ${data.updated}，跳过 ${data.skipped}，冲突 ${data.conflicts}`);
+    setImportMessage(t(`导入完成：新增 ${data.created}，更新 ${data.updated}，跳过 ${data.skipped}，冲突 ${data.conflicts}`));
     setPreview(null);
     await loadTimetable();
   }
 
   async function updateOccurrence(occurrence: CourseOccurrence) {
-    const scope = promptScope();
+    const scope = promptScope(t("修改范围：single / week / month / future / series"));
     if (!scope) return;
-    const location = prompt("新的地点", occurrence.location || "");
+    const location = prompt(t("新的地点"), occurrence.location || "");
     if (location === null) return;
     const response = await fetch(`/api/timetable/occurrences/${occurrence.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ scope, patch: { location } })
     });
-    if (!response.ok) throw new Error("课程更新失败");
+    if (!response.ok) throw new Error(t("课程更新失败"));
     const saved = await response.json() as CourseOccurrence;
     if (scope === "single") setOccurrences((current) => current.map((item) => item.id === saved.id ? saved : item));
     else await loadTimetable();
   }
 
   async function cancelOccurrence(occurrence: CourseOccurrence) {
-    const scope = promptScope("取消范围：single / week / month / future / series");
+    const scope = promptScope(t("取消范围：single / week / month / future / series"));
     if (!scope) return;
-    if (!confirm("确定取消选中范围内的课程吗？")) return;
+    if (!confirm(t("确定取消选中范围内的课程吗？"))) return;
     const response = await fetch(`/api/timetable/occurrences/${occurrence.id}?scope=${encodeURIComponent(scope)}`, { method: "DELETE" });
-    if (!response.ok) throw new Error("课程取消失败");
+    if (!response.ok) throw new Error(t("课程取消失败"));
     const saved = await response.json() as CourseOccurrence;
     if (scope === "single") setOccurrences((current) => current.map((item) => item.id === saved.id ? saved : item));
     else await loadTimetable();
@@ -3821,7 +3853,7 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
               }`}
               onClick={() => setImportMode(mode)}
             >
-              {mode === "feed" ? "订阅链接" : mode === "file" ? "上传 ICS 文件" : "上传课表截图"}
+              {mode === "feed" ? t("订阅链接") : mode === "file" ? t("上传 ICS 文件") : t("上传课表截图")}
             </button>
           ))}
         </div>
@@ -3832,20 +3864,20 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
             <>
               <Input value={feedUrl} onChange={(event) => setFeedUrl(event.target.value)} placeholder="Calendar Feed URL" className="md:col-span-2" />
               <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white" onClick={() => void previewFeed()}>
-                读取课表
+                {t("读取课表")}
               </button>
             </>
           )}
           {importMode === "file" && (
             <label className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600 md:col-span-3">
-              上传 .ics 文件
+              {t("上传 .ics 文件")}
               <input className="hidden" type="file" accept=".ics,text/calendar" onChange={(event) => void previewFile(event.target.files?.[0] ?? null)} />
             </label>
           )}
           {importMode === "screenshot" && (
             <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-600 md:col-span-3">
-              截图识别入口已预留：可多选 PNG/JPG/WebP，识别结果只会进入预览，不会直接写入正式课表。
-              <input className="mt-2 block w-full text-xs" type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={() => setImportMessage("截图已选择。结构化 OCR 将作为下一阶段接入；当前不会写入数据库。")} />
+              {t("截图识别入口已预留：可多选 PNG/JPG/WebP，识别结果只会进入预览，不会直接写入正式课表。")}
+              <input className="mt-2 block w-full text-xs" type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={() => setImportMessage(t("截图已选择。结构化 OCR 将作为下一阶段接入；当前不会写入数据库。"))} />
             </div>
           )}
         </div>
@@ -3858,10 +3890,10 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
             <div>
               <SectionTitle title="导入预览" />
               <div className="text-sm text-slate-500">
-                {preview.summary.courseCount} 门课程 · {preview.summary.occurrenceCount} 节课 · 重复 {preview.summary.duplicateCount} · 冲突 {preview.summary.conflictCount}
+                {t(`${preview.summary.courseCount} 门课程 · ${preview.summary.occurrenceCount} 节课 · 重复 ${preview.summary.duplicateCount} · 冲突 ${preview.summary.conflictCount}`)}
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                {preview.summary.semesterStart ? formatTimetableDateTime(preview.summary.semesterStart) : "未知开始"} - {preview.summary.semesterEnd ? formatTimetableDateTime(preview.summary.semesterEnd) : "未知结束"}
+                {preview.summary.semesterStart ? formatTimetableDateTime(preview.summary.semesterStart, language) : t("未知开始")} - {preview.summary.semesterEnd ? formatTimetableDateTime(preview.summary.semesterEnd, language) : t("未知结束")}
               </div>
             </div>
             <ActionButton onClick={() => void confirmImport()} icon={<Check size={16} />} label="确认导入" />
@@ -3886,15 +3918,15 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
                 style={view === item ? { background: USYD_CHARCOAL } : undefined}
                 onClick={() => setView(item)}
               >
-                {item === "day" ? "日" : item === "week" ? "周" : item === "month" ? "月" : "学期"}
+                {item === "day" ? t("日") : item === "week" ? t("周") : item === "month" ? t("月") : t("学期")}
               </button>
             ))}
           </div>
           <Input type="date" value={anchorDate} onChange={(event) => setAnchorDate(event.target.value)} />
           <div className="text-sm text-slate-500 md:text-right">
             {view === "semester"
-              ? `悉尼时间 · 来源 ${sources.length} · 已选课程 ${semesterCourseSummaries.length} · 课程系列 ${timetableCourses.length}`
-              : `悉尼时间 · 来源 ${sources.length} · 课程系列 ${timetableCourses.length} · 当前显示 ${displayCount}`}
+              ? t(`悉尼时间 · 来源 ${sources.length} · 已选课程 ${semesterCourseSummaries.length} · 课程系列 ${timetableCourses.length}`)
+              : t(`悉尼时间 · 来源 ${sources.length} · 课程系列 ${timetableCourses.length} · 当前显示 ${displayCount}`)}
           </div>
         </div>
         {view === "day" || view === "week" ? (
@@ -3936,7 +3968,7 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
                 <div className="text-sm text-slate-500">{course.semester}</div>
                 <div className="mt-2 space-y-1 text-sm text-slate-600">
                   {course.sessions.map((session) => (
-                    <div key={session.id}>周{session.dayOfWeek === 0 ? "日" : session.dayOfWeek} · {session.startTime}-{session.endTime} · {session.type} · {session.location}</div>
+                    <div key={session.id}>{t("周")}{session.dayOfWeek === 0 ? t("日") : session.dayOfWeek} · {session.startTime}-{session.endTime} · {session.type} · {session.location}</div>
                   ))}
                 </div>
               </div>
@@ -3969,8 +4001,8 @@ function JournalPage({ journal, onSave }: { journal: JournalEntry[]; onSave: (ur
         subtitle={t("自动聚合日计划复盘，也可以手动写新的记录。")}
         actions={
           <>
-            <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" onClick={exportMarkdown}>导出 Markdown</button>
-            <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" onClick={() => downloadBlob("leo-journal.json", JSON.stringify(journal, null, 2), "application/json")}>导出 JSON</button>
+            <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" onClick={exportMarkdown}>{t("导出 Markdown")}</button>
+            <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" onClick={() => downloadBlob("leo-journal.json", JSON.stringify(journal, null, 2), "application/json")}>{t("导出 JSON")}</button>
           </>
         }
       />
@@ -3989,7 +4021,7 @@ function JournalPage({ journal, onSave }: { journal: JournalEntry[]; onSave: (ur
         <div className="grid gap-3 md:grid-cols-[180px_1fr_auto]">
           <Input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
           <Input name="content" placeholder="写一条复盘或观察" required />
-          <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">添加</button>
+          <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">{t("添加")}</button>
         </div>
       </form>
       <div className="space-y-3">
@@ -3997,7 +4029,7 @@ function JournalPage({ journal, onSave }: { journal: JournalEntry[]; onSave: (ur
           <article key={entry.id} className="rounded-lg bg-white p-4 shadow-soft">
             <div className="mb-2 flex items-center gap-2">
               <div className="font-semibold">{entry.date}</div>
-              <Badge>{entry.source === "daily_plan" ? "日计划复盘" : "手动记录"}</Badge>
+              <Badge>{t(entry.source === "daily_plan" ? "日计划复盘" : "手动记录")}</Badge>
             </div>
             <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{entry.content}</p>
           </article>
@@ -4047,9 +4079,9 @@ function ExpensesPage({
       />
 
       <div className="mb-4 grid gap-3 md:grid-cols-3">
-        <ExpenseStatCard title="今日" totals={totals.today} />
-        <ExpenseStatCard title="本周" totals={totals.week} />
-        <ExpenseStatCard title="本月" totals={totals.month} />
+        <ExpenseStatCard title={t("今日")} totals={totals.today} />
+        <ExpenseStatCard title={t("本周")} totals={totals.week} />
+        <ExpenseStatCard title={t("本月")} totals={totals.month} />
       </div>
 
       <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
@@ -4075,7 +4107,7 @@ function ExpensesPage({
       <section className="rounded-lg bg-white p-4 shadow-soft">
         <div className="mb-3 flex items-center justify-between">
           <SectionTitle title="收支记录" />
-          <div className="text-sm text-slate-500">{filtered.length} 条</div>
+          <div className="text-sm text-slate-500">{t(`${filtered.length} 条`)}</div>
         </div>
         <div className="space-y-3">
           {filtered.length === 0 && <EmptyBlock text="还没有符合条件的收支记录。点右上角新增一笔。" />}
@@ -4085,10 +4117,10 @@ function ExpensesPage({
                 className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-slate-50 text-slate-400"
                 onClick={() => expense.receiptFileId && setPreviewFileId(expense.receiptFileId)}
                 disabled={!expense.receiptFileId}
-                title={expense.receiptFileId ? "查看小票" : "没有小票"}
+                title={t(expense.receiptFileId ? "查看小票" : "没有小票")}
               >
                 {expense.receiptFileId && isImageMime(expense.receiptMimeType) ? (
-                  <UploadImage fileId={expense.receiptFileId} alt="小票缩略图" className="h-full w-full object-cover" />
+                  <UploadImage fileId={expense.receiptFileId} alt={t("小票缩略图")} className="h-full w-full object-cover" />
                 ) : expense.receiptFileId ? (
                   <ImageIcon size={20} />
                 ) : (
@@ -4098,8 +4130,8 @@ function ExpensesPage({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold">{expense.title}</h3>
-                  <Badge>{expense.type === "income" ? "收入" : "支出"}</Badge>
-                  <Badge>{expense.category}</Badge>
+                  <Badge>{t(expense.type === "income" ? "收入" : "支出")}</Badge>
+                  <Badge>{t(expense.category)}</Badge>
                 </div>
                 <div className="mt-1 text-sm text-slate-500">
                   {expense.date} {expense.merchant ? ` · ${expense.merchant}` : ""} {expense.paymentMethod ? ` · ${expense.paymentMethod}` : ""}
@@ -4113,15 +4145,15 @@ function ExpensesPage({
                   </div>
                   <div className="text-xs text-slate-500">{expense.createdAt.slice(0, 10)}</div>
                 </div>
-                <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => onEdit(expense)} title="编辑收支">
+                <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => onEdit(expense)} title={t("编辑收支")}>
                   <Menu size={16} />
                 </button>
                 <button
                   className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
                   onClick={async () => {
-                    if (confirm("确定删除这条收支记录吗？")) await onSave(`/api/expenses/${expense.id}`, { method: "DELETE" });
+                    if (confirm(t("删除这条收支记录？"))) await onSave(`/api/expenses/${expense.id}`, { method: "DELETE" });
                   }}
-                  title="删除收支"
+                  title={t("删除")}
                 >
                   <Trash2 size={16} />
                 </button>
@@ -4142,11 +4174,11 @@ function ExpensesPage({
         >
           <div className="max-h-[90vh] max-w-4xl overflow-auto rounded-lg bg-white p-3 shadow-soft" onClick={(event) => event.stopPropagation()}>
             <div className="mb-2 flex justify-end">
-              <button className="rounded-lg border border-slate-200 p-2" onClick={() => setPreviewFileId(null)} title="关闭">
+              <button className="rounded-lg border border-slate-200 p-2" onClick={() => setPreviewFileId(null)} title={t("关闭")}>
                 <X size={16} />
               </button>
             </div>
-            <UploadImage fileId={previewFileId} alt="小票大图" className="max-h-[78vh] w-full rounded-lg object-contain" />
+            <UploadImage fileId={previewFileId} alt={t("小票大图")} className="max-h-[78vh] w-full rounded-lg object-contain" />
           </div>
         </div>
       )}
@@ -4163,7 +4195,7 @@ function ImportantFilesPage({
   documents: SecureDocument[];
   onSave: (url: string, options?: RequestInit) => Promise<void>;
 }) {
-  const { t } = useUiText();
+  const { language, t } = useUiText();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [editingFile, setEditingFile] = useState<ImportantFile | null>(null);
@@ -4212,7 +4244,7 @@ function ImportantFilesPage({
 
       <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
         <div className="grid gap-3 md:grid-cols-[1fr_180px]">
-          <SearchBox value={query} onChange={setQuery} placeholder="搜索文件、文档、备注或标签" className="mb-0 h-12" />
+          <SearchBox value={query} onChange={setQuery} placeholder="搜索文件名、备注或标签" className="mb-0 h-12" />
           <Select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
@@ -4225,16 +4257,16 @@ function ImportantFilesPage({
       <section className="rounded-lg bg-white p-4 shadow-soft">
         <div className="mb-3 flex items-center justify-between">
           <SectionTitle title="文件与文档" />
-          <div className="text-sm text-slate-500">{filtered.length + filteredDocuments.length} 个</div>
+          <div className="text-sm text-slate-500">{t(`${filtered.length + filteredDocuments.length} 个`)}</div>
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.length === 0 && filteredDocuments.length === 0 && <EmptyBlock text="还没有内容。可以上传文件，或创建一篇文档。" />}
+          {filtered.length === 0 && filteredDocuments.length === 0 && <EmptyBlock text="上传文件或创建文档后，会在这里统一管理。" />}
           {filteredDocuments.map((document) => (
             <article key={document.id} className="min-w-0 rounded-lg border border-slate-100 p-3">
               <button
                 className="mb-3 flex h-36 w-full flex-col items-start justify-between overflow-hidden rounded-lg border border-slate-100 bg-slate-50 p-4 text-left"
                 onClick={() => setPreviewDocument(document)}
-                title="查看文档"
+                title={t("查看文档")}
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm"><NotebookPen size={18} /></span>
                 <span className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-500">{document.content || "空文档"}</span>
@@ -4243,14 +4275,14 @@ function ImportantFilesPage({
                 <div className="min-w-0">
                   <h3 className="truncate font-semibold">{document.title}</h3>
                   <div className="mt-1 flex flex-wrap gap-2">
-                    <Badge>文档</Badge>
-                    <Badge>{document.category}</Badge>
+                    <Badge>{t("纯文档")}</Badge>
+                    <Badge>{t(document.category)}</Badge>
                     {document.tags.slice(0, 2).map((tag) => <span key={tag} className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600">{tag}</span>)}
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => { setEditingDocument(document); setDocumentModalOpen(true); }} title="编辑文档"><Menu size={16} /></button>
-                  <button className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" onClick={async () => { if (confirm("确定删除这篇文档吗？")) await onSave(`/api/secure-documents/${document.id}`, { method: "DELETE" }); }} title="删除文档"><Trash2 size={16} /></button>
+                  <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => { setEditingDocument(document); setDocumentModalOpen(true); }} title={t("编辑文档")}><Menu size={16} /></button>
+                  <button className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" onClick={async () => { if (confirm(t("删除这个文档？"))) await onSave(`/api/secure-documents/${document.id}`, { method: "DELETE" }); }} title={t("删除")}><Trash2 size={16} /></button>
                 </div>
               </div>
               {document.notes && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{document.notes}</p>}
@@ -4261,7 +4293,7 @@ function ImportantFilesPage({
               <button
                 className="mb-3 flex h-36 w-full items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-slate-50 text-slate-400"
                 onClick={() => setPreviewFile(file)}
-                title="查看文件"
+                title={t("查看文件")}
               >
                 {isImageMime(file.mimeType) ? (
                   <UploadImage fileId={file.fileId} alt={file.title} className="h-full w-full object-cover" />
@@ -4273,7 +4305,7 @@ function ImportantFilesPage({
                 <div className="min-w-0">
                   <h3 className="truncate font-semibold">{file.title}</h3>
                   <div className="mt-1 flex flex-wrap gap-2">
-                    <Badge>{file.category}</Badge>
+                    <Badge>{t(file.category)}</Badge>
                     {file.tags.slice(0, 3).map((tag) => (
                       <span key={tag} className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600">{tag}</span>
                     ))}
@@ -4286,18 +4318,18 @@ function ImportantFilesPage({
                       setEditingFile(file);
                       setModalOpen(true);
                     }}
-                    title="编辑文件"
+                    title={t("编辑")}
                   >
                     <Menu size={16} />
                   </button>
                   <button
                     className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
                     onClick={async () => {
-                      if (confirm("确定删除这个重要文件记录吗？")) {
+                      if (confirm(t("删除这个文件？"))) {
                         await onSave(`/api/important-files/${file.id}`, { method: "DELETE" });
                       }
                     }}
-                    title="删除文件"
+                    title={t("删除")}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -4306,7 +4338,7 @@ function ImportantFilesPage({
               <div className="mt-2 break-all text-sm text-slate-500 md:truncate">{file.originalName}</div>
               {file.expiryDate && (
                 <div className={`mt-2 text-sm font-medium ${expiryCountdownClass(file.expiryDate)}`}>
-                  到期 {formatDateOnly(file.expiryDate)} · {countdownText(file.expiryDate)}
+                  {t("到期")} {formatDateOnly(file.expiryDate, language)} · {countdownText(file.expiryDate, language)}
                 </div>
               )}
               {file.notes && <p className="mt-2 line-clamp-2 text-sm text-slate-600">{file.notes}</p>}
@@ -4343,7 +4375,7 @@ function ImportantFilesPage({
                 <h2 className="truncate text-xl font-semibold">{previewFile.title}</h2>
                 <div className="mt-1 text-sm text-slate-500">{previewFile.originalName}</div>
               </div>
-              <button className="rounded-lg border border-slate-200 p-2" onClick={() => setPreviewFile(null)} title="关闭">
+              <button className="rounded-lg border border-slate-200 p-2" onClick={() => setPreviewFile(null)} title={t("关闭")}>
                 <X size={16} />
               </button>
             </div>
@@ -4354,13 +4386,13 @@ function ImportantFilesPage({
                 <div className="font-medium text-slate-900">{previewFile.originalName}</div>
                 <div className="mt-1">{previewFile.mimeType}</div>
                 <a className="mt-3 inline-flex rounded-lg bg-slate-900 px-3 py-2 text-white" href={`/api/private-files/${previewFile.fileId}`} target="_blank" rel="noreferrer">
-                  打开文件
+                  {t("查看文件")}
                 </a>
               </div>
             )}
             {previewFile.expiryDate && (
               <div className={`mt-3 rounded-lg bg-slate-50 p-3 text-sm font-medium ${expiryCountdownClass(previewFile.expiryDate)}`}>
-                到期 {formatDateOnly(previewFile.expiryDate)} · {countdownText(previewFile.expiryDate)}
+                {t("到期")} {formatDateOnly(previewFile.expiryDate, language)} · {countdownText(previewFile.expiryDate, language)}
               </div>
             )}
             {previewFile.notes && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">{previewFile.notes}</p>}
@@ -4381,11 +4413,11 @@ function ImportantFilesPage({
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-xl font-semibold">{previewDocument.title}</h2>
-                <div className="mt-1 text-sm text-slate-500">纯文字文档 · {previewDocument.category}</div>
+                <div className="mt-1 text-sm text-slate-500">{t("纯文档")} · {t(previewDocument.category)}</div>
               </div>
-              <button className="rounded-full border border-slate-200 p-2" onClick={() => setPreviewDocument(null)} title="关闭"><X size={16} /></button>
+              <button className="rounded-full border border-slate-200 p-2" onClick={() => setPreviewDocument(null)} title={t("关闭")}><X size={16} /></button>
             </div>
-            <div className="min-h-56 whitespace-pre-wrap break-words rounded-[22px] border border-slate-100 bg-slate-50 p-4 text-sm leading-7 text-slate-800">{previewDocument.content || "这篇文档还没有内容。"}</div>
+            <div className="min-h-56 whitespace-pre-wrap break-words rounded-[22px] border border-slate-100 bg-slate-50 p-4 text-sm leading-7 text-slate-800">{previewDocument.content || t("这篇文档还没有内容。")}</div>
             {previewDocument.notes && <p className="mt-3 rounded-[20px] bg-slate-50 p-3 text-sm text-slate-600">{previewDocument.notes}</p>}
           </div>
         </div>
@@ -4403,6 +4435,7 @@ function SecureDocumentModal({
   onClose: () => void;
   onSaveRequest: SaveRequest;
 }) {
+  const { t } = useUiText();
   const [documentTags, setDocumentTags] = useState<string[]>(document?.tags || []);
   const [saving, setSaving] = useState(false);
   useEscapeClose(onClose);
@@ -4437,8 +4470,8 @@ function SecureDocumentModal({
         }}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">{document ? "编辑文档" : "创建文档"}</h2>
-          <button type="button" className="rounded-full border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>关闭</button>
+          <h2 className="text-xl font-semibold">{t(document ? "编辑文档" : "创建文档")}</h2>
+          <button type="button" className="rounded-full border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>{t("关闭")}</button>
         </div>
         <div className="grid gap-3">
           <Input name="title" required placeholder="文档名称" defaultValue={document?.title || ""} />
@@ -4447,17 +4480,17 @@ function SecureDocumentModal({
             required
             maxLength={200000}
             className="min-h-[280px] rounded-[24px] border border-slate-200 p-4 text-sm leading-7 outline-none focus:border-slate-400"
-            placeholder="输入地址、链接、备忘信息或其他纯文字内容"
+            placeholder={t("输入地址、链接、备忘信息或其他纯文字内容")}
             defaultValue={document?.content || ""}
           />
           <div className="grid gap-3 md:grid-cols-2">
             <Select name="category" defaultValue={document?.category || "其他"} options={importantFileCategories.map((item) => [item, item] as [string, string])} />
             <TagEditor tags={documentTags} onChange={setDocumentTags} />
           </div>
-          <textarea name="notes" className="min-h-[88px] rounded-[22px] border border-slate-200 p-3 text-sm outline-none focus:border-slate-400" placeholder="备注，可选" defaultValue={document?.notes || ""} />
-          <div className="rounded-[20px] bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">文档会按账号隔离保存，但不是端到端加密的密码保险箱。主密码、助记词和恢复码仍建议使用专业密码管理器保存。</div>
+          <textarea name="notes" className="min-h-[88px] rounded-[22px] border border-slate-200 p-3 text-sm outline-none focus:border-slate-400" placeholder={t("备注，可选")} defaultValue={document?.notes || ""} />
+          <div className="rounded-[20px] bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">{t("文档会按账号隔离保存，但不是端到端加密的密码保险箱。主密码、助记词和恢复码仍建议使用专业密码管理器保存。")}</div>
         </div>
-        <button className="mt-5 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60" disabled={saving}>{saving ? "保存中..." : "保存"}</button>
+        <button className="mt-5 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60" disabled={saving}>{t(saving ? "保存中..." : "保存")}</button>
       </form>
     </div>
   );
@@ -4474,6 +4507,7 @@ function ImportantFileModal({
   onSaveRequest: SaveRequest;
   onCreated: () => Promise<void>;
 }) {
+  const { t } = useUiText();
   const [uploading, setUploading] = useState(false);
   const [fileId, setFileId] = useState(file?.fileId || "");
   const [fileName, setFileName] = useState(file?.originalName || "");
@@ -4522,9 +4556,9 @@ function ImportantFileModal({
         }}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">{file ? "编辑重要文件" : "上传重要文件"}</h2>
+          <h2 className="text-xl font-semibold">{t(file ? "编辑重要文件" : "上传重要文件")}</h2>
           <button type="button" className="rounded-full border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>
-            关闭
+            {t("关闭")}
           </button>
         </div>
 
@@ -4545,19 +4579,19 @@ function ImportantFileModal({
             />
           </div>
           <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-            <span>文件到期日</span>
+            <span>{t("文件到期日")}</span>
             <Input name="expiryDate" type="date" defaultValue={file?.expiryDate || ""} />
           </label>
-          <textarea name="notes" className="min-h-[90px] rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400" placeholder="备注" defaultValue={file?.notes || ""} />
+          <textarea name="notes" className="min-h-[90px] rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-slate-400" placeholder={t("备注")} defaultValue={file?.notes || ""} />
 
           <label className="flex cursor-pointer flex-col gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
             <span className="inline-flex items-center gap-2">
               <Upload size={18} />
-              {uploading ? "上传中..." : fileName ? `已选择：${fileName}` : "上传文件或图片"}
+              {uploading ? t("上传中...") : fileName ? t(`已选择：${fileName}`) : t("上传文件或图片")}
             </span>
             {fileId && (
               <span className="inline-flex items-center gap-1 text-slate-500">
-                <Eye size={15} /> 已保存
+                <Eye size={15} /> {t("已保存")}
               </span>
             )}
             <input
@@ -4570,7 +4604,7 @@ function ImportantFileModal({
                 setDirty(true);
                 setUploadMessage("");
                 if (selected.size > 50 * 1024 * 1024) {
-                  setUploadMessage("文件太大了，先控制在 50MB 以内。");
+                  setUploadMessage(t("文件太大了，先控制在 50MB 以内。"));
                   event.currentTarget.value = "";
                   return;
                 }
@@ -4586,9 +4620,9 @@ function ImportantFileModal({
                   const metadata = await response.json();
                   setFileId(String(metadata.id));
                   setFileName(selected.name);
-                  setUploadMessage("上传完成，可以保存。");
+                  setUploadMessage(t("上传完成，可以保存。"));
                 } catch {
-                  setUploadMessage("上传失败，请确认电脑服务还开着，然后再试一次。");
+                  setUploadMessage(t("上传失败，请确认电脑服务还开着，然后再试一次。"));
                 } finally {
                   setUploading(false);
                 }
@@ -4596,13 +4630,13 @@ function ImportantFileModal({
             />
           </label>
           {filePreviewUrl && (
-            <img src={filePreviewUrl} alt="文件预览" className="max-h-56 w-full rounded-lg border border-slate-100 object-contain" />
+            <img src={filePreviewUrl} alt={t("文件预览")} className="max-h-56 w-full rounded-lg border border-slate-100 object-contain" />
           )}
           {uploadMessage && <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{uploadMessage}</div>}
         </div>
 
         <button className="mt-5 w-full rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white" disabled={!fileId || uploading}>
-          保存
+          {t("保存")}
         </button>
       </form>
     </div>
@@ -4616,20 +4650,21 @@ function ExpenseStatCard({
   title: string;
   totals: { income: Record<string, number>; expense: Record<string, number>; balance: Record<string, number> };
 }) {
+  const { t } = useUiText();
   return (
     <section className="rounded-lg bg-white p-4 shadow-soft">
       <div className="text-sm text-slate-500">{title}</div>
       <div className="mt-3 grid grid-cols-3 gap-2">
         <div>
-          <div className="text-xs text-slate-400">收入</div>
+          <div className="text-xs text-slate-400">{t("收入")}</div>
           <div className="mt-1 truncate text-sm font-semibold text-emerald-600">{formatExpenseTotals(totals.income)}</div>
         </div>
         <div>
-          <div className="text-xs text-slate-400">支出</div>
+          <div className="text-xs text-slate-400">{t("支出")}</div>
           <div className="mt-1 truncate text-sm font-semibold text-red-600">{formatExpenseTotals(totals.expense)}</div>
         </div>
         <div>
-          <div className="text-xs text-slate-400">结余</div>
+          <div className="text-xs text-slate-400">{t("结余")}</div>
           <div className="mt-1 truncate text-sm font-semibold">{formatExpenseTotals(totals.balance)}</div>
         </div>
       </div>
@@ -4637,7 +4672,155 @@ function ExpenseStatCard({
   );
 }
 
+function LocalizedUserGuidePage({ language }: { language: Exclude<UiLanguage, "zh-CN"> }) {
+  const isEnglish = language === "en";
+  const copy = isEnglish
+    ? {
+        title: "User Guide",
+        subtitle: "MyAssist User Guide",
+        back: "Back to Settings",
+        startTitle: "Getting started",
+        startSubtitle: "Begin with these four steps. No complex setup is required.",
+        steps: [
+          ["1", "Create today's list", "Open To Do List from Home and add what you need to do today."],
+          ["2", "Add a task", "Use Task for ongoing work and Deadline for work with a fixed due time."],
+          ["3", "Open Schedule", "Timed To Dos and courses appear together in Today’s Schedule."],
+          ["4", "Check data storage", "Open Settings to review storage, account and language preferences."]
+        ],
+        chapters: [
+          ["Accounts and data modes", [
+            "MyAssist supports a local mode and an account-isolated cloud mode. Local SQLite data and local uploads are never assigned to a cloud account automatically.",
+            "Cloud data is protected by Supabase Auth and Row Level Security. Each personal account can access only its own tasks, plans, finance records, timetable and files.",
+            "Creating, editing and deleting content updates the current page without a full-page refresh. Multi-table cloud writes use database transactions where consistency requires it."
+          ]],
+          ["To Do List and Schedule", [
+            "A To Do List is a dated daily checklist and never becomes a Task automatically.",
+            "Write a time range such as 13:00-15:00 Study or 8:00-10:00 Coffee chat in a To Do title. MyAssist places it in Today’s Schedule and the Schedule timeline.",
+            "Schedule combines courses, daily plans and timed To Dos. You can also paste event text or review information extracted from an uploaded image before saving it."
+          ]],
+          ["Tasks, deadlines and progress", [
+            "Task and Deadline are managed together from Tasks. The Home task card shows only active, unarchived work.",
+            "Tasks can be standard To Dos, counters or checklists. Checklist progress is calculated from completed items automatically.",
+            "Completed work remains available under Completed or All, where it can be restored or deleted after confirmation."
+          ]],
+          ["Courses and timetable", [
+            "Import a Calendar Feed or ICS file from Courses, review the preview, then confirm the import.",
+            "Day, week and month views use calendar grids in Sydney time. Select a class card to see its time, location, class number and course details."
+          ]],
+          ["Finance", [
+            "Record income and expenses in 21 common currencies. Totals stay separated by currency and are never added together incorrectly.",
+            "The currency from the most recently saved transaction becomes the default next time. Changing a currency without saving does not update that preference."
+          ]],
+          ["Files and documents", [
+            "Upload private files or create text documents for addresses, links and notes. Cloud files are private and are opened through short-lived authorised access.",
+            "MyAssist is not an end-to-end encrypted password vault. Keep master passwords, recovery phrases and recovery codes in a dedicated password manager."
+          ]],
+          ["Reminders and mobile access", [
+            "Task reminders can run daily, 24 hours before a deadline, weekly or every few days. Local notifications require the browser or desktop app to be running.",
+            "For local mobile access, keep the computer service running and connect both devices to the same Wi-Fi or hotspot."
+          ]],
+          ["Language behaviour", [
+            "English mode translates navigation, forms, empty states, sync messages, dates and the complete user guide into English.",
+            "Traditional Chinese mode uses Traditional Chinese throughout. Simplified Chinese intentionally keeps established product terms such as Today’s Schedule, To Do List, Task and Deadline in English."
+          ]]
+        ]
+      }
+    : {
+        title: "使用文件",
+        subtitle: "MyAssist 新手指南",
+        back: "返回設定",
+        startTitle: "第一次使用",
+        startSubtitle: "按這四個步驟開始，不需要先設定複雜選項。",
+        steps: [
+          ["1", "新增今日清單", "在首頁開啟 To Do List，記錄今天要做的事。"],
+          ["2", "新增任務", "長期事項使用 Task，有明確截止時間的事項使用 Deadline。"],
+          ["3", "查看日程", "帶時間的 To Do 和課程會一起出現在今日日程。"],
+          ["4", "確認資料位置", "前往設定查看儲存、帳號與語言偏好。"]
+        ],
+        chapters: [
+          ["帳號與資料模式", [
+            "MyAssist 支援本機模式與按帳號隔離的雲端模式。本機 SQLite 資料與 uploads 不會自動綁定到雲端帳號。",
+            "雲端資料由 Supabase Auth 與 Row Level Security 保護，普通帳號只能存取自己的任務、計劃、收支、課表與檔案。",
+            "新增、編輯與刪除後只更新當前頁面，不會整頁重新載入。"
+          ]],
+          ["To Do List 與日程", [
+            "To Do List 是按日期儲存的每日清單，不會自動變成 Task。",
+            "在標題輸入 13:00-15:00 寫作業或早上8點到10點 coffee chat，系統會將它加入今日日程與日程時間軸。",
+            "日程統一顯示課程、每日安排與帶時間的 To Do，也可貼上活動文字或上傳圖片後校正再儲存。"
+          ]],
+          ["任務、截止事項與進度", [
+            "Task 與 Deadline 都在任務頁統一管理；首頁任務卡片只顯示進行中且未封存的項目。",
+            "任務可以是普通待辦、計數或清單，清單進度會根據已完成項目自動計算。",
+            "已完成任務仍會保留在「已完成」或「全部」中，可復原或確認後刪除。"
+          ]],
+          ["課程與課表", [
+            "可匯入 Calendar Feed 或 ICS 檔案，先檢查預覽再確認匯入。",
+            "日、週與月檢視使用雪梨時間的日曆網格。點選單次課程可查看時間、地點、課次與課程資料。"
+          ]],
+          ["收支", [
+            "支援 21 種常用貨幣的收入與支出記錄，不同貨幣不會被錯誤相加。",
+            "上一筆成功儲存的貨幣會成為下次新增的預設值；只切換但沒有儲存不會改變偏好。"
+          ]],
+          ["檔案與文件", [
+            "可上傳私人檔案，或建立純文字文件儲存地址、連結與備忘。雲端檔案通過短時效授權存取。",
+            "MyAssist 不是端對端加密的密碼保險箱，主密碼、助記詞與復原碼仍應使用專業密碼管理器。"
+          ]],
+          ["提醒與手機存取", [
+            "任務提醒支援每日、截止前 24 小時、每週或每隔幾天。本機通知需要瀏覽器或桌面 App 正在執行。",
+            "本機手機存取時，請保持電腦服務執行，並讓電腦與手機連接同一 Wi-Fi 或熱點。"
+          ]],
+          ["語言顯示規則", [
+            "English 模式會將導覽、表單、空狀態、同步訊息、日期與完整使用文件顯示為英文。",
+            "繁體中文模式會全程使用繁體中文。簡體中文會保留 Today’s Schedule、To Do List、Task 與 Deadline 等既有產品名稱。"
+          ]]
+        ]
+      };
+
+  return (
+    <>
+      <PageHeader
+        title={copy.title}
+        subtitle={copy.subtitle}
+        actions={
+          <Link href="/settings" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <ChevronLeft size={16} />
+            {copy.back}
+          </Link>
+        }
+      />
+      <section className="mb-4 border-y border-slate-200 bg-white py-5">
+        <h2 className="text-lg font-semibold">{copy.startTitle}</h2>
+        <p className="mt-1 text-sm text-slate-500">{copy.startSubtitle}</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-4">
+          {copy.steps.map(([step, title, description]) => (
+            <div key={step} className="border-l-2 border-slate-900 pl-3">
+              <div className="text-xs font-semibold text-slate-400">{isEnglish ? `Step ${step}` : `步驟 ${step}`}</div>
+              <div className="mt-1 font-semibold">{title}</div>
+              <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <div className="grid gap-3 md:grid-cols-2">
+        {copy.chapters.map(([title, paragraphs], index) => (
+          <details key={title as string} className="group rounded-lg border border-slate-200 bg-white p-4 shadow-sm" open={index === 0}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold">
+              {title}
+              <ChevronDown size={18} className="shrink-0 text-slate-400 transition group-open:rotate-180" />
+            </summary>
+            <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-600">
+              {(paragraphs as string[]).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+            </div>
+          </details>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function UserGuidePage() {
+  const { language, t } = useUiText();
+  if (language !== "zh-CN") return <LocalizedUserGuidePage language={language} />;
   const chapters = [
     {
       title: "运行模式与账号",
@@ -4652,7 +4835,7 @@ function UserGuidePage() {
           <p>Cloud 文件只接受 PDF、JPEG、PNG 和 WebP，单个最大 10MB。文件链接会短期失效，删除失败会保留可重试状态，不会静默隐藏孤儿文件。</p>
           <p>Vercel Preview 公网链接会直接进入 MyAssist 自己的登录/注册页面，不再要求先登录 Vercel；账号隔离仍由 MyAssist Auth、RLS 和受保护 Admin API 负责。</p>
           <p>未登录访客打开公网根地址时，会先看到 MyAssist 产品首页，可从右上角登录或注册。登录后打开根地址仍直接进入个人 Dashboard，其他私人页面不会因首页公开而放开。</p>
-          <p>公开产品首页右上角提供“中 / EN”切换，登录页每次打开默认显示中文。切换语言时，MyAssist、Today’s Schedule、Task、Deadline 和 To Do List 等既有英文产品词段保持不变。</p>
+          <p>公开产品首页右上角提供“中 / EN”切换，登录页每次打开默认显示中文。English 模式完整显示英文，繁體中文模式完整显示繁体；简体中文模式保留 MyAssist、Today’s Schedule、Task、Deadline 和 To Do List 等核心英文产品词段。</p>
           <p>公开首页使用悉尼大学主楼、悉尼海港大桥和悉尼歌剧院的高清实景轮播，页面上的功能说明会与当前可用功能同步更新。</p>
           <p>现有本地数据不会自动上云，也不会自动绑定到个人账号或管理员账号。默认本地模式仍不要求登录。</p>
         </>
@@ -4782,12 +4965,12 @@ function UserGuidePage() {
   return (
     <>
       <PageHeader
-        title="使用文档"
-        subtitle="MyAssist 新手指南"
+        title={t("使用文档")}
+        subtitle={t("MyAssist 新手指南")}
         actions={
           <Link href="/settings" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             <ChevronLeft size={16} />
-            返回设置
+            {t("返回设置")}
           </Link>
         }
       />
@@ -4923,9 +5106,9 @@ function SettingsPage({
     setHomeSettingsMessage("");
     try {
       await onSaveSettings({ homeTitle: homeTitleDraft, showHomeTitle: showHomeTitleDraft });
-      setHomeSettingsMessage("已保存，首页立即生效。");
+      setHomeSettingsMessage(t("已保存，首页立即生效。"));
     } catch {
-      setHomeSettingsMessage("保存失败，请确认电脑端服务正在运行。");
+      setHomeSettingsMessage(t("保存失败，请确认电脑端服务正在运行。"));
     } finally {
       setSavingHomeSettings(false);
     }
@@ -4942,22 +5125,22 @@ function SettingsPage({
             </div>
             <div>
               <h2 className="font-semibold">{t("使用文档")}</h2>
-              <p className="mt-1 text-sm text-slate-500">第一次使用？从快速上手开始了解 To Do、日程、任务、课程和数据安全。</p>
+              <p className="mt-1 text-sm text-slate-500">{t("第一次使用？从快速上手开始了解 To Do、日程、任务、课程和数据安全。")}</p>
             </div>
           </div>
           <Link href="/guide" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">
-            查看使用文档
+            {t("查看使用文档")}
             <ChevronRight size={16} />
           </Link>
         </section>
         <section className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center lg:col-span-2">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700"><MessageSquareText size={20} /></div>
-            <div><h2 className="font-semibold">{t("联系开发者")}</h2><p className="mt-1 text-sm text-slate-500">提交问题或建议，并查看开发者联系方式。</p></div>
+            <div><h2 className="font-semibold">{t("联系开发者")}</h2><p className="mt-1 text-sm text-slate-500">{t("提交问题或建议，并查看开发者联系方式。")}</p></div>
           </div>
           <div className="flex gap-2">
-            {authStatus.isAdmin && <Link href="/admin" className="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium">管理员后台</Link>}
-            <Link href="/contact-developer" className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">打开留言板</Link>
+            {authStatus.isAdmin && <Link href="/admin" className="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium">{t("管理员后台")}</Link>}
+            <Link href="/contact-developer" className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white">{t("打开留言板")}</Link>
           </div>
         </section>
         {authStatus.authRequired && authStatus.user && (
@@ -4965,8 +5148,8 @@ function SettingsPage({
             <div>
               <h2 className="font-semibold">{t("当前账号")}</h2>
               <div className="mt-3 grid gap-2 text-sm text-slate-600">
-                <InfoRow label={t("用户名")} value={authStatus.user.username || "未设置"} />
-                <InfoRow label={t("邮箱地址")} value={authStatus.user.email || "未设置"} />
+                <InfoRow label={t("用户名")} value={authStatus.user.username || t("未设置")} />
+                <InfoRow label={t("邮箱地址")} value={authStatus.user.email || t("未设置")} />
               </div>
               <p className="mt-1 text-xs text-slate-400">{t(authStatus.isAdmin ? "独立管理员账号" : "普通个人账号")}</p>
             </div>
@@ -5053,31 +5236,31 @@ function SettingsPage({
             <SectionTitle title={t("手机访问 / 同步状态")} />
             <SyncStatusPill state={syncState} />
           </div>
-          {syncState.lastSyncAt && <InfoRow label="上次同步" value={formatDateTime(syncState.lastSyncAt)} />}
+          {syncState.lastSyncAt && <InfoRow label={t("上次同步")} value={formatDateTime(syncState.lastSyncAt, languageDraft)} />}
           <div className="space-y-3 text-sm text-slate-600">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <div className="text-slate-500">实时手机访问网址</div>
-              <div className="mt-1 break-all font-mono text-base font-semibold text-slate-900">{phoneUrl || "正在读取..."}</div>
+              <div className="text-slate-500">{t("实时手机访问网址")}</div>
+              <div className="mt-1 break-all font-mono text-base font-semibold text-slate-900">{phoneUrl || t("正在读取...")}</div>
             </div>
             <div className="rounded-lg bg-slate-50 p-3">
-              <div className="font-medium text-slate-800">Mac 获取方式</div>
-              <div className="mt-1">系统设置 → Wi‑Fi → 当前网络详情，查看 IP 地址。</div>
-              <div className="mt-1 font-mono text-xs text-slate-500">也可以在终端运行：ipconfig getifaddr en0</div>
+              <div className="font-medium text-slate-800">{t("Mac 获取方式")}</div>
+              <div className="mt-1">{t("系统设置 → Wi‑Fi → 当前网络详情，查看 IP 地址。")}</div>
+              <div className="mt-1 font-mono text-xs text-slate-500">{t("也可以在终端运行：ipconfig getifaddr en0")}</div>
             </div>
             <div className="rounded-lg bg-slate-50 p-3">
-              <div className="font-medium text-slate-800">Windows 获取方式</div>
-              <div className="mt-1">打开命令提示符，运行 ipconfig，查看 IPv4 地址。</div>
+              <div className="font-medium text-slate-800">{t("Windows 获取方式")}</div>
+              <div className="mt-1">{t("打开命令提示符，运行 ipconfig，查看 IPv4 地址。")}</div>
             </div>
             <div className="rounded-lg border border-slate-200 p-3">
-              <div className="font-medium text-slate-800">离线暂存</div>
-              <div className="mt-1">{syncState.message}</div>
-              <div className="mt-2 text-xs text-slate-500">待同步 {syncState.pendingCount} 条 · 失败 {syncState.failedCount} 条</div>
+              <div className="font-medium text-slate-800">{t("离线暂存")}</div>
+              <div className="mt-1">{t(syncState.message)}</div>
+              <div className="mt-2 text-xs text-slate-500">{t(`待同步 ${syncState.pendingCount} 条 · 失败 ${syncState.failedCount} 条`)}</div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-700" onClick={onCheckSync}>
-                  检查连接
+                  {t("检查连接")}
                 </button>
                 <button type="button" className="rounded-lg bg-slate-900 px-3 py-2 font-medium text-white" onClick={onManualSync}>
-                  手动同步
+                  {t("手动同步")}
                 </button>
               </div>
             </div>
@@ -5101,6 +5284,7 @@ function ExpenseModal({
   onCreated: () => Promise<void>;
   onSaveRequest: SaveRequest;
 }) {
+  const { language, t } = useUiText();
   const [uploading, setUploading] = useState(false);
   const [receiptFileId, setReceiptFileId] = useState(expense?.receiptFileId || "");
   const [receiptName, setReceiptName] = useState(expense?.receiptOriginalName || "");
@@ -5153,9 +5337,9 @@ function ExpenseModal({
         }}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">{expense ? "编辑收支" : "新增收支"}</h2>
+          <h2 className="text-xl font-semibold">{t(expense ? "编辑收支" : "新增收支")}</h2>
           <button type="button" className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={onClose}>
-            关闭
+            {t("关闭")}
           </button>
         </div>
 
@@ -5173,29 +5357,29 @@ function ExpenseModal({
                   setDirty(true);
                 }}
               >
-                {type === "income" ? "收入" : "支出"}
+                {t(type === "income" ? "收入" : "支出")}
               </button>
             ))}
           </div>
           <label className="grid gap-1 text-sm font-medium text-slate-700">
-            金额
+            {t("金额")}
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(150px,0.45fr)_minmax(150px,0.45fr)]">
               <input name="amount" type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" defaultValue={expense?.amount ?? ""} required
                 className="expense-amount-input h-16 min-w-0 rounded-2xl border border-slate-200 bg-white px-4 text-left text-3xl font-semibold text-slate-950 outline-none placeholder:text-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-100" />
-              <Select name="currency" defaultValue={expense?.currency || lastUsedCurrency || ""} required aria-label="货币"
+              <Select name="currency" defaultValue={expense?.currency || lastUsedCurrency || ""} required aria-label={t("货币")}
                 className="h-16 px-3 font-semibold"
-                options={[["", "货币"], ...currencies.map((currency) => [currency.code, `${currency.code} — ${currency.localizedName}`] as [string, string])]} />
-              <Select name="paymentMethod" defaultValue={expense?.paymentMethod || ""} aria-label="支付方式"
+                options={[["", t("货币")], ...currencies.map((currency) => [currency.code, `${currency.code} — ${language === "en" ? currency.name : t(currency.localizedName)}`] as [string, string])]} />
+              <Select name="paymentMethod" defaultValue={expense?.paymentMethod || ""} aria-label={t("支付方式")}
                 className="h-16 px-3 font-semibold"
-                options={[["", "支付方式"], ...paymentMethods.map((item) => [item, item] as [string, string])]} />
+                options={[["", t("支付方式")], ...paymentMethods.map((item) => [item, t(item)] as [string, string])]} />
             </div>
           </label>
           <label className="grid gap-1 text-sm font-medium text-slate-700">
-            标题
+            {t("标题")}
             <Input name="title" className="h-11" placeholder={transactionType === "income" ? "工资、退款、兼职收入" : "午餐、超市购物、打车"} defaultValue={expense?.title || ""} required />
           </label>
           <label className="grid gap-1 text-sm font-medium text-slate-700">
-            标签
+            {t("标签")}
             <TagEditor
               tags={expenseTags}
               onChange={(tags) => {
@@ -5205,27 +5389,27 @@ function ExpenseModal({
             />
           </label>
           <div className="grid gap-3">
-            <label className="grid gap-1 text-sm font-medium text-slate-700">日期
+            <label className="grid gap-1 text-sm font-medium text-slate-700">{t("日期")}
               <Input name="date" type="date" defaultValue={expense?.date || new Date().toISOString().slice(0, 10)} required />
             </label>
           </div>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">{transactionType === "income" ? "来源" : "商家"}
+          <label className="grid gap-1 text-sm font-medium text-slate-700">{t(transactionType === "income" ? "来源" : "商家")}
             <Input
               name="merchant"
               placeholder={transactionType === "income" ? "收入来源，可选" : "商家名称，可选"}
               defaultValue={expense?.merchant || ""}
             />
           </label>
-          <label className="grid gap-1 text-sm font-medium text-slate-700">备注
-            <textarea name="notes" rows={2} className="min-h-[56px] resize-y rounded-2xl border border-slate-200 p-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100" placeholder="添加备注，可选" defaultValue={expense?.notes || ""} />
+          <label className="grid gap-1 text-sm font-medium text-slate-700">{t("备注")}
+            <textarea name="notes" rows={2} className="min-h-[56px] resize-y rounded-2xl border border-slate-200 p-3 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-100" placeholder={t("添加备注，可选")} defaultValue={expense?.notes || ""} />
           </label>
 
           <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 transition hover:border-slate-300 hover:bg-slate-100">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm"><Upload size={19} /></span>
-            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-slate-800">{uploading ? "上传中..." : receiptName ? receiptName : "上传凭证"}</span><span className="mt-1 block text-xs text-slate-500">上传凭证、小票或账单图片 · JPG、PNG、WEBP 或 PDF，可选</span></span>
+            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-slate-800">{uploading ? t("上传中...") : receiptName ? receiptName : t("上传凭证")}</span><span className="mt-1 block text-xs text-slate-500">{t("上传凭证、小票或账单图片 · JPG、PNG、WEBP 或 PDF，可选")}</span></span>
             {receiptFileId && (
               <span className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500">
-                <Eye size={15} /> 已保存
+                <Eye size={15} /> {t("已保存")}
               </span>
             )}
             <input
@@ -5238,13 +5422,13 @@ function ExpenseModal({
                 if (!file) return;
                 setDirty(true);
                 if (file.size > 20 * 1024 * 1024) {
-                  setUploadMessage("文件太大，请选择 20MB 以内的图片或 PDF。");
+                  setUploadMessage(t("文件太大，请选择 20MB 以内的图片或 PDF。"));
                   return;
                 }
                 if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
                 setReceiptPreviewUrl(file.type.startsWith("image/") ? URL.createObjectURL(file) : "");
                 setUploading(true);
-                setUploadMessage("正在上传到电脑...");
+                setUploadMessage(t("正在上传到电脑..."));
                 const form = new FormData();
                 form.append("file", file);
                 form.append("linkedEntityType", "expense");
@@ -5254,9 +5438,9 @@ function ExpenseModal({
                   const metadata = await response.json();
                   setReceiptFileId(String(metadata.id));
                   setReceiptName(file.name);
-                  setUploadMessage("已上传到电脑。");
+                  setUploadMessage(t("已上传到电脑。"));
                 } catch {
-                  setUploadMessage("上传失败，请确认电脑端服务正在运行。");
+                  setUploadMessage(t("上传失败，请确认电脑端服务正在运行。"));
                 } finally {
                   setUploading(false);
                 }
@@ -5265,14 +5449,14 @@ function ExpenseModal({
           </label>
           {uploadMessage && <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-600">{uploadMessage}</div>}
           {receiptPreviewUrl ? (
-            <img src={receiptPreviewUrl} alt="小票预览" className="h-40 w-full rounded-2xl border border-slate-100 object-contain" />
+            <img src={receiptPreviewUrl} alt={t("小票预览")} className="h-40 w-full rounded-2xl border border-slate-100 object-contain" />
           ) : receiptFileId && isImageMime(expense?.receiptMimeType || "") && (
-            <UploadImage fileId={receiptFileId} alt="小票预览" className="h-40 w-full rounded-2xl border border-slate-100 object-contain" />
+            <UploadImage fileId={receiptFileId} alt={t("小票预览")} className="h-40 w-full rounded-2xl border border-slate-100 object-contain" />
           )}
         </div>
 
         <button className="mt-3 h-11 w-full rounded-full bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800">
-          保存
+          {t("保存")}
         </button>
       </form>
     </div>
@@ -5298,6 +5482,7 @@ function QuickModal({
   onCreated: () => Promise<void>;
   onSaveRequest: SaveRequest;
 }) {
+  const { language, t } = useUiText();
   useEscapeClose(onClose);
 
   if (mode === "expense") {
@@ -5427,7 +5612,7 @@ function QuickModal({
               .map((item) => ({ content: item.title.trim(), completed: item.completed }))
               .filter((item) => item.content);
             if (itemDrafts.length === 0) {
-              alert("请至少添加一个待办条目。");
+              alert(t("请至少添加一个待办条目。"));
               return;
             }
             await onSaveRequest("/api/todo-lists", {
@@ -5507,14 +5692,14 @@ function QuickModal({
           await onCreated();
           onClose();
           } catch (error) {
-            alert(`保存失败：${error instanceof Error ? error.message : "请确认本地服务正在运行"}`);
+            alert(`${t("保存失败")}：${error instanceof Error ? t(error.message) : t("请确认本地服务正在运行")}`);
           }
         }}
       >
         <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
           <h2 className="min-w-0 break-words text-xl font-semibold">{modalTitle}</h2>
           <button type="button" className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-sm" onClick={onClose}>
-            关闭
+            {t("关闭")}
           </button>
         </div>
 
@@ -5528,7 +5713,7 @@ function QuickModal({
                 setTodoItems(items);
               }}
             />
-            <textarea name="notes" className="min-h-[70px] w-full min-w-0 resize-none rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="备注，可选" />
+            <textarea name="notes" className="min-h-[70px] w-full min-w-0 resize-none rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder={t("备注，可选")} />
           </div>
         ) : mode === "plan" ? (
           <div className="grid gap-3">
@@ -5538,9 +5723,9 @@ function QuickModal({
               <Input name="startDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
               <Input name="endDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
             </div>
-            <textarea name="reflectionNote" className="min-h-[100px] rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="日计划复盘，可留空" />
+            <textarea name="reflectionNote" className="min-h-[100px] rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder={t("日计划复盘，可留空")} />
             <div className="rounded-2xl border border-slate-200 p-3">
-              <div className="mb-2 text-sm font-medium">加入任务</div>
+              <div className="mb-2 text-sm font-medium">{t("加入任务")}</div>
               <div className="grid gap-2 md:grid-cols-2">
                 {tasks.map((item) => (
                   <label key={item.id} className="flex items-center gap-2 text-sm text-slate-600">
@@ -5587,32 +5772,32 @@ function QuickModal({
               <Input name="startDate" type="date" defaultValue={task?.startDate || ""} />
               <Input name="dueDate" type="datetime-local" defaultValue={toDateTimeInputValue(task?.dueDate)} />
             </div>
-            <textarea name="description" className="min-h-[90px] rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder="描述" defaultValue={task?.description || ""} />
+            <textarea name="description" className="min-h-[90px] rounded-2xl border border-slate-200 p-3 outline-none focus:border-slate-400" placeholder={t("描述")} defaultValue={task?.description || ""} />
             <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)_minmax(0,1fr)] gap-2">
               {!isDeadlineForm ? (
                 <label className="grid min-w-0 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-2 text-xs font-medium text-slate-500">
-                  类型
+                  {t("类型")}
                   <Select
                     name="type"
                     value={selectedTaskType}
                     onChange={(event) => changeTaskType(event.target.value as TaskType)}
                     className="task-type-select h-10 min-w-0 w-full px-1 text-xs sm:px-2 sm:text-sm"
                     options={[
-                      ["todo", "待办"],
-                      ["counter", "计数"],
-                      ["checklist", "清单"]
+                      ["todo", t("待办")],
+                      ["counter", t("计数")],
+                      ["checklist", t("清单")]
                     ]}
                   />
                 </label>
               ) : (
                 <label className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
                   <input type="checkbox" checked={progressEnabled} onChange={(event) => setProgressEnabled(event.target.checked)} />
-                  <span className="leading-tight">计数进度</span>
+                  <span className="leading-tight">{t("计数进度")}</span>
                 </label>
               )}
 
               <div className="grid min-w-0 gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-2 text-xs font-medium text-slate-500">
-                计数
+                {t("计数")}
                 {usesAutomaticChecklistProgress ? (
                   <div className="flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900">
                     {checklistProgress.current} / {checklistProgress.target}
@@ -5620,7 +5805,7 @@ function QuickModal({
                 ) : progressEnabled ? (
                   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
                     <Input
-                      aria-label="当前值"
+                      aria-label={t("当前值")}
                       type="number"
                       min="0"
                       value={progressCurrentValue}
@@ -5629,19 +5814,19 @@ function QuickModal({
                     />
                     <span className="text-slate-400">/</span>
                     <Input
-                      aria-label="目标值"
+                      aria-label={t("目标值")}
                       type="number"
                       min="1"
                       required
                       value={progressTargetValue}
                       onChange={(event) => setProgressTargetValue(event.target.value)}
-                      placeholder="目标"
+                      placeholder={t("目标")}
                       className="progress-number-input h-10 min-w-0 px-1 text-center text-xs sm:px-2 sm:text-sm"
                     />
                   </div>
                 ) : (
                   <div className="flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-2 text-sm font-normal text-slate-400">
-                    无需计数
+                    {t("无需计数")}
                   </div>
                 )}
               </div>
@@ -5654,14 +5839,14 @@ function QuickModal({
                 <span className="inline-flex min-w-0 items-center gap-1 sm:gap-2">
                   <Bell size={16} className="hidden shrink-0 text-slate-500 sm:block" />
                   <span className="min-w-0">
-                    <span className="block whitespace-nowrap text-xs font-medium text-slate-500"><span className="sm:hidden">提醒</span><span className="hidden sm:inline">是否提醒</span></span>
+                    <span className="block whitespace-nowrap text-xs font-medium text-slate-500"><span className="sm:hidden">{t("提醒")}</span><span className="hidden sm:inline">{t("是否提醒")}</span></span>
                     <span className="block truncate whitespace-nowrap text-xs font-semibold text-slate-900 sm:text-sm">{reminderRuleLabel({
                       type: reminderType,
                       time: reminderTime,
                       weekdays: weeklyReminderDays,
                       intervalDays: Number(intervalReminderDays || 7),
                       anchorDate: intervalAnchorDate
-                    })}</span>
+                    }, language)}</span>
                   </span>
                 </span>
                 <ChevronDown size={16} className="hidden shrink-0 -rotate-90 text-slate-400 sm:block" />
@@ -5747,6 +5932,7 @@ function ReminderRuleEditor({
   onChangeIntervalAnchorDate: (value: string) => void;
   onClose: () => void;
 }) {
+  const { language, t } = useUiText();
   useEscapeClose(onClose);
 
   function chooseType(value: ReminderType) {
@@ -5768,11 +5954,11 @@ function ReminderRuleEditor({
   }
 
   const options: Array<{ type: ReminderType; title: string; detail: string }> = [
-    { type: "none", title: "不提醒", detail: "默认选项，不发送通知" },
-    { type: "daily_time", title: "每天提醒一次", detail: `每天 ${reminderTime} 通知` },
-    { type: "deadline_24h", title: "截止前 24 小时", detail: "任务有截止时间时生效" },
-    { type: "weekly_time", title: "每周提醒", detail: `${weekdaysLabel(weeklyReminderDays)} ${reminderTime}` },
-    { type: "interval_days", title: "每隔几天提醒", detail: `每 ${Math.max(1, Number(intervalReminderDays || 1))} 天 ${reminderTime}` }
+    { type: "none", title: t("不提醒"), detail: t("默认选项，不发送通知") },
+    { type: "daily_time", title: t("每天提醒一次"), detail: language === "en" ? `Daily at ${reminderTime}` : language === "zh-TW" ? `每天 ${reminderTime} 通知` : `每天 ${reminderTime} 通知` },
+    { type: "deadline_24h", title: t("截止前 24 小时"), detail: t("任务有截止时间时生效") },
+    { type: "weekly_time", title: t("每周提醒"), detail: `${weekdaysLabel(weeklyReminderDays, language)} ${reminderTime}` },
+    { type: "interval_days", title: t("每隔几天提醒"), detail: language === "en" ? `Every ${Math.max(1, Number(intervalReminderDays || 1))} days at ${reminderTime}` : language === "zh-TW" ? `每 ${Math.max(1, Number(intervalReminderDays || 1))} 天 ${reminderTime}` : `每 ${Math.max(1, Number(intervalReminderDays || 1))} 天 ${reminderTime}` }
   ];
 
   return (
@@ -5787,11 +5973,11 @@ function ReminderRuleEditor({
       <section className="reminder-rule-modal w-full max-w-4xl rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.25)]">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <div className="text-lg font-semibold text-slate-950">提醒设置</div>
-            <div className="mt-1 text-sm text-slate-500">选择任务通知方式</div>
+            <div className="text-lg font-semibold text-slate-950">{t("提醒设置")}</div>
+            <div className="mt-1 text-sm text-slate-500">{t("选择任务通知方式")}</div>
           </div>
           <button type="button" className="rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50" onClick={onClose}>
-            关闭
+            {t("关闭")}
           </button>
         </div>
 
@@ -5820,38 +6006,38 @@ function ReminderRuleEditor({
 
           <div className="min-h-[360px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="mb-4">
-              <div className="text-sm font-semibold text-slate-950">提醒参数</div>
+              <div className="text-sm font-semibold text-slate-950">{t("提醒参数")}</div>
               <div className="mt-1 text-xs text-slate-500">{reminderRuleLabel({
                 type: reminderType,
                 time: reminderTime,
                 weekdays: weeklyReminderDays,
                 intervalDays: Number(intervalReminderDays || 7),
                 anchorDate: intervalAnchorDate
-              })}</div>
+              }, language)}</div>
             </div>
 
             {reminderType === "none" && (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
-                当前任务不会发送提醒通知。需要提醒时，在左侧选择一种提醒方式。
+                {t("当前任务不会发送提醒通知。需要提醒时，在左侧选择一种提醒方式。")}
               </div>
             )}
 
             {reminderType === "deadline_24h" && (
               <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                系统会在任务截止前 24 小时提醒你。这个选项会使用任务里的截止时间，不需要额外设置。
+                {t("系统会在任务截止前 24 小时提醒你。这个选项会使用任务里的截止时间，不需要额外设置。")}
               </div>
             )}
 
             {(reminderType === "daily_time" || reminderType === "weekly_time" || reminderType === "interval_days") && (
               <div className="grid gap-3">
                 <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-slate-600">提醒时间</span>
+                  <span className="font-medium text-slate-600">{t("提醒时间")}</span>
                   <Input type="time" value={reminderTime} onChange={(event) => onChangeTime(event.target.value)} />
                 </label>
 
                 {reminderType === "weekly_time" && (
                   <div className="grid gap-2">
-                    <div className="text-sm font-medium text-slate-600">星期</div>
+                    <div className="text-sm font-medium text-slate-600">{t("星期")}</div>
                     <div className="flex flex-wrap gap-2">
                       {[
                         [1, "周一"],
@@ -5873,7 +6059,7 @@ function ReminderRuleEditor({
                             }`}
                             onClick={() => toggleWeekday(value)}
                           >
-                            {label}
+                            {t(String(label))}
                           </button>
                         );
                       })}
@@ -5884,11 +6070,11 @@ function ReminderRuleEditor({
                 {reminderType === "interval_days" && (
                   <div className="grid gap-3 md:grid-cols-2">
                     <label className="grid gap-1 text-sm">
-                      <span className="font-medium text-slate-600">每隔几天</span>
+                      <span className="font-medium text-slate-600">{t("每隔几天")}</span>
                       <Input type="number" min="1" value={intervalReminderDays} onChange={(event) => onChangeIntervalDays(event.target.value)} />
                     </label>
                     <label className="grid gap-1 text-sm">
-                      <span className="font-medium text-slate-600">从哪天开始</span>
+                      <span className="font-medium text-slate-600">{t("从哪天开始")}</span>
                       <Input type="date" value={intervalAnchorDate} onChange={(event) => onChangeIntervalAnchorDate(event.target.value)} />
                     </label>
                   </div>
@@ -5896,7 +6082,7 @@ function ReminderRuleEditor({
 
                 {reminderType === "daily_time" && (
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                    每天到这个时间，MacBook 会收到一次任务提醒。
+                    {t("每天到这个时间，MacBook 会收到一次任务提醒。")}
                   </div>
                 )}
               </div>
@@ -5904,14 +6090,14 @@ function ReminderRuleEditor({
 
             {(reminderType === "daily_until_due" || reminderType === "hourly_until_due" || reminderType === "custom") && (
               <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                这是旧任务里的提醒规则，仍会保留并生效。需要新的固定时间提醒时，可以在左侧改选每天、每周或每隔几天提醒。
+                {t("这是旧任务里的提醒规则，仍会保留并生效。需要新的固定时间提醒时，可以在左侧改选每天、每周或每隔几天提醒。")}
               </div>
             )}
           </div>
         </div>
 
         <button type="button" className="mt-4 w-full rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white" onClick={() => void applyAndClose()}>
-          完成
+          {t("完成")}
         </button>
       </section>
     </div>
@@ -5919,6 +6105,7 @@ function ReminderRuleEditor({
 }
 
 function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
+  const { t } = useUiText();
   const [draft, setDraft] = useState("");
 
   function addTag(value: string) {
@@ -5946,7 +6133,7 @@ function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string
               type="button"
               className="ml-1 rounded-full text-slate-400 transition hover:text-slate-700"
               onClick={() => removeTag(tag)}
-              title={`删除标签 ${tag}`}
+              title={`${t("删除标签")} ${tag}`}
             >
               <X size={13} />
             </button>
@@ -5967,7 +6154,7 @@ function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string
             }
           }}
           onBlur={() => addTag(draft)}
-          placeholder={tags.length === 0 ? "输入标签，按回车生成" : "继续添加标签"}
+          placeholder={t(tags.length === 0 ? "输入标签，按回车生成" : "继续添加标签")}
         />
       </div>
     </div>
@@ -5981,6 +6168,7 @@ function TodoChecklistEditor({
   items: TodoDraftItem[];
   onChange: (items: TodoDraftItem[]) => void;
 }) {
+  const { t } = useUiText();
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [pendingFocusId, setPendingFocusId] = useState<string | null>(null);
 
@@ -6028,7 +6216,7 @@ function TodoChecklistEditor({
 
   return (
     <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
-      <div className="mb-2 break-words text-sm font-medium text-slate-700">待办条目</div>
+      <div className="mb-2 break-words text-sm font-medium text-slate-700">{t("待办条目")}</div>
       <div className="min-w-0 space-y-1">
         {items.map((item, index) => (
           <div key={item.id} className="group flex min-w-0 items-center gap-2 rounded-lg px-1 py-1.5">
@@ -6038,7 +6226,7 @@ function TodoChecklistEditor({
                 item.completed ? "border-yellow-500 bg-yellow-500 text-white" : "border-slate-300 bg-white text-transparent hover:border-slate-400"
               }`}
               onClick={() => updateItem(item.id, { completed: !item.completed })}
-              title={item.completed ? "取消完成" : "标记完成"}
+              title={t(item.completed ? "取消完成" : "标记完成")}
             >
               <Check size={14} />
             </button>
@@ -6061,13 +6249,13 @@ function TodoChecklistEditor({
                   removeItem(item.id);
                 }
               }}
-              placeholder={index === 0 ? "待办条目" : ""}
+              placeholder={index === 0 ? t("待办条目") : ""}
             />
             <button
               type="button"
               className="shrink-0 rounded-lg p-1 text-slate-300 opacity-100 transition hover:bg-slate-100 hover:text-slate-600 md:opacity-0 md:group-hover:opacity-100"
               onClick={() => removeItem(item.id)}
-              title="删除条目"
+              title={t("删除条目")}
             >
               <X size={14} />
             </button>
@@ -6075,7 +6263,7 @@ function TodoChecklistEditor({
         ))}
       </div>
       <button type="button" className="mt-2 rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100" onClick={() => addItem()}>
-        + 添加一行
+        + {t("添加一行")}
       </button>
     </div>
   );
@@ -6293,26 +6481,29 @@ function MobileNav({
 }
 
 function ActionButton({ onClick, icon, label, className = "" }: { onClick: () => void; icon: React.ReactNode; label: string; className?: string }) {
+  const { t } = useUiText();
   return (
     <button className={`inline-flex shrink-0 items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm ${className}`} onClick={onClick}>
       {icon}
-      {label}
+      {t(label)}
     </button>
   );
 }
 
 function SectionTitle({ title }: { title: string }) {
-  return <h2 className="mb-3 text-base font-semibold">{title}</h2>;
+  const { t } = useUiText();
+  return <h2 className="mb-3 text-base font-semibold">{t(title)}</h2>;
 }
 
 function Badge({ children, tone = "slate" }: { children: React.ReactNode; tone?: "slate" | "red" | "green" }) {
+  const { t } = useUiText();
   const className =
     tone === "red"
       ? "bg-red-100 text-red-700"
       : tone === "green"
         ? "bg-emerald-100 text-emerald-700"
         : "bg-slate-100 text-slate-600";
-  return <span className={`rounded-lg px-2 py-1 text-xs ${className}`}>{children}</span>;
+  return <span className={`rounded-lg px-2 py-1 text-xs ${className}`}>{typeof children === "string" ? t(children) : children}</span>;
 }
 
 function ProgressLine({
@@ -6351,54 +6542,163 @@ function SearchBox({
   placeholder: string;
   className?: string;
 }) {
+  const { t } = useUiText();
   return (
     <label className={`mb-4 flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm ${className}`}>
       <Search size={16} className="text-slate-400" />
-      <input className="w-full bg-transparent text-sm outline-none" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+      <input className="w-full bg-transparent text-sm outline-none" value={value} onChange={(event) => onChange(event.target.value)} placeholder={t(placeholder)} />
     </label>
   );
 }
 
 function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  const { className = "", ...rest } = props;
-  const isDateInput = rest.type === "date";
+  const { language, t } = useUiText();
+  const {
+    className = "",
+    placeholder,
+    title,
+    lang,
+    type,
+    value,
+    defaultValue,
+    onChange,
+    name,
+    min,
+    max,
+    ...rest
+  } = props;
+  const isDateInput = type === "date";
+  const [typedDate, setTypedDate] = useState(() => String(value ?? defaultValue ?? ""));
+
+  useEffect(() => {
+    if (!isDateInput || value === undefined) return;
+    setTypedDate(String(value ?? ""));
+  }, [isDateInput, value]);
+
+  function emitDateChange(element: HTMLInputElement) {
+    onChange?.({
+      target: element,
+      currentTarget: element
+    } as React.ChangeEvent<HTMLInputElement>);
+  }
+
+  function normalizeTypedDate(rawValue: string) {
+    const match = rawValue.trim().match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+    if (!match) return null;
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    return `${match[1]}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
   const inputClassName = isDateInput
     ? `date-input min-h-14 rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-[15px] font-medium tabular-nums text-slate-800 shadow-sm outline-none transition hover:border-slate-300 focus:border-slate-500 focus:ring-4 focus:ring-slate-100 ${className}`
     : `rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 ${className}`;
 
+  if (isDateInput && language !== "zh-CN") {
+    const dateTitle = t(String(title || "输入 YYYY-MM-DD，或打开日历选择"));
+    const calendarValue = normalizeTypedDate(typedDate) ?? "";
+    return (
+      <div className={`date-input relative flex min-h-14 items-center overflow-hidden rounded-[20px] border border-slate-200 bg-white text-[15px] font-medium tabular-nums text-slate-800 shadow-sm transition hover:border-slate-300 focus-within:border-slate-500 focus-within:ring-4 focus-within:ring-slate-100 ${className}`}>
+        <input
+          {...rest}
+          type="text"
+          name={name}
+          value={typedDate}
+          lang={lang ?? uiLanguageLocale(language)}
+          inputMode="numeric"
+          autoComplete="off"
+          pattern="\d{4}[-/.]\d{1,2}[-/.]\d{1,2}"
+          placeholder={placeholder ? t(String(placeholder)) : "YYYY-MM-DD"}
+          title={dateTitle}
+          className="min-h-14 min-w-0 flex-1 bg-transparent px-4 py-3 outline-none"
+          onChange={(event) => {
+            setTypedDate(event.target.value);
+            const normalized = normalizeTypedDate(event.target.value);
+            if (normalized || event.target.value === "") {
+              const originalValue = event.target.value;
+              event.target.value = normalized ?? "";
+              emitDateChange(event.target);
+              event.target.value = originalValue;
+            }
+          }}
+          onBlur={(event) => {
+            const normalized = normalizeTypedDate(event.target.value);
+            if (normalized) {
+              setTypedDate(normalized);
+              event.target.value = normalized;
+              emitDateChange(event.target);
+            }
+            props.onBlur?.(event);
+          }}
+        />
+        <label className="relative flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center border-l border-slate-200 text-slate-500 hover:bg-slate-50" title={dateTitle}>
+          <CalendarDays size={18} aria-hidden="true" />
+          <span className="sr-only">{t("打开日历")}</span>
+          <input
+            type="date"
+            value={calendarValue}
+            min={min}
+            max={max}
+            disabled={rest.disabled}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            aria-label={t("打开日历")}
+            onChange={(event) => {
+              setTypedDate(event.target.value);
+              emitDateChange(event.target);
+            }}
+          />
+        </label>
+      </div>
+    );
+  }
+
   return (
     <input
       className={inputClassName}
+      lang={lang ?? uiLanguageLocale(language)}
+      type={type}
+      name={name}
+      value={value}
+      defaultValue={defaultValue}
+      min={min}
+      max={max}
+      onChange={onChange}
       inputMode={isDateInput ? "numeric" : rest.inputMode}
-      title={isDateInput && !rest.title ? "可点击年、月、日后直接用键盘输入，也可打开日历选择" : rest.title}
+      placeholder={placeholder ? t(String(placeholder)) : undefined}
+      title={t(String(isDateInput && !title ? "可点击年、月、日后直接用键盘输入，也可打开日历选择" : title ?? "")) || undefined}
       {...rest}
     />
   );
 }
 
 function Select(props: React.SelectHTMLAttributes<HTMLSelectElement> & { options: Array<[string, string]> }) {
+  const { t } = useUiText();
   const { options, className = "", ...rest } = props;
   return (
     <select className={`rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 ${className}`} {...rest}>
       {options.map(([value, label]) => (
-        <option key={value} value={value}>{label}</option>
+        <option key={value} value={value}>{t(label)}</option>
       ))}
     </select>
   );
 }
 
 function EmptyBlock({ text }: { text: string }) {
-  return <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">{text}</div>;
+  const { t } = useUiText();
+  return <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">{t(text)}</div>;
 }
 
 function EmptyLine({ text }: { text: string }) {
-  return <div className="rounded-lg border border-dashed border-slate-200 p-3 text-sm text-slate-500">{text}</div>;
+  const { t } = useUiText();
+  return <div className="rounded-lg border border-dashed border-slate-200 p-3 text-sm text-slate-500">{t(text)}</div>;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
+  const { t } = useUiText();
   return (
     <div className="flex justify-between gap-3 border-b border-slate-100 py-3 text-sm">
-      <span className="text-slate-500">{label}</span>
+      <span className="text-slate-500">{t(label)}</span>
       <span className="font-mono text-slate-800">{value}</span>
     </div>
   );
@@ -6684,8 +6984,8 @@ function timetableMinutesSinceMidnight(value: Date | string) {
   return parts.hour * 60 + parts.minute;
 }
 
-function weekdayLabel(date: Date) {
-  return date.toLocaleDateString("zh-CN", { timeZone: timetableTimeZone, weekday: "short" });
+function weekdayLabel(date: Date, language: UiLanguage = "zh-CN") {
+  return date.toLocaleDateString(uiLanguageLocale(language), { timeZone: timetableTimeZone, weekday: "short" });
 }
 
 function monthDayLabel(date: Date) {
@@ -6700,18 +7000,19 @@ function formatCalendarHour(hour: number) {
   return `${hour - 12}:00 PM`;
 }
 
-function formatCalendarTimeRange(occurrence: CourseOccurrence) {
+function formatCalendarTimeRange(occurrence: CourseOccurrence, language: UiLanguage = "zh-CN") {
   const options: Intl.DateTimeFormatOptions = {
     timeZone: timetableTimeZone,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
   };
-  return `${new Date(occurrence.startAt).toLocaleTimeString("zh-CN", options)} - ${new Date(occurrence.endAt).toLocaleTimeString("zh-CN", options)}`;
+  const locale = uiLanguageLocale(language);
+  return `${new Date(occurrence.startAt).toLocaleTimeString(locale, options)} - ${new Date(occurrence.endAt).toLocaleTimeString(locale, options)}`;
 }
 
-function formatTimetableDateTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
+function formatTimetableDateTime(value: string, language: UiLanguage = "zh-CN") {
+  return new Intl.DateTimeFormat(uiLanguageLocale(language), {
     timeZone: timetableTimeZone,
     year: "numeric",
     month: "2-digit",
@@ -6925,9 +7226,9 @@ function daysUntil(date?: string | null) {
   return Math.ceil((due - today) / 86400000);
 }
 
-function countdownText(date?: string | null) {
+function countdownText(date?: string | null, language: UiLanguage = "zh-CN") {
   const due = parseTaskDate(date);
-  if (!due) return "无截止时间";
+  if (!due) return translateUiText(language, "无截止时间");
   const diffMs = due.getTime() - Date.now();
   const abs = Math.abs(diffMs);
   const totalMinutes = Math.max(1, Math.round(abs / 60000));
@@ -6935,12 +7236,19 @@ function countdownText(date?: string | null) {
   const hours = Math.floor((totalMinutes % 1440) / 60);
   const minutes = totalMinutes % 60;
   const totalHours = Math.floor(totalMinutes / 60);
-  const text = abs > 24 * 60 * 60 * 1000
-    ? `${days} 天 ${hours} 小时`
-    : totalHours > 0
-      ? `${totalHours} 小时 ${minutes} 分钟`
-      : `${minutes} 分钟`;
-  return diffMs < 0 ? `已过期 ${text}` : `还剩 ${text}`;
+  const text = language === "en"
+    ? abs > 24 * 60 * 60 * 1000
+      ? `${days}d ${hours}h`
+      : totalHours > 0
+        ? `${totalHours}h ${minutes}m`
+        : `${minutes}m`
+    : abs > 24 * 60 * 60 * 1000
+      ? `${days} ${language === "zh-TW" ? "天" : "天"} ${hours} ${language === "zh-TW" ? "小時" : "小时"}`
+      : totalHours > 0
+        ? `${totalHours} ${language === "zh-TW" ? "小時" : "小时"} ${minutes} ${language === "zh-TW" ? "分鐘" : "分钟"}`
+        : `${minutes} ${language === "zh-TW" ? "分鐘" : "分钟"}`;
+  if (language === "en") return diffMs < 0 ? `Overdue by ${text}` : `${text} remaining`;
+  return diffMs < 0 ? `${language === "zh-TW" ? "已過期" : "已过期"} ${text}` : `${language === "zh-TW" ? "還剩" : "还剩"} ${text}`;
 }
 
 function expiryCountdownClass(date?: string | null) {
@@ -6959,10 +7267,10 @@ function parseTaskDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatTaskDateTime(value?: string | null) {
+function formatTaskDateTime(value?: string | null, language: UiLanguage = "zh-CN") {
   const date = parseTaskDate(value);
-  if (!date) return "未设置";
-  return date.toLocaleString("zh-CN", {
+  if (!date) return translateUiText(language, "未设置");
+  return date.toLocaleString(uiLanguageLocale(language), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -6973,14 +7281,14 @@ function formatTaskDateTime(value?: string | null) {
   });
 }
 
-function formatDateTime(value?: string | null) {
-  return formatTaskDateTime(value);
+function formatDateTime(value?: string | null, language: UiLanguage = "zh-CN") {
+  return formatTaskDateTime(value, language);
 }
 
-function formatDateOnly(value?: string | null) {
+function formatDateOnly(value?: string | null, language: UiLanguage = "zh-CN") {
   const date = parseTaskDate(value);
-  if (!date) return "未设置";
-  return date.toLocaleDateString("zh-CN", {
+  if (!date) return translateUiText(language, "未设置");
+  return date.toLocaleDateString(uiLanguageLocale(language), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit"
@@ -7105,9 +7413,12 @@ function isIntervalReminderDay(date: Date, rule: Extract<ReminderRule, { type: "
   return diffDays >= 0 && diffDays % intervalDays === 0;
 }
 
-function weekdaysLabel(days: number[]) {
+function weekdaysLabel(days: number[], language: UiLanguage = "zh-CN") {
   const labels = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-  return [...days].sort((a, b) => a - b).map((day) => labels[day] || "周日").join("、");
+  return [...days]
+    .sort((a, b) => a - b)
+    .map((day) => translateUiText(language, labels[day] || "周日"))
+    .join(language === "en" ? ", " : "、");
 }
 
 function reminderRuleLabel(rule: {
@@ -7116,15 +7427,15 @@ function reminderRuleLabel(rule: {
   weekdays?: number[];
   intervalDays?: number;
   anchorDate?: string;
-}) {
-  if (rule.type === "none") return "不提醒";
-  if (rule.type === "daily_time") return `每天 ${rule.time || "08:00"}`;
-  if (rule.type === "deadline_24h") return "截止前 24 小时";
-  if (rule.type === "weekly_time") return `${weekdaysLabel(rule.weekdays?.length ? rule.weekdays : [0])} ${rule.time || "08:00"}`;
-  if (rule.type === "interval_days") return `每 ${Math.max(1, Number(rule.intervalDays || 1))} 天 ${rule.time || "08:00"}`;
-  if (rule.type === "daily_until_due") return "每天直到截止";
-  if (rule.type === "hourly_until_due") return "每小时直到截止";
-  return "自定义提醒";
+}, language: UiLanguage = "zh-CN") {
+  if (rule.type === "none") return translateUiText(language, "不提醒");
+  if (rule.type === "daily_time") return language === "en" ? `Daily at ${rule.time || "08:00"}` : `每天 ${rule.time || "08:00"}`;
+  if (rule.type === "deadline_24h") return translateUiText(language, "截止前 24 小时");
+  if (rule.type === "weekly_time") return `${weekdaysLabel(rule.weekdays?.length ? rule.weekdays : [0], language)} ${rule.time || "08:00"}`;
+  if (rule.type === "interval_days") return language === "en" ? `Every ${Math.max(1, Number(rule.intervalDays || 1))} days at ${rule.time || "08:00"}` : `每 ${Math.max(1, Number(rule.intervalDays || 1))} 天 ${rule.time || "08:00"}`;
+  if (rule.type === "daily_until_due") return translateUiText(language, "每天直到截止");
+  if (rule.type === "hourly_until_due") return translateUiText(language, "每小时直到截止");
+  return translateUiText(language, "自定义提醒");
 }
 
 async function requestBrowserNotificationPermission() {
