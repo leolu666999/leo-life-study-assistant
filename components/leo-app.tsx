@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   Bell,
@@ -61,7 +61,7 @@ import { mutationRefreshScope, type MutationRefreshScope } from "@/lib/mutation-
 import { matchesPlanSearch, matchesTodoListSearch } from "@/lib/plan-search";
 import { buildTimetableMonthDateKeys } from "@/lib/timetable-month";
 import { courseOccurrenceSequence } from "@/lib/timetable-occurrence";
-import { UI_LANGUAGE_STORAGE_KEY, type UiLanguage } from "@/lib/ui-language";
+import { translateUiText, uiLanguageLocale, UI_LANGUAGE_STORAGE_KEY, type UiLanguage } from "@/lib/ui-language";
 import {
   parseScheduleEntry,
   scheduleEntryTodoContent,
@@ -158,6 +158,16 @@ const defaultAppSettings: AppSettings = {
   showHomeTitle: true,
   language: "zh-CN"
 };
+
+const UiLanguageContext = createContext<UiLanguage>("zh-CN");
+
+function useUiText() {
+  const language = useContext(UiLanguageContext);
+  return {
+    language,
+    t: (source: string) => translateUiText(language, source)
+  };
+}
 
 const navItems: Array<{ view: View; href: string; label: string; icon: React.ReactNode }> = [
   { view: "dashboard", href: "/", label: "首页", icon: <Home size={18} /> },
@@ -1102,6 +1112,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
   const expenseTotals = useMemo(() => summarizeExpenses(expenses), [expenses]);
 
   return (
+    <UiLanguageContext.Provider value={appSettings.language}>
     <div className={`theme-${background} min-h-screen w-full max-w-full overflow-x-hidden pb-36 text-slate-900 ${pinnedProgress ? "pt-24 md:pt-0" : ""}`}>
       <div className="flex min-h-screen w-full max-w-full overflow-x-hidden">
         <aside
@@ -1135,29 +1146,29 @@ export function LeoApp({ initialView }: { initialView: View }) {
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   activeView === item.view ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
                 }`}
-                title={collapsed ? item.label : undefined}
+                title={collapsed ? translateUiText(appSettings.language, item.label) : undefined}
               >
                 {item.icon}
-                {!collapsed && <span className="transition-opacity duration-150">{item.label}</span>}
+                {!collapsed && <span className="transition-opacity duration-150">{translateUiText(appSettings.language, item.label)}</span>}
               </Link>
             ))}
           </nav>
           {!collapsed && (
             <Link href="/expenses" className="mt-4 block rounded-lg border border-slate-100 bg-white p-3 shadow-sm transition hover:border-slate-200 hover:shadow-soft">
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-semibold">收支记录</span>
+                <span className="text-sm font-semibold">{translateUiText(appSettings.language, "收支记录")}</span>
                 <WalletCards size={16} className="text-slate-400" />
               </div>
-              <div className="text-xs text-slate-500">今日结余</div>
+              <div className="text-xs text-slate-500">{translateUiText(appSettings.language, "今日结余")}</div>
               <div className="text-lg font-semibold">{formatExpenseTotals(expenseTotals.today.balance)}</div>
-              <div className="mt-2 truncate text-xs text-slate-500">本月结余 {formatExpenseTotals(expenseTotals.month.balance)}</div>
+              <div className="mt-2 truncate text-xs text-slate-500">{translateUiText(appSettings.language, "本月结余")} {formatExpenseTotals(expenseTotals.month.balance)}</div>
             </Link>
           )}
         </aside>
 
         <main className="mx-auto w-full max-w-full overflow-x-hidden px-3 py-4 md:max-w-7xl md:px-6 md:py-6">
           {loading ? (
-            <div className="rounded-lg bg-white p-6 shadow-soft">正在加载 MyAssist 的本地数据...</div>
+            <div className="rounded-lg bg-white p-6 shadow-soft">{translateUiText(appSettings.language, "正在加载 MyAssist 的本地数据...")}</div>
           ) : (
             <>
               {activeView === "dashboard" && (
@@ -1246,12 +1257,17 @@ export function LeoApp({ initialView }: { initialView: View }) {
                   appSettings={appSettings}
                   authStatus={authStatus}
                   onSaveSettings={async (patch) => {
+                    const previousSettings = appSettings;
+                    setAppSettings((current) => ({ ...current, ...patch }));
                     const response = await fetch("/api/settings", {
                       method: "PATCH",
                       headers: { "content-type": "application/json" },
                       body: JSON.stringify(patch)
                     });
-                    if (!response.ok) throw new Error("保存首页设置失败");
+                    if (!response.ok) {
+                      setAppSettings(previousSettings);
+                      throw new Error("保存首页设置失败");
+                    }
                     setAppSettings(await response.json());
                   }}
                   syncState={syncState}
@@ -1311,6 +1327,7 @@ export function LeoApp({ initialView }: { initialView: View }) {
         />
       )}
     </div>
+    </UiLanguageContext.Provider>
   );
 }
 
@@ -1330,6 +1347,7 @@ async function fetchJsonOr<T>(url: string, fallback: T): Promise<T> {
 }
 
 function SyncStatusPill({ state }: { state: SyncState }) {
+  const { t } = useUiText();
   const tone =
     state.connection === "online" && state.pendingCount === 0 && state.failedCount === 0
       ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
@@ -1349,7 +1367,7 @@ function SyncStatusPill({ state }: { state: SyncState }) {
             ? "离线暂存"
             : "检查中";
 
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${tone}`}>{label}</span>;
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${tone}`}>{t(label)}</span>;
 }
 
 function MobileSyncStatus({ state, onSync }: { state: SyncState; onSync: () => void }) {
@@ -1435,6 +1453,7 @@ function Dashboard({
   onSave: (url: string, options?: RequestInit) => Promise<void>;
   onProgressUpdate: (taskId: string, nextValue: number) => Promise<void>;
 }) {
+  const { language, t } = useUiText();
   const today = new Date();
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const [taskFilterOpen, setTaskFilterOpen] = useState(false);
@@ -1500,14 +1519,14 @@ function Dashboard({
       <PageHeader
         title={homeTitle}
         showTitle={showHomeTitle}
-        subtitle={today.toLocaleDateString("zh-CN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        subtitle={today.toLocaleDateString(uiLanguageLocale(language), { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         onTitleDoubleClick={() => setOverviewOpen(true)}
         actions={
           <>
             <ActionButton onClick={() => onOpenModal("todoList")} icon={<ListChecks size={16} />} label="To Do List" />
             <ActionButton onClick={() => onOpenModal("task")} icon={<CirclePlus size={16} />} label="Add Task" />
             <ActionButton onClick={() => onOpenModal("deadline")} icon={<CalendarDays size={16} />} label="Add Deadline" />
-            <ActionButton onClick={() => onOpenModal("expense")} icon={<WalletCards size={16} />} label="收支" />
+            <ActionButton className="ml-auto md:ml-0" onClick={() => onOpenModal("expense")} icon={<WalletCards size={16} />} label={t("收支")} />
           </>
         }
       />
@@ -1534,7 +1553,7 @@ function Dashboard({
             </Link>
           </div>
           <Link href="/schedule" className="block space-y-2">
-            {todaySchedule.length === 0 && <EmptyLine text="今天还没有课程或带时间的安排。" />}
+            {todaySchedule.length === 0 && <EmptyLine text={t("今天还没有课程或带时间的安排。")} />}
             {todaySchedule.map((event) => (
               <div
                 key={`${event.sourceType}-${event.id}`}
@@ -1567,7 +1586,7 @@ function Dashboard({
               onClick={() => setTaskFilterOpen((value) => !value)}
             >
               <SlidersHorizontal size={16} />
-              筛选
+              {t("筛选")}
             </button>
           </div>
           {taskFilterOpen && (
@@ -1690,6 +1709,7 @@ function TasksPage({
   onProgressUpdate: (taskId: string, nextValue: number) => Promise<void>;
   onToggleSubtask: (taskId: string, subtaskId: string, completed: boolean) => void;
 }) {
+  const { t } = useUiText();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"active" | "completed" | "all">("active");
   const [typeFilter, setTypeFilter] = useState<TaskType | "progress" | "">("");
@@ -1743,9 +1763,9 @@ function TasksPage({
   return (
     <>
       <PageHeader
-        title="任务"
-        subtitle="统一管理任务、截止日期、清单和计数目标"
-        actions={<ActionButton onClick={() => onOpenModal("task")} icon={<Plus size={16} />} label="新建任务" />}
+        title={t("任务")}
+        subtitle={t("统一管理任务、截止日期、清单和计数目标")}
+        actions={<ActionButton onClick={() => onOpenModal("task")} icon={<Plus size={16} />} label={t("新建任务")} />}
       />
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {statusTabs.map(([value, label]) => (
@@ -1756,7 +1776,7 @@ function TasksPage({
             }`}
             onClick={() => setStatusFilter(value)}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>
@@ -1770,7 +1790,7 @@ function TasksPage({
               }`}
               onClick={() => setTypeFilter(value)}
             >
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -1807,6 +1827,7 @@ function TasksPage({
 }
 
 function TodoListPreviewCard({ items, onToggle }: { items: TodoListItem[]; onToggle: (id: string, completed: boolean) => Promise<void> | void }) {
+  const { t } = useUiText();
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const completionTimers = useRef<number[]>([]);
   const hasOverflowHint = items.length > 4;
@@ -1847,7 +1868,7 @@ function TodoListPreviewCard({ items, onToggle }: { items: TodoListItem[]; onTog
 
       {items.length === 0 ? (
         <div className="rounded-lg bg-slate-50 px-4 py-5 text-sm text-slate-500">
-          No tasks for today. Add one to get started.
+          {t("No tasks for today. Add one to get started.")}
         </div>
       ) : (
         <div className="todo-preview-list scrollbar-thin space-y-2 pb-16 pr-1">
@@ -2180,6 +2201,7 @@ function PlansPage({
   onSave: (url: string, options?: RequestInit) => Promise<void>;
   onToggleTodoItem: (id: string, completed: boolean) => Promise<void> | void;
 }) {
+  const { t } = useUiText();
   const [activePlanView, setActivePlanView] = useState<PlanType>("daily");
   const [searchQuery, setSearchQuery] = useState("");
   const weeklyMonthlyPlans = plans.filter((plan) => plan.type !== "daily");
@@ -2218,8 +2240,8 @@ function PlansPage({
   return (
     <>
       <PageHeader
-        title="计划"
-        subtitle="Daily 是 To Do List；Weekly / Monthly 保留为计划。"
+        title={t("计划")}
+        subtitle={t("Daily 是 To Do List；Weekly / Monthly 保留为计划。")}
         actions={headerAction}
       />
       <section className="mb-4 rounded-lg bg-white p-3 shadow-soft">
@@ -3085,7 +3107,7 @@ function TimetableOccurrenceDetailDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
       data-modal-backdrop
       onInputCapture={markModalDirty}
       onChangeCapture={markModalDirty}
@@ -3279,28 +3301,29 @@ function UnifiedSchedulePage({
   onToggleTodoItem: (id: string, completed: boolean) => void;
   onTodoListSaved: (todoList: TodoList) => void;
 }) {
+  const { t } = useUiText();
   const [section, setSection] = useState(initialSection);
   const [addingSchedule, setAddingSchedule] = useState(false);
 
   return (
     <>
       <PageHeader
-        title="日程"
-        subtitle="把课程、每日安排和带时间的 To Do 放进同一份 Calendar。"
-        actions={<ActionButton onClick={() => setAddingSchedule(true)} icon={<Plus size={16} />} label="添加日程" />}
+        title={t("日程")}
+        subtitle={t("把课程、每日安排和带时间的 To Do 放进同一份 Calendar。")}
+        actions={<ActionButton onClick={() => setAddingSchedule(true)} icon={<Plus size={16} />} label={t("添加日程")} />}
       />
       <div className="mb-4 inline-flex rounded-full bg-slate-100 p-1">
         <button
           className={`rounded-full px-4 py-2 text-sm font-semibold ${section === "calendar" ? "bg-slate-900 text-white" : "text-slate-600"}`}
           onClick={() => setSection("calendar")}
         >
-          我的日程
+          {t("我的日程")}
         </button>
         <button
           className={`rounded-full px-4 py-2 text-sm font-semibold ${section === "courses" ? "bg-slate-900 text-white" : "text-slate-600"}`}
           onClick={() => setSection("courses")}
         >
-          课程管理
+          {t("课程管理")}
         </button>
       </div>
 
@@ -3413,7 +3436,7 @@ function AddScheduleDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/30 p-3 backdrop-blur-sm md:items-center"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/30 p-3 backdrop-blur-sm"
       data-modal-backdrop
       onInputCapture={markModalDirty}
       onChangeCapture={markModalDirty}
@@ -3496,6 +3519,7 @@ function SchedulePage({
   onToggleTodoItem: (id: string, completed: boolean) => void;
   embedded?: boolean;
 }) {
+  const { t } = useUiText();
   const [date, setDate] = useState(localDateKey(new Date()));
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
   const events = useMemo(() => buildScheduleEvents(date, courseOccurrences, todoLists), [date, courseOccurrences, todoLists]);
@@ -3518,8 +3542,8 @@ function SchedulePage({
     <>
       {!embedded && (
         <PageHeader
-          title="日程"
-          subtitle="课程和带时间的 To Do 按一天的时间轴统一显示。"
+          title={t("日程")}
+          subtitle={t("课程和带时间的 To Do 按一天的时间轴统一显示。")}
           actions={
             <div className="flex items-center gap-1">
             <button className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" onClick={() => moveDate(-1)} title="前一天">
@@ -3628,7 +3652,7 @@ function ScheduleEventDialog({
   useEscapeClose(onClose);
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
       data-modal-backdrop
       onInputCapture={markModalDirty}
       onChangeCapture={markModalDirty}
@@ -3665,6 +3689,7 @@ function ScheduleEventDialog({
 }
 
 function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedded?: boolean }) {
+  const { t } = useUiText();
   const [sources, setSources] = useState<TimetableSource[]>([]);
   const [timetableCourses, setTimetableCourses] = useState<TimetableCourse[]>([]);
   const [occurrences, setOccurrences] = useState<CourseOccurrence[]>([]);
@@ -3785,7 +3810,7 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
 
   return (
     <>
-      {!embedded && <PageHeader title="课程" subtitle="导入、同步和管理完整学期课表，所有时间均按悉尼时间显示。" />}
+      {!embedded && <PageHeader title={t("课程管理")} subtitle={t("导入、同步和管理完整学期课表，所有时间均按悉尼时间显示。")} />}
       <section className="mb-4 rounded-lg bg-white p-4 shadow-soft">
         <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
           {(["feed", "file", "screenshot"] as const).map((mode) => (
@@ -3931,6 +3956,7 @@ function CoursesPage({ courses, embedded = false }: { courses: Course[]; embedde
 }
 
 function JournalPage({ journal, onSave }: { journal: JournalEntry[]; onSave: (url: string, options?: RequestInit) => Promise<void> }) {
+  const { t } = useUiText();
   function exportMarkdown() {
     const content = journal.map((entry) => `## ${entry.date}\n\n${entry.content}\n`).join("\n");
     downloadBlob("leo-journal.md", content, "text/markdown");
@@ -3939,8 +3965,8 @@ function JournalPage({ journal, onSave }: { journal: JournalEntry[]; onSave: (ur
   return (
     <>
       <PageHeader
-        title="日记"
-        subtitle="自动聚合日计划复盘，也可以手动写新的记录。"
+        title={t("日记")}
+        subtitle={t("自动聚合日计划复盘，也可以手动写新的记录。")}
         actions={
           <>
             <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" onClick={exportMarkdown}>导出 Markdown</button>
@@ -3992,6 +4018,7 @@ function ExpensesPage({
   onEdit: (expense: Expense) => void;
   onSave: (url: string, options?: RequestInit) => Promise<void>;
 }) {
+  const { t } = useUiText();
   const [query, setQuery] = useState("");
   const [transactionType, setTransactionType] = useState("");
   const [category, setCategory] = useState("");
@@ -4014,9 +4041,9 @@ function ExpensesPage({
   return (
     <>
       <PageHeader
-        title="收支"
-        subtitle="记录收入和支出，照片与账单保存在本地 uploads 文件夹。"
-        actions={<ActionButton onClick={onOpenModal} icon={<WalletCards size={16} />} label="新增收支" />}
+        title={t("收支")}
+        subtitle={t("记录收入和支出，照片与账单保存在本地 uploads 文件夹。")}
+        actions={<ActionButton onClick={onOpenModal} icon={<WalletCards size={16} />} label={t("新增收支")} />}
       />
 
       <div className="mb-4 grid gap-3 md:grid-cols-3">
@@ -4136,6 +4163,7 @@ function ImportantFilesPage({
   documents: SecureDocument[];
   onSave: (url: string, options?: RequestInit) => Promise<void>;
 }) {
+  const { t } = useUiText();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [editingFile, setEditingFile] = useState<ImportantFile | null>(null);
@@ -4158,8 +4186,8 @@ function ImportantFilesPage({
   return (
     <>
       <PageHeader
-        title="重要文件"
-        subtitle="上传证件和图片，或创建纯文字文档保存地址、链接和备忘信息。"
+        title={t("重要文件")}
+        subtitle={t("上传证件和图片，或创建纯文字文档保存地址、链接和备忘信息。")}
         actions={
           <div className="flex flex-wrap justify-end gap-2">
             <ActionButton
@@ -4168,7 +4196,7 @@ function ImportantFilesPage({
                 setDocumentModalOpen(true);
               }}
               icon={<NotebookPen size={16} />}
-              label="创建文档"
+              label={t("创建文档")}
             />
             <ActionButton
               onClick={() => {
@@ -4176,7 +4204,7 @@ function ImportantFilesPage({
                 setModalOpen(true);
               }}
               icon={<Upload size={16} />}
-              label="上传文件"
+              label={t("上传文件")}
             />
           </div>
         }
@@ -4381,7 +4409,7 @@ function SecureDocumentModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
       data-modal-backdrop
       onInputCapture={markModalDirty}
       onChangeCapture={markModalDirty}
@@ -4463,7 +4491,7 @@ function ImportantFileModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
       data-modal-backdrop
       onInputCapture={markModalDirty}
       onChangeCapture={markModalDirty}
@@ -4829,6 +4857,7 @@ function SettingsPage({
     uploadsDir: "正在读取...",
     port: "3011"
   });
+  const t = (source: string) => translateUiText(languageDraft, source);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -4904,7 +4933,7 @@ function SettingsPage({
 
   return (
     <>
-      <PageHeader title="设置" subtitle="账号、手机访问、本地存储和外观偏好。" />
+      <PageHeader title={t("设置")} subtitle={t("账号、手机访问、本地存储和外观偏好。")} />
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center lg:col-span-2">
           <div className="flex items-start gap-3">
@@ -4912,7 +4941,7 @@ function SettingsPage({
               <BookOpen size={20} />
             </div>
             <div>
-              <h2 className="font-semibold">使用文档</h2>
+              <h2 className="font-semibold">{t("使用文档")}</h2>
               <p className="mt-1 text-sm text-slate-500">第一次使用？从快速上手开始了解 To Do、日程、任务、课程和数据安全。</p>
             </div>
           </div>
@@ -4924,7 +4953,7 @@ function SettingsPage({
         <section className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center lg:col-span-2">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700"><MessageSquareText size={20} /></div>
-            <div><h2 className="font-semibold">联系开发者</h2><p className="mt-1 text-sm text-slate-500">提交问题或建议，并查看开发者联系方式。</p></div>
+            <div><h2 className="font-semibold">{t("联系开发者")}</h2><p className="mt-1 text-sm text-slate-500">提交问题或建议，并查看开发者联系方式。</p></div>
           </div>
           <div className="flex gap-2">
             {authStatus.isAdmin && <Link href="/admin" className="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium">管理员后台</Link>}
@@ -4934,16 +4963,16 @@ function SettingsPage({
         {authStatus.authRequired && authStatus.user && (
           <section className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-soft md:flex-row md:items-center lg:col-span-2">
             <div>
-              <h2 className="font-semibold">当前账号</h2>
+              <h2 className="font-semibold">{t("当前账号")}</h2>
               <div className="mt-3 grid gap-2 text-sm text-slate-600">
-                <InfoRow label="用户名" value={authStatus.user.username || "未设置"} />
-                <InfoRow label="邮箱地址" value={authStatus.user.email || "未设置"} />
+                <InfoRow label={t("用户名")} value={authStatus.user.username || "未设置"} />
+                <InfoRow label={t("邮箱地址")} value={authStatus.user.email || "未设置"} />
               </div>
-              <p className="mt-1 text-xs text-slate-400">{authStatus.isAdmin ? "独立管理员账号" : "普通个人账号"}</p>
+              <p className="mt-1 text-xs text-slate-400">{t(authStatus.isAdmin ? "独立管理员账号" : "普通个人账号")}</p>
             </div>
             <form action="/auth/signout" method="post">
               <button type="submit" className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                退出登录
+                {t("退出登录")}
               </button>
             </form>
           </section>
@@ -4977,10 +5006,10 @@ function SettingsPage({
           {languageMessage && <p className="mt-3 text-sm text-slate-500" role="status">{languageMessage}</p>}
         </section>
         <section className="rounded-lg bg-white p-4 shadow-soft lg:col-span-2">
-          <SectionTitle title="首页个性化" />
+          <SectionTitle title={t("首页个性化")} />
           <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
             <label className="grid gap-2 text-sm font-medium text-slate-700">
-              <span>首页标题</span>
+              <span>{t("首页标题")}</span>
               <Input
                 value={homeTitleDraft}
                 onChange={(event) => setHomeTitleDraft(event.target.value)}
@@ -4995,7 +5024,7 @@ function SettingsPage({
               className="flex min-h-[42px] items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700"
               onClick={() => setShowHomeTitleDraft((value) => !value)}
             >
-              <span>显示首页标题</span>
+              <span>{t("显示首页标题")}</span>
               <span className={`relative h-6 w-11 rounded-full transition ${showHomeTitleDraft ? "bg-slate-900" : "bg-slate-300"}`}>
                 <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${showHomeTitleDraft ? "left-6" : "left-1"}`} />
               </span>
@@ -5008,20 +5037,20 @@ function SettingsPage({
               onClick={() => void saveHomeSettings()}
               disabled={savingHomeSettings}
             >
-              {savingHomeSettings ? "保存中..." : "保存首页设置"}
+              {t(savingHomeSettings ? "保存中..." : "保存首页设置")}
             </button>
             {homeSettingsMessage && <div className="text-sm text-slate-500">{homeSettingsMessage}</div>}
           </div>
         </section>
         <section className="rounded-lg bg-white p-4 shadow-soft">
-          <SectionTitle title="本地存储" />
-          <InfoRow label="数据库路径" value={storageInfo.databasePath} />
-          <InfoRow label="上传路径" value={storageInfo.uploadsDir} />
-          <InfoRow label="服务端口" value={storageInfo.port} />
+          <SectionTitle title={t("本地存储")} />
+          <InfoRow label={t("数据库路径")} value={storageInfo.databasePath} />
+          <InfoRow label={t("上传路径")} value={storageInfo.uploadsDir} />
+          <InfoRow label={t("服务端口")} value={storageInfo.port} />
         </section>
         <section className="rounded-lg bg-white p-4 shadow-soft">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <SectionTitle title="手机访问 / 同步状态" />
+            <SectionTitle title={t("手机访问 / 同步状态")} />
             <SyncStatusPill state={syncState} />
           </div>
           {syncState.lastSyncAt && <InfoRow label="上次同步" value={formatDateTime(syncState.lastSyncAt)} />}
@@ -5090,7 +5119,7 @@ function ExpenseModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
       data-modal-backdrop
       onInputCapture={markModalDirty}
       onChangeCapture={markModalDirty}
@@ -5379,7 +5408,7 @@ function QuickModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
       data-modal-backdrop
       onInputCapture={markModalDirty}
       onChangeCapture={markModalDirty}
@@ -5748,7 +5777,7 @@ function ReminderRuleEditor({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/30 p-4 backdrop-blur-sm md:items-center"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-sm"
       data-modal-backdrop
       onInputCapture={markModalDirty}
       onChangeCapture={markModalDirty}
@@ -6131,6 +6160,7 @@ function MobileNav({
   activeView: View;
   onSelect: (item: (typeof navItems)[number]) => void;
 }) {
+  const { t } = useUiText();
   const mobileItems = navItems.slice(0, 9);
   const navRef = useRef<HTMLElement | null>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -6255,16 +6285,16 @@ function MobileNav({
           }`}
         >
           {item.icon}
-          <span className="w-full truncate text-center">{item.label.replace("（维修中）", "")}</span>
+          <span className="w-full truncate text-center">{t(item.label.replace("（维修中）", ""))}</span>
         </button>
       ))}
     </nav>
   );
 }
 
-function ActionButton({ onClick, icon, label }: { onClick: () => void; icon: React.ReactNode; label: string }) {
+function ActionButton({ onClick, icon, label, className = "" }: { onClick: () => void; icon: React.ReactNode; label: string; className?: string }) {
   return (
-    <button className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm" onClick={onClick}>
+    <button className={`inline-flex shrink-0 items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white shadow-sm ${className}`} onClick={onClick}>
       {icon}
       {label}
     </button>

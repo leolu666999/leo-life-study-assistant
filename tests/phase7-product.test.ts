@@ -140,4 +140,19 @@ describe("Phase 7 production account and contact contracts", () => {
     expect(dirtyChangeCaptureCount).toBe(modalBackdropCount);
     expect(dirtyClickCaptureCount).toBe(modalBackdropCount);
   });
+
+  it("centers mobile dialogs and applies the saved language across core app surfaces", () => {
+    const app = read("components/leo-app.tsx");
+    const language = read("lib/ui-language.ts");
+
+    expect(app).not.toMatch(/fixed inset-0[^\n]*items-end/);
+    expect(app).toContain('<UiLanguageContext.Provider value={appSettings.language}>');
+    expect(app).toContain("uiLanguageLocale(language)");
+    expect(app).toContain('label={t("收支")}');
+    expect(app).toContain('className="ml-auto md:ml-0"');
+    expect(app).toContain("{t(item.label.replace");
+    expect(language).toContain('en: "Home"');
+    expect(language).toContain('en: "Settings"');
+    expect(language).toContain('en: "No courses or timed plans today."');
+  });
 });
